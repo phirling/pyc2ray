@@ -1,0 +1,22 @@
+# Files for logging/debugging
+Log:
+  timefile: Timings.log
+  logfile: C2Ray.log
+
+# Input Files for the run (densities, redshift tables,...)
+Input:
+  redfile: redshifts.txt
+  density_prefix: dens #../coarser_densities/dens
+
+Grid:
+  mesh: [100,100,100]
+  boxsize: 1
+
+Output:
+  do_photonstatistics: 1
+  photon_statistics_file_1: PhotonCounts.out
+  photon_statistics_file_2: PhotonCounts2.out
+
+Material:
+  isothermal: 1
+  initial_temperature: 1e4
