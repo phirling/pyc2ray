@@ -20,3 +20,7 @@ Output:
 Material:
   isothermal: 1
   initial_temperature: 1e4
+
+Time:
+  number_timesteps: 10            # Number of timesteps between redshift slices
+  number_outputs: 1               # Number of outputs between redshift slices

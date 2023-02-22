@@ -55,6 +55,15 @@ class Grid:
         # For convenience: mesh shape as a tuple
         self.shape = (self.mesh[0],self.mesh[1],self.mesh[2])
 
+    """Check if an array of values is compatible with the dimensions of the grid
+    """
+    def is_compatible(self,field):
+        if field.shape == self.shape:
+            return True
+        else:
+            print(f"Provided field doesn't match grid size ({field.shape} =/= {self.shape})")
+            return False
+        
 class Material:
     """Object that represents physical properties living on a grid.
     These properties are scalar fields of density, temperature and
@@ -75,11 +84,89 @@ class Material:
         Represents the temperature in each grid cell
 
     """
-    def __init__(self,grid) -> None:
+    def __init__(self,grid,isothermal) -> None:
         self.grid = grid
         self.density = DensityField(self.grid)
-        self.temperature = TemperatureField(self.grid)
+        if isothermal:
+            self.temperature = IsothermalTemperatureField(self.grid)
+        else:
+            self.temperature = VariableTemperatureField(self.grid)
 
+    def material_ini(self,temp):
+        self.temperature.temperature_init(temp)
+        # The density field is initialized at construction
+    
+class DensityField:
+    """Class representing a density distributed on a grid
+
+    Parameters
+    ----------
+    grid: Grid
+        The grid object the field is defined on
+
+    Attributes
+    ----------
+    grid: Grid
+        The grid object the field is defined on
+    ndens: 3D-array of floats
+        The density in each grid cell
+    avg_dens: float
+        The average density on the grid
+    """
+    def __init__(self,grid) -> None:
+        self.grid = grid
+        self.ndens = np.ones(grid.shape)
+        self.avg_dens = 1.0
+    
+    def set_density(self,dens):
+        if self.grid.is_compatible(dens):
+            self.ndens = dens
+        else:
+            raise ValueError("(Density field)")
+
+class TemperatureField:
+    """Base class representing a temperature distributed on a grid
+
+    """
+    def __init__(self,grid) -> None:
+        self.grid = grid
+
+    def temperature_init(self,temp):
+        pass
+    
+    def value(self,i,j,k):
+        pass
+
+class IsothermalTemperatureField(TemperatureField):
+    """Represents an isothermal, homogeneous temperature distribution
+    
+    """
+    def __init__(self, grid) -> None:
+        super().__init__(grid)
+        self.isothermal = True
+        self.temper = None
+    
+    def temperature_init(self,temp):
+        self.temper = temp
+
+    def value(self, i, j, k):
+        return self.temper
+    
+class VariableTemperatureField(TemperatureField):
+    """Represents a spatially and temporally variable temperature distribution
+    
+    """
+    def __init__(self, grid) -> None:
+        super().__init__(grid)
+        self.isothermal = False
+        self.temper = np.zeros(self.grid.shape)
+
+    def temperature_init(self, temp):
+        if self.grid.is_compatible(temp):
+            self.temper = temp
+        else:
+            raise ValueError("(Temperature field)")
+    
 class GridField:
     """Abstract class representing any quantity (field) distributed on a grid
 
@@ -110,12 +197,7 @@ class GridField:
                               "grid size ({val.shape} =/= {self.grid.shape})")
         else:
             self.values = val
-    
-class DensityField(GridField):
-    pass
 
-class TemperatureField(GridField):
-    pass
 
 
 

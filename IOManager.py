@@ -34,6 +34,10 @@ class IOManager:
         self.photonstatsfile1 = self.param('Output','photon_statistics_file_1')
         self.photonstatsfile2 = self.param('Output','photon_statistics_file_2')
 
+        # Material properties
+        if self.param('Material','isothermal'):
+            self.write_log("Running in isothermal mode.")
+        
     def param(self,group,key):
         p = None
         try:
@@ -57,16 +61,6 @@ class IOManager:
         if self.param('Output','do_photonstatistics'):
             self.open_photonstatistics_files()
             self.initialize_photonstatistics() # TODO: define this
-        
-    def read_density(self,z):
-        s = self.construct_density_filename(z)
-        with h5py.File(s,'r') as f:
-            dens = np.array(f['density'])
-        return dens
-        
-    def construct_density_filename(self,z):
-        s = f"{self.densityfile_prefix}_{z:n}.hdf5"
-        return s
     
     # ============================== Output ================================ #
     def open_photonstatistics_files(self):
@@ -99,7 +93,7 @@ class IOManager:
     def redshift_ini(self):
         NumZred, zred_array = self.read_redshifts()
         self.write_log(f"Read {NumZred} redshifts from {self.redfile}.")
-        self.write_log("Checking density files...")
+        self.write_log("Checking for density files...")
         # Check files
         for z in zred_array:
             s = self.construct_density_filename(z)
@@ -109,7 +103,6 @@ class IOManager:
         self.write_log("All density files checked successfully!")
         return NumZred, zred_array
 
-
     def read_redshifts(self):
         with open(self.redfile,'r') as f:
             raw_z = np.loadtxt(f)
@@ -117,6 +110,18 @@ class IOManager:
             zred_array = raw_z[1:]
         if NumZred % 1 != 0:
             raise ValueError("Number of redshifts must be integer")
+        elif NumZred != len(zred_array):
+            raise ValueError("Number of redshifts doesn't match provided list")
         else:
             NumZred = int(NumZred)
         return NumZred, zred_array
+    
+    def read_density(self,z):
+        s = self.construct_density_filename(z)
+        with h5py.File(s,'r') as f:
+            dens = np.array(f['density'])
+        return dens
+        
+    def construct_density_filename(self,z):
+        s = f"{self.densityfile_prefix}_{z:n}.hdf5"
+        return s
