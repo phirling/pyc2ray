@@ -57,15 +57,15 @@ clock.write_walltimestamp("Time after redshift/nbody init")
 
 # time_ini is replaced by simply reading the two relevant parameters from yml file
 
-# TODO: evolve_ini
+# TODO: evolve_ini <--- This just allocates memory for arrays used later on by the Program
 
 # TODO: cosmology_ini
 from astropy.cosmology import Planck18
-cosmology = Planck18()
+cosmology = Planck18
 
 # Testing
 import matplotlib.pyplot as plt
 ndens = io.read_density(z=1.23)
 mat.density.set_density(ndens)
-# plt.imshow(mat.density.ndens.sum(axis=2))
-# plt.show()
+plt.imshow(mat.density.ndens.sum(axis=2))
+plt.show()
