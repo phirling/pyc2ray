@@ -37,7 +37,12 @@ class IOManager:
         # Material properties
         if self.param('Material','isothermal'):
             self.write_log("Running in isothermal mode.")
-        
+    
+    def read_paramfile(self,paramfile):
+        with open(self.paramfile,'r') as f:
+            ld = yaml.load(f,SafeLoader)
+        return ld
+    
     def param(self,group,key):
         p = None
         try:
@@ -49,6 +54,9 @@ class IOManager:
             return ""
         else:
             return p
+    
+    def __getitem__(self,key):
+        return self.ld[key]
     
     def write_log(self,s,mode='a'):
         with open(self.logfile,mode) as f:

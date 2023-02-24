@@ -73,7 +73,9 @@ class Material:
     ----------
     grid: Grid
         The grid object the material is defined on
-
+    isothermal: bool
+        Whether or not the run using this material is isothermal
+    
     Attributes
     ----------
     grid: Grid
@@ -123,6 +125,9 @@ class DensityField:
             self.ndens = dens
         else:
             raise ValueError("(Density field)")
+    
+    def set_constant_average_density(self,n):
+        self.ndens = n*np.ones(self.grid.shape)
 
 class TemperatureField:
     """Base class representing a temperature distributed on a grid

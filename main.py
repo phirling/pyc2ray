@@ -4,6 +4,7 @@ from IOManager import IOManager
 from grid import Grid, Material
 import astropy as ap
 
+# In the final version, name of param file can be passed as cmd line argument
 paramfile = "parameters.yml"
 
 """
@@ -25,18 +26,17 @@ The material represents a set of quantities living on the grid,
 namely density and temperature (one value per cell)
 """
 
+# Read in global parameter file and create I/O manager object
 io = IOManager(paramfile)
-mesh = io.param('Grid','mesh')
-boxsize = io.param('Grid','boxsize')
 
-# Setup Clocks
-clock = ClockSet(io.timefile)
+# Setup Clocks and set file to write time logs
+clock = ClockSet(io.param('Log','timefile'))
 
 # Initialize Output
 io.setup_output()
 
-# Initialize Grid
-grid = Grid(mesh,boxsize)
+# Initialize Grid with given mesh shape and physical box size
+grid = Grid(io.param('Grid','mesh'),io.param('Grid','boxsize'))
 clock.write_walltimestamp("Time after grid init")
 
 # TODO: rad_ini
@@ -59,11 +59,14 @@ clock.write_walltimestamp("Time after redshift/nbody init")
 
 # TODO: evolve_ini <--- This just allocates memory for arrays used later on by the Program
 
-# TODO: cosmology_ini
+# TODO: cosmology_ini < --- Can probably be replaced by astropy + some custom functions, e.g. :
 from astropy.cosmology import Planck18
 cosmology = Planck18
 
-# Testing
+
+
+# ==== Testing ==== #
+
 import matplotlib.pyplot as plt
 ndens = io.read_density(z=1.23)
 mat.density.set_density(ndens)
