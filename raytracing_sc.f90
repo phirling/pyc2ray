@@ -14,6 +14,9 @@
 ! 8.  photo_in               ! Total photoionization rate incoming to the cell
 ! 9.  photo_out               ! Total photoionization rate incoming to the cell
 !
+! Here, I work with grids directly, and each quantity gets its own grid.
+! For now, this is just the photoionization, but a heating rate grid can be
+! added straightforwardly.
 !
 ! For "ion" CAUTION: 0-indexation is used for some reason.
 ! 0 indexes the fraction of neutral hydrogen "y",
@@ -31,7 +34,8 @@ module raytracing_sc
     !! This version: adapted for test case only and usage with f2py.
     !! Author: P. Hirling, 2023
 
-    use, intrinsic :: iso_fortran_env, only: real64 ! <-- This replaces the "dp" parameter in original c2ray (unpractical to use)
+    use, intrinsic :: iso_fortran_env, only: real64     ! This replaces the "dp" parameter in original c2ray (unpractical to use)
+    use photorates, only: photoion_rates_test                ! Separate module to compute photoionization rate from column density
     implicit none
 
     real(kind=real64), parameter :: pi = 3.14159265358979323846264338_real64 ! Double precision pi
@@ -44,21 +48,21 @@ module raytracing_sc
     !! grid, for one source. The global rates of all sources are then added and applied
     !! using other subroutines that remain to be translated.
     ! ===============================================================================================
-    subroutine evolve3D(dt,srcpos,ns,niter,last_l,last_r,coldensh_out,sig,dr,ndens,NumSrc,m1,m2,m3)
+    subroutine evolve3D(srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         ! subroutine arguments
-        real(kind=real64),intent(in) :: dt                              ! time step
         integer, intent(in) :: NumSrc                                   ! Number of sources
         integer,intent(in)      :: ns                                   ! source number 
-        integer,intent(in)      :: niter                                ! global iteration number
+        real(kind=real64),intent(in) :: srcflux(NumSrc)                           ! Strength of source. Flux for test case, normalization factor for other cases
         integer,intent(in) :: srcpos(3,NumSrc)                          ! positions of ALL sources (mesh)
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                ! Hydrogen Density Field
         real(kind=real64), dimension(3), intent(in) :: dr               ! Cell size
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       ! Outgoing column density of the cells
+        real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              ! Time-averaged HI ionization fractions of the cells (--> density of ionized H is xh_av * ndens)
+        real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            ! H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
         real(kind=real64),intent(in):: sig                              ! Hydrogen ionization cross section (sigma_HI_at_ion_freq)
         integer, intent(in) :: m1                                       ! mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       ! mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       ! mesh size z (hidden by f2py)
-         ! TODO: deal with last_l and last_r
         integer,dimension(3), intent(in) :: last_l                      ! mesh position of left end point for RT
         integer,dimension(3), intent(in) :: last_r                      ! mesh position of right end point for RT        
 
@@ -70,12 +74,12 @@ module raytracing_sc
         integer :: k  ! z-coord of plane
         ! 1. transfer in the upper part of the grid (above srcpos(3))
         do k=srcpos(3,ns),last_r(3)
-            call evolve2D(dt,k,srcpos,ns,niter,last_l,last_r,coldensh_out,sig,dr,ndens,NumSrc,m1,m2,m3)
+            call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         end do
 
         ! 2. transfer in the lower part of the grid (below srcpos(3))
         do k=srcpos(3,ns)-1,last_l(3),-1
-            call evolve2D(dt,k,srcpos,ns,niter,last_l,last_r,coldensh_out,sig,dr,ndens,NumSrc,m1,m2,m3)
+            call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         end do
 
     end subroutine evolve3D
@@ -86,22 +90,22 @@ module raytracing_sc
     !! (specified by argument k). This of course assumes that the previous plane has
     !! already been done.
     ! ===============================================================================================
-    subroutine evolve2D(dt,k,srcpos,ns,niter,last_l,last_r,coldensh_out,sig,dr,ndens,NumSrc,m1,m2,m3)
+    subroutine evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         ! subroutine arguments
-        real(kind=real64),intent(in) :: dt                              ! time step
         integer, intent(in) :: NumSrc                                   ! Number of sources
         integer,intent(in)      :: ns                                   ! source number 
-        integer,intent(in)      :: niter                                ! global iteration number
         integer, intent(in) :: k                                        ! z-coord of plane
+        real(kind=real64),intent(in) :: srcflux(NumSrc)                           ! Strength of source. Flux for test case, normalization factor for other cases
         integer,intent(in) :: srcpos(3,NumSrc)                          ! positions of ALL sources (mesh)
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                ! Hydrogen Density Field
         real(kind=real64), dimension(3), intent(in) :: dr               ! Cell size
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       ! Outgoing column density of the cells
+        real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              ! Time-averaged HI ionization fractions of the cells
+        real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            ! H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
         real(kind=real64),intent(in):: sig                              ! Hydrogen ionization cross section (sigma_HI_at_ion_freq)
         integer, intent(in) :: m1                                       ! mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       ! mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       ! mesh size z (hidden by f2py)
-         ! TODO: deal with last_l and last_r
         integer,dimension(3), intent(in) :: last_l                      ! mesh position of left end point for RT
         integer,dimension(3), intent(in) :: last_r                      ! mesh position of right end point for RT
 
@@ -115,11 +119,11 @@ module raytracing_sc
             rtpos(2)=j
             do i=srcpos(1,ns),last_r(1)
                 rtpos(1)=i
-                call evolve0D(dt,rtpos,srcpos,ns,niter,coldensh_out,sig,dr,ndens,NumSrc,m1,m2,m3) ! `positive' i
+                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3) ! `positive' i
             end do
             do i=srcpos(1,ns)-1,last_l(1),-1
                 rtpos(1)=i
-                call evolve0D(dt,rtpos,srcpos,ns,niter,coldensh_out,sig,dr,ndens,NumSrc,m1,m2,m3) ! `negative' i
+                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3) ! `positive' i
             end do
         end do
 
@@ -128,11 +132,11 @@ module raytracing_sc
             rtpos(2)=j
             do i=srcpos(1,ns),last_r(1)
                 rtpos(1)=i
-                call evolve0D(dt,rtpos,srcpos,ns,niter,coldensh_out,sig,dr,ndens,NumSrc,m1,m2,m3) ! `positive' i
+                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3) ! `positive' i
             end do
             do i=srcpos(1,ns)-1,last_l(1),-1
                 rtpos(1)=i
-                call evolve0D(dt,rtpos,srcpos,ns,niter,coldensh_out,sig,dr,ndens,NumSrc,m1,m2,m3) ! `negative' i
+                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3) ! `positive' i
             end do
         end do
     end subroutine evolve2D
@@ -142,7 +146,7 @@ module raytracing_sc
     !! Does the short characteristics for one cell and a single source. Has to be called in the correct
     !! order by the parent routines evolve2D and evolve3D.
     ! ===============================================================================================
-    subroutine evolve0D(dt,rtpos,srcpos,ns,niter,coldensh_out,sig,dr,ndens,NumSrc,m1,m2,m3)
+    subroutine evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
     
         ! This version (2023) modified for use with f2py (P. Hirling)
 
@@ -162,34 +166,30 @@ module raytracing_sc
         real(kind=real64),parameter :: max_coldensh=2e19 !2e29!2.0e22_real64!2e19_real64 
 
         ! subroutine arguments
-        real(kind=real64),intent(in) :: dt                              ! time step
         integer, intent(in) :: NumSrc                                   ! Number of sources
         integer,dimension(3),intent(in) :: rtpos                        ! cell position (for RT)
         integer,intent(in)      :: ns                                   ! source number 
-        integer,intent(in)      :: niter                                ! global iteration number
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                ! Hydrogen Density Field
+        real(kind=real64),intent(in) :: srcflux(NumSrc)                           ! Strength of source. Flux for test case, normalization factor for other cases
         integer,intent(in) :: srcpos(3,NumSrc)                          ! positions of ALL sources (mesh)
         real(kind=real64), dimension(3), intent(in) :: dr               ! Cell size
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       ! Outgoing column density of the cells
+        real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              ! Time-averaged HI ionization fractions of the cells
+        real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            ! H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
         real(kind=real64),intent(in):: sig                              ! Hydrogen ionization cross section (sigma_HI_at_ion_freq)
         integer, intent(in) :: m1                                       ! mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       ! mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       ! mesh size z (hidden by f2py)
-        ! real(kind=real64),intent(inout) :: xh_av(m1,m2,m3) ! Time-averaged HI fraction
 
-        integer :: nx,nd,idim ! loop counters
+        ! integer :: nx,nd,idim ! loop counters
         integer,dimension(3) :: pos
         real(kind=real64) :: dist2,path,vol_ph
         real(kind=real64) :: xs,ys,zs
         real(kind=real64) :: coldensh_in
         logical :: stop_rad_transfer
-        real(kind=real64) :: ndens_p    ! Local density of cell
-        
-
-        ! type(photrates) :: phi, dummiphi  ----> Replace by array
-        ! type(ionstates) :: ion            ----> Not actually used here since chemistry is done at a later time (see line 203 of evolve_point.f90)
-        real(kind=real64), dimension(9) :: phi ! Ionization & Heating rates
-        
+        real(kind=real64) :: nHI_p          ! Local density of neutral hydrogen in the cell
+        real(kind=real64) :: xh_av_p        ! Local ionization fraction of cell
+        real(kind=real64) :: phi_ion_p      ! Local photoionization rate of cell (to be computed)
 
         ! Reset check on radiative transfer
         stop_rad_transfer=.false.
@@ -198,8 +198,10 @@ module raytracing_sc
         pos(1) = modulo(rtpos(1) -1,m1) + 1
         pos(2) = modulo(rtpos(2) -1,m2) + 1
         pos(3) = modulo(rtpos(3) -1,m3) + 1
-
-        ndens_p = ndens(pos(1),pos(2),pos(3))
+        
+        ! Local density & ionization fraction
+        xh_av_p = xh_av(pos(1),pos(2),pos(3))
+        nHI_p = ndens(pos(1),pos(2),pos(3)) * (1.0_real64 - xh_av_p)
 
         ! If coldensh_out is zero, we have not done this point
         ! yet, so do it. Otherwise do nothing. (grid is set to 0 for every source)
@@ -231,7 +233,8 @@ module raytracing_sc
 
                 ! Find the volume of the shell this cell is part of 
                 ! (dilution factor).
-                vol_ph=4.0*pi*dist2*path
+                ! vol_ph=4.0*pi*dist2*path
+                vol_ph = dist2 * path
 
                 ! Add LLS opacity TODO
                 ! Initialize local LLS (if type of LLS is appropriate)
@@ -251,8 +254,7 @@ module raytracing_sc
                 ! Set the flag for no further radiative transfer if the ingoing column
                 ! density is above the maximum allowed value
                 if (coldensh_in > max_coldensh) stop_rad_transfer=.true.
-                ! Only ray trace and exit. Do not touch the ionization
-                ! fractions. They are updated using phih_grid in evolve0d_global.
+
             endif
 
             ! Add the (time averaged) column density of this cell
@@ -261,14 +263,15 @@ module raytracing_sc
             ! GM/110224: No! This messes up phi since phi is based
             !  upon the difference between the in and out column density.
             !  Instead add the LLS to coldensh_in, see above
-            coldensh_out(pos(1),pos(2),pos(3))=coldensh_in + ndens_p*path ! coldens(path,1.0_real64,ndens_p) ! TODO: replace 1.0 by actual xh_av
+            coldensh_out(pos(1),pos(2),pos(3))=coldensh_in + nHI_p * path
 
-            ! Calculate (photon-conserving) photo-ionization rate from the
-            ! column densities.
+            ! TODO: Calculate (photon-conserving) photo-ionization rate from the
+            ! column densities. This is eq. 17 of the paper, where the Gamma value is
+            ! calculated using precomputed tables
 
             ! Limit the calculation to a certain maximum column density (hydrogen)
-            ! --> if (.not.stop_rad_transfer) then 
-            ! -->     ! photoion_rates the structure of rates (photo and heating)
+            if (.not.stop_rad_transfer) then 
+                call photoion_rates_test(srcflux(NumSrc),coldensh_in,coldensh_out(pos(1),pos(2),pos(3)),vol_ph,nHI_p,sig,phi_ion_p)
             ! -->     phi=photoion_rates(coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
             ! -->         vol_ph,ns,ion%h_av(1))
             ! -->     ! Divide the photo-ionization rates by the appropriate neutral density
@@ -277,19 +280,21 @@ module raytracing_sc
             ! -->     
             ! -->     ! Calculate the losses due to LLSs. TODO
             ! -->     ! -->  if (use_LLS) call total_LLS_loss(phi%photo_in_HI*vol/vol_ph, &
-            ! -->     ! -->      coldensh_LLS * path/dr(1))          
-            ! --> else
-            ! -->     ! If the H0 column density is above the maximum or the R_max
-            ! -->     ! condition from the LLS model is triggered, set rates to zero
+            ! -->     ! -->      coldensh_LLS * path/dr(1))
+            else
+                phi_ion_p = 0.0
+            ! If the H0 column density is above the maximum or the R_max
+            ! condition from the LLS model is triggered, set rates to zero
             ! -->     phi%photo_cell_HI = 0.0_real64
             ! -->     phi%photo_out_HI = 0.0_real64
             ! -->     phi%heat = 0.0_real64
             ! -->     phi%photo_in = 0.0_real64
             ! -->     phi%photo_out = 0.0_real64
-            ! --> endif
+            endif
 
             ! Add photo-ionization rate to the global array 
             ! (this array is applied in evolve0D_global)
+            phi_ion(pos(1),pos(2),pos(3)) = phi_ion(pos(1),pos(2),pos(3)) + phi_ion_p
             ! --> phih_grid(pos(1),pos(2),pos(3))= &
             ! -->     phih_grid(pos(1),pos(2),pos(3))+phi%photo_cell_HI
             ! --> if (.not. isothermal) &
@@ -302,7 +307,7 @@ module raytracing_sc
             ! -->         phi%photo_out*vol/vol_ph
             ! -->     !photon_loss_src(1,tn)=photon_loss_src(1,tn) + phi%h_out*vol/vol_ph
             ! --> endif
-        endif ! end of coldens test
+        endif
         
     end subroutine evolve0D
     
