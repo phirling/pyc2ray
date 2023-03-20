@@ -12,7 +12,7 @@
 ! 6.  heat_out_HI            ! HI heating rate outgoing from the cell
 ! 7.  heat                   ! Total heating rate of the cell
 ! 8.  photo_in               ! Total photoionization rate incoming to the cell
-! 9.  photo_out               ! Total photoionization rate incoming to the cell
+! 9.  photo_out              ! Total photoionization rate incoming to the cell
 !
 ! Here, I work with grids directly, and each quantity gets its own grid.
 ! For now, this is just the photoionization, but a heating rate grid can be
@@ -34,12 +34,12 @@ module raytracing_sc
     !! This version: adapted for test case only and usage with f2py.
     !! Author: P. Hirling, 2023
 
-    use, intrinsic :: iso_fortran_env, only: real64     ! This replaces the "dp" parameter in original c2ray (unpractical to use)
+    use, intrinsic :: iso_fortran_env, only: real64          ! This replaces the "dp" parameter in original c2ray (unpractical to use)
     use photorates, only: photoion_rates_test                ! Separate module to compute photoionization rate from column density
     implicit none
 
-    real(kind=real64), parameter :: pi = 3.14159265358979323846264338_real64 ! Double precision pi
-    real(kind=real64), parameter :: epsilon=1e-14_real64 ! Double precision very small number
+    real(kind=real64), parameter :: pi = 3.14159265358979323846264338_real64    ! Double precision pi
+    real(kind=real64), parameter :: epsilon=1e-14_real64                        ! Double precision very small number
 
     contains
 
@@ -52,7 +52,7 @@ module raytracing_sc
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   ! Number of sources
         integer,intent(in)      :: ns                                   ! source number 
-        real(kind=real64),intent(in) :: srcflux(NumSrc)                           ! Strength of source. Flux for test case, normalization factor for other cases
+        real(kind=real64),intent(in) :: srcflux(NumSrc)                 ! Strength of source. TODO: this is specific to the test case, need more general input
         integer,intent(in) :: srcpos(3,NumSrc)                          ! positions of ALL sources (mesh)
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                ! Hydrogen Density Field
         real(kind=real64), dimension(3), intent(in) :: dr               ! Cell size
@@ -95,7 +95,7 @@ module raytracing_sc
         integer, intent(in) :: NumSrc                                   ! Number of sources
         integer,intent(in)      :: ns                                   ! source number 
         integer, intent(in) :: k                                        ! z-coord of plane
-        real(kind=real64),intent(in) :: srcflux(NumSrc)                           ! Strength of source. Flux for test case, normalization factor for other cases
+        real(kind=real64),intent(in) :: srcflux(NumSrc)                 ! Strength of source. TODO: this is specific to the test case, need more general input
         integer,intent(in) :: srcpos(3,NumSrc)                          ! positions of ALL sources (mesh)
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                ! Hydrogen Density Field
         real(kind=real64), dimension(3), intent(in) :: dr               ! Cell size
@@ -110,8 +110,8 @@ module raytracing_sc
         integer,dimension(3), intent(in) :: last_r                      ! mesh position of right end point for RT
 
 
-        integer,dimension(3) :: rtpos    ! cell position (for RT)
-        integer :: i,j                   ! mesh positions
+        integer,dimension(3) :: rtpos                                   ! cell position (for RT)
+        integer :: i,j                                                  ! mesh positions
 
         rtpos(3) = k
         ! sweep in `positive' j direction
@@ -170,7 +170,7 @@ module raytracing_sc
         integer,dimension(3),intent(in) :: rtpos                        ! cell position (for RT)
         integer,intent(in)      :: ns                                   ! source number 
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                ! Hydrogen Density Field
-        real(kind=real64),intent(in) :: srcflux(NumSrc)                           ! Strength of source. Flux for test case, normalization factor for other cases
+        real(kind=real64),intent(in) :: srcflux(NumSrc)                 ! Strength of source. TODO: this is specific to the test case, need more general input
         integer,intent(in) :: srcpos(3,NumSrc)                          ! positions of ALL sources (mesh)
         real(kind=real64), dimension(3), intent(in) :: dr               ! Cell size
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       ! Outgoing column density of the cells
@@ -181,15 +181,15 @@ module raytracing_sc
         integer, intent(in) :: m2                                       ! mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       ! mesh size z (hidden by f2py)
 
-        ! integer :: nx,nd,idim ! loop counters
-        integer,dimension(3) :: pos
-        real(kind=real64) :: dist2,path,vol_ph
-        real(kind=real64) :: xs,ys,zs
-        real(kind=real64) :: coldensh_in
-        logical :: stop_rad_transfer
-        real(kind=real64) :: nHI_p          ! Local density of neutral hydrogen in the cell
-        real(kind=real64) :: xh_av_p        ! Local ionization fraction of cell
-        real(kind=real64) :: phi_ion_p      ! Local photoionization rate of cell (to be computed)
+        ! integer :: nx,nd,idim                                         ! loop counters (used in LLS)
+        integer,dimension(3) :: pos                                     ! RT position modulo periodicity
+        real(kind=real64) :: xs,ys,zs                                   ! Distances between source and cell
+        real(kind=real64) :: dist2,path,vol_ph                          ! Distance parameters
+        real(kind=real64) :: coldensh_in                                ! Column density to the cell
+        logical :: stop_rad_transfer                                    ! Flag to stop column density when above max column density
+        real(kind=real64) :: nHI_p                                      ! Local density of neutral hydrogen in the cell
+        real(kind=real64) :: xh_av_p                                    ! Local ionization fraction of cell
+        real(kind=real64) :: phi_ion_p                                  ! Local photoionization rate of cell (to be computed)
 
         ! Reset check on radiative transfer
         stop_rad_transfer=.false.
