@@ -4,9 +4,14 @@ from parameters import Params
 import astropy.units as u
 import time
 import matplotlib.pyplot as plt
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-N",type=int,default=128)
+args = parser.parse_args()
 
 # Number of cells in each dimension
-N = 128
+N = int(args.N)
 
 # Whether to use a random or uniform density field
 randomdens = 0
@@ -92,9 +97,11 @@ ax1.set_xlabel(f"Computation Time: {t_evo : .7f} s",fontsize=12)
 
 # Middle: ionization rate
 ax2.set_title(f"Ionization Rate",fontsize=12)
-im2 = ax2.imshow(phi_ion_f[ii,:,:],origin='lower',norm='log',cmap='inferno',interpolation='none')
+# For some reason this gets mapped wrong with log, do manually:
+loggamma = np.log(phi_ion_f[ii,:,:])
+im2 = ax2.imshow(loggamma,origin='lower',cmap='inferno')
 c2 = plt.colorbar(im2,ax=ax2)
-c2.set_label(label=r"$\Gamma$ [s$^{-1}$]",size=15)
+c2.set_label(label=r"$\log \Gamma$ [s$^{-1}$]",size=15)
 
 # Right: ionization fraction
 ax3.set_title(f"Mean Ionization Fraction",fontsize=12)
@@ -104,4 +111,8 @@ ax3.set_xlabel(f"Computation Time: {t_chem : .7f} s",fontsize=12)
 
 fig.tight_layout()
 
+import pickle as pkl
+aa = phi_ion_f[ii,:,:]
+with open("pack.pkl",'wb') as f:
+    pkl.dump(aa,f)
 plt.show()

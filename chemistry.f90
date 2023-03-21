@@ -102,43 +102,44 @@ module chemistry
     subroutine do_chemistry(dt,ndens_p,temperature_start,xh_p,xh_av_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c,conv_flag)
         ! TODO: add clumping argument
         ! Subroutine Arguments
-        real(kind=real64),intent(in) :: dt                          ! time step
-        real(kind=real64), intent(in) :: temperature_start             ! Local starting temperature
-        real(kind=real64), intent(in) :: ndens_p            ! Local Hydrogen Density
+        real(kind=real64),intent(in) :: dt                    ! time step
+        real(kind=real64), intent(in) :: temperature_start    ! Local starting temperature
+        real(kind=real64), intent(in) :: ndens_p              ! Local Hydrogen Density
+        real(kind=real64),intent(inout) :: xh_p               ! HI ionization fractions of the cells
+        real(kind=real64),intent(inout) :: xh_av_p            ! Time-averaged HI ionization fractions of the cells
+        real(kind=real64),intent(in) :: phi_ion_p             ! H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
+        real(kind=real64),intent(in) :: bh00                  ! Hydrogen recombination parameter (value at 10^4 K)
+        real(kind=real64),intent(in) :: albpow                ! Hydrogen recombination parameter (power law index)
+        real(kind=real64),intent(in) :: colh0                 ! Hydrogen collisional ionization parameter
+        real(kind=real64),intent(in) :: temph0                ! Hydrogen ionization energy expressed in K
+        real(kind=real64),intent(in) :: abu_c                 ! Carbon abundance
+        integer,intent(inout) :: conv_flag                    ! convergence counter
 
-        real(kind=real64),intent(inout) :: xh_p             ! HI ionization fractions of the cells
-        real(kind=real64),intent(inout) :: xh_av_p          ! Time-averaged HI ionization fractions of the cells
-        real(kind=real64),intent(in) :: phi_ion_p          ! H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
-        real(kind=real64),intent(in) :: bh00                        ! Hydrogen recombination parameter (value at 10^4 K)
-        real(kind=real64),intent(in) :: albpow                      ! Hydrogen recombination parameter (power law index)
-        real(kind=real64),intent(in) :: colh0                       ! Hydrogen collisional ionization parameter
-        real(kind=real64),intent(in) :: temph0                      ! Hydrogen ionization energy expressed in K
-        real(kind=real64),intent(in) :: abu_c                       ! Carbon abundance
-        integer,intent(inout) :: conv_flag                          ! convergence counter
-
-        real(kind=real64) :: temperature_end, temperature_previous_iteration
-        real(kind=real64) :: xh_p_old
-        real(kind=real64) :: xh_av_p_old
-        real(kind=real64) :: de ! local electron density
-        integer :: nit
+        real(kind=real64) :: temperature_end, temperature_previous_iteration ! TODO: will be useful when implementing non-isothermal mode
+        real(kind=real64) :: xh0_p                            ! x0 value of the paper. Always used as IC at each iteration (see original do_chemistry)
+        real(kind=real64) :: xh_av_p_old                      ! Time-average ionization fraction from previous iteration
+        real(kind=real64) :: de                               ! local electron density
+        integer :: nit                                        ! Iteration counter
 
         ! TODO: clumping
         
         temperature_end = temperature_start
 
         nit = 0
+
         do
             nit = nit + 1
             
             ! Save temperature solution from last iteration
             temperature_previous_iteration = temperature_end
 
-            ! Save the values of yh_av found in the previous iteration
-            xh_p_old = xh_p
-            xh_av_p_old = xh_av_p
+            ! --> Save the values of yh_av found in the previous iteration
+            ! --> xh_p_old = xh0_p
             ! -- > xh_av_old = 
             ! -- > yh0_av_old=ion%h_av(0)
             ! -- > yh1_av_old=ion%h_av(1)
+            ! At each iteration, the intial condition x(0) is reset. Change happens in the time-average and thus the electron density
+            xh_av_p_old = xh_av_p
 
             ! Calculate (mean) electron density
             ! --> de=electrondens(ndens_p,ion%h_av)
@@ -146,10 +147,10 @@ module chemistry
 
             ! --> if (.not.isothermal) call ini_rec_colion_factors(temperature_end%average) 
 
-            !      Calculate the new and mean ionization states
-            ! --> call doric(dt, temperature_end%average, de, ndens_p, ion%h, ion%h_av, phi%photo_cell_HI)
-            call doric(xh_p_old,dt,temperature_end,de,phi_ion_p,bh00,albpow,colh0,temph0,1.0_real64,xh_p,xh_av_p)
-            ! --> de=electrondens(ndens_p,ion%h_av)
+            ! Calculate the new and mean ionization states
+            ! In this version: xh0_p (x0) is used as input, while doric outputs a new x(t) ("xh_av") and <x> ("xh_av_p")
+            call doric(xh0_p,dt,temperature_end,de,phi_ion_p,bh00,albpow,colh0,temph0,1.0_real64,xh_p,xh_av_p)
+            ! --> de=electrondens(ndens_p,ion%h_av) ---> Why call this a second time ??
 
             ! --> if (.not.isothermal) &
             ! -->     ! Thermal now takes old values and outputs new values without
@@ -158,7 +159,8 @@ module chemistry
             ! -->     temperature_end%current, &
             ! -->     temperature_end%average, &
             ! -->     de, ndens_p, ion,phi)    
-
+            
+            ! --> Why this local convergence ?
             ! Test for convergence on time-averaged neutral fraction
             ! For low values of this number assume convergence
             if ((abs((xh_av_p-xh_av_p_old)/xh_av_p) < &
@@ -178,8 +180,8 @@ module chemistry
                 !     write(logf,*) 'h',yh0_av_old
                 !     write(logf,*) abs(ion%h_av(0)-yh0_av_old)
                 ! endif
-                ! write(*,*) 'Convergence failing (global) nit=', nit
-                conv_flag = conv_flag + 1
+                write(*,*) 'Convergence failing (global) nit=', nit
+                conv_flag = conv_flag + 1 ! TODO: place this at correct location
                 exit
             endif
         enddo
