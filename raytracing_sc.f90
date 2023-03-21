@@ -1,4 +1,4 @@
-! =================================== Note ==============================================
+! =================================== Notes ==============================================
 ! In original c2ray, "phi" is a custom structure containing fields for
 ! the different rates. Here, simply an array (to work with f2py).
 ! Same goes for "ion", which in original has 3 fields: current, av, old
@@ -24,7 +24,7 @@
 ! ( see ionfractions_module.f90 )
 !
 ! Here, we'll simply use x, the ionized fraction, and compute y = 1-x whenever necessary
-! =======================================================================================
+! ========================================================================================
 
 module raytracing_sc
 
@@ -205,7 +205,8 @@ module raytracing_sc
 
         ! If coldensh_out is zero, we have not done this point
         ! yet, so do it. Otherwise do nothing. (grid is set to 0 for every source)
-        if (coldensh_out(pos(1),pos(2),pos(3)) == 0.0) then
+        ! ---> if (coldensh_out(pos(1),pos(2),pos(3)) == 0.0) then                      This will be added later on. For testing remove it
+        if (.true.) then
             ! Find the column density at the entrance point of the cell (short
             ! characteristics)
             if ( all( rtpos(:) == srcpos(:,ns) ) ) then
