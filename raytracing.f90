@@ -26,7 +26,7 @@
 ! Here, we'll simply use x, the ionized fraction, and compute y = 1-x whenever necessary
 ! ========================================================================================
 
-module raytracing_sc
+module raytracing
 
     !! Fortran Extension module for c2ray with f2py
     !! Based on column_density.f90, evolve_source.f90, evolve_point.f90 of original c2ray.
@@ -48,7 +48,7 @@ module raytracing_sc
     !! grid, for one source. The global rates of all sources are then added and applied
     !! using other subroutines that remain to be translated.
     ! ===============================================================================================
-    subroutine evolve3D(srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
+    subroutine do_source(srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   ! Number of sources
         integer,intent(in)      :: ns                                   ! source number 
@@ -82,7 +82,7 @@ module raytracing_sc
             call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         end do
 
-    end subroutine evolve3D
+    end subroutine do_source
 
 
     ! ===============================================================================================
@@ -555,4 +555,4 @@ module raytracing_sc
 
     end subroutine cinterp
 
-end module raytracing_sc
+end module raytracing

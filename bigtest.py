@@ -1,5 +1,5 @@
 import numpy as np
-import RTSC as rtsc
+import c2ray_core as c2r
 from parameters import Params
 import astropy.units as u
 import time
@@ -76,14 +76,14 @@ temp_f = temp0 * np.ones((N,N,N),order='F')
 # RAYTRACE
 print("Doing Raytracing/Evolve...")
 t1 = time.perf_counter()
-rtsc.raytracing_sc.evolve3d(srcflux,srcpos,1,last_l,last_r,coldens_out_f,sig,dr,ndens_1_f,xh_av_f,phi_ion_f)
+c2r.raytracing.do_source(srcflux,srcpos,1,last_l,last_r,coldens_out_f,sig,dr,ndens_1_f,xh_av_f,phi_ion_f)
 t2 = time.perf_counter()
 t_evo = t2-t1
 
 # DO CHEMISTRY
 print("Doing Chemistry...")
 t3 = time.perf_counter()
-cf = rtsc.chemistry.global_pass(dt,ndens_1_f,temp_f,xh_f,xh_av_f,phi_ion_f,bh00,albpow,colh0,temph0,abu_c)
+cf = c2r.chemistry.global_pass(dt,ndens_1_f,temp_f,xh_f,xh_av_f,phi_ion_f,bh00,albpow,colh0,temph0,abu_c)
 t4 = time.perf_counter()
 t_chem = t4 - t3
 
@@ -116,8 +116,4 @@ ax3.set_xlabel(f"Computation Time: {t_chem : .7f} s",fontsize=12)
 
 fig.tight_layout()
 
-import pickle as pkl
-aa = phi_ion_f[ii,:,:]
-with open("pack.pkl",'wb') as f:
-    pkl.dump(aa,f)
 plt.show()
