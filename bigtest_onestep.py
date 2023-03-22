@@ -80,6 +80,9 @@ c2r.raytracing.do_source(srcflux,srcpos,1,last_l,last_r,coldens_out_f,sig,dr,nde
 t2 = time.perf_counter()
 t_evo = t2-t1
 
+
+#c2r.evolve.evolve3d(dt,dr,srcflux,srcpos,temp_f,ndens_1_f,coldens_out_f,xh_f,xh_av_f,phi_ion_f,sig,bh00,albpow,colh0,temph0,abu_c)
+
 # DO CHEMISTRY
 print("Doing Chemistry...")
 t3 = time.perf_counter()

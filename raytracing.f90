@@ -50,28 +50,31 @@ module raytracing
     ! ===============================================================================================
     subroutine do_source(srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         ! subroutine arguments
-        integer, intent(in) :: NumSrc                                   ! Number of sources
-        integer,intent(in)      :: ns                                   ! source number 
-        real(kind=real64),intent(in) :: srcflux(NumSrc)                 ! Strength of source. TODO: this is specific to the test case, need more general input
-        integer,intent(in) :: srcpos(3,NumSrc)                          ! positions of ALL sources (mesh)
-        real(kind=real64), intent(in) :: ndens(m1,m2,m3)                ! Hydrogen Density Field
-        real(kind=real64), dimension(3), intent(in) :: dr               ! Cell size
-        real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       ! Outgoing column density of the cells
-        real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              ! Time-averaged HI ionization fractions of the cells (--> density of ionized H is xh_av * ndens)
-        real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            ! H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
-        real(kind=real64),intent(in):: sig                              ! Hydrogen ionization cross section (sigma_HI_at_ion_freq)
-        integer, intent(in) :: m1                                       ! mesh size x (hidden by f2py)
-        integer, intent(in) :: m2                                       ! mesh size y (hidden by f2py)
-        integer, intent(in) :: m3                                       ! mesh size z (hidden by f2py)
-        integer,dimension(3), intent(in) :: last_l                      ! mesh position of left end point for RT
-        integer,dimension(3), intent(in) :: last_r                      ! mesh position of right end point for RT        
+        integer, intent(in) :: NumSrc                                   !> Number of sources
+        integer,intent(in)      :: ns                                   !> source number 
+        real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
+        integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
+        real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
+        real(kind=real64), dimension(3), intent(in) :: dr               !> Cell size
+        real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
+        real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells (--> density of ionized H is xh_av * ndens)
+        real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
+        real(kind=real64),intent(in):: sig                              !> Hydrogen ionization cross section (sigma_HI_at_ion_freq)
+        integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
+        integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
+        integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
+        integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
+        integer,dimension(3), intent(in) :: last_r                      !> mesh position of right end point for RT        
 
         ! TODO: add OpenMP parallelization at the Fortran level.
         ! This should work with f2py, see https://stackoverflow.com/questions/46505778/f2py-with-openmp-gives-import-error-in-python
 
-        ! If no OpenMP, traverse mesh plane by plane in the z direction up/down from the source
+        ! TODO: setup the subbox stuff from do_source line 128 in evolve_source.f90 of original c2ray !
 
+
+        ! If no OpenMP, traverse mesh plane by plane in the z direction up/down from the source
         integer :: k  ! z-coord of plane
+        
         ! 1. transfer in the upper part of the grid (above srcpos(3))
         do k=srcpos(3,ns),last_r(3)
             call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
@@ -82,36 +85,38 @@ module raytracing
             call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         end do
 
+        ! TODO: add photon loss statistics
     end subroutine do_source
 
 
     ! ===============================================================================================
-    !! This subroutine does the short characteristics for a whole plane at constant z
-    !! (specified by argument k). This of course assumes that the previous plane has
-    !! already been done.
+    ! This subroutine does the short characteristics for a whole plane at constant z
+    ! (specified by argument k). This of course assumes that the previous plane has
+    ! already been done.
+    ! ---> This was called "evolve2D" in original c2ray, renamed here to better describe what it does
     ! ===============================================================================================
     subroutine evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         ! subroutine arguments
-        integer, intent(in) :: NumSrc                                   ! Number of sources
-        integer,intent(in)      :: ns                                   ! source number 
-        integer, intent(in) :: k                                        ! z-coord of plane
-        real(kind=real64),intent(in) :: srcflux(NumSrc)                 ! Strength of source. TODO: this is specific to the test case, need more general input
-        integer,intent(in) :: srcpos(3,NumSrc)                          ! positions of ALL sources (mesh)
-        real(kind=real64), intent(in) :: ndens(m1,m2,m3)                ! Hydrogen Density Field
-        real(kind=real64), dimension(3), intent(in) :: dr               ! Cell size
-        real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       ! Outgoing column density of the cells
-        real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              ! Time-averaged HI ionization fractions of the cells
-        real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            ! H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
-        real(kind=real64),intent(in):: sig                              ! Hydrogen ionization cross section (sigma_HI_at_ion_freq)
-        integer, intent(in) :: m1                                       ! mesh size x (hidden by f2py)
-        integer, intent(in) :: m2                                       ! mesh size y (hidden by f2py)
-        integer, intent(in) :: m3                                       ! mesh size z (hidden by f2py)
-        integer,dimension(3), intent(in) :: last_l                      ! mesh position of left end point for RT
-        integer,dimension(3), intent(in) :: last_r                      ! mesh position of right end point for RT
+        integer, intent(in) :: NumSrc                                   !> Number of sources
+        integer,intent(in)      :: ns                                   !> source number 
+        integer, intent(in) :: k                                        !> z-coord of plane
+        real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
+        integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
+        real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
+        real(kind=real64), dimension(3), intent(in) :: dr               !> Cell size
+        real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
+        real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells
+        real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
+        real(kind=real64),intent(in):: sig                              !> Hydrogen ionization cross section (sigma_HI_at_ion_freq)
+        integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
+        integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
+        integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
+        integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
+        integer,dimension(3), intent(in) :: last_r                      !> mesh position of right end point for RT
 
 
-        integer,dimension(3) :: rtpos                                   ! cell position (for RT)
-        integer :: i,j                                                  ! mesh positions
+        integer,dimension(3) :: rtpos                                   !> cell position (for RT)
+        integer :: i,j                                                  !> mesh positions
 
         rtpos(3) = k
         ! sweep in `positive' j direction
@@ -166,30 +171,30 @@ module raytracing
         real(kind=real64),parameter :: max_coldensh=2e30!2e19 !2e29!2.0e22_real64!2e19_real64 
 
         ! subroutine arguments
-        integer, intent(in) :: NumSrc                                   ! Number of sources
-        integer,dimension(3),intent(in) :: rtpos                        ! cell position (for RT)
-        integer,intent(in)      :: ns                                   ! source number 
-        real(kind=real64), intent(in) :: ndens(m1,m2,m3)                ! Hydrogen Density Field
-        real(kind=real64),intent(in) :: srcflux(NumSrc)                 ! Strength of source. TODO: this is specific to the test case, need more general input
-        integer,intent(in) :: srcpos(3,NumSrc)                          ! positions of ALL sources (mesh)
-        real(kind=real64), dimension(3), intent(in) :: dr               ! Cell size
-        real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       ! Outgoing column density of the cells
-        real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              ! Time-averaged HI ionization fractions of the cells
-        real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            ! H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
-        real(kind=real64),intent(in):: sig                              ! Hydrogen ionization cross section (sigma_HI_at_ion_freq)
-        integer, intent(in) :: m1                                       ! mesh size x (hidden by f2py)
-        integer, intent(in) :: m2                                       ! mesh size y (hidden by f2py)
-        integer, intent(in) :: m3                                       ! mesh size z (hidden by f2py)
+        integer, intent(in) :: NumSrc                                   !> Number of sources
+        integer,dimension(3),intent(in) :: rtpos                        !> cell position (for RT)
+        integer,intent(in)      :: ns                                   !> source number 
+        real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
+        real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
+        integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
+        real(kind=real64), dimension(3), intent(in) :: dr               !> Cell size
+        real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
+        real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells
+        real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
+        real(kind=real64),intent(in):: sig                              !> Hydrogen ionization cross section (sigma_HI_at_ion_freq)
+        integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
+        integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
+        integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
 
-        ! integer :: nx,nd,idim                                         ! loop counters (used in LLS)
-        integer,dimension(3) :: pos                                     ! RT position modulo periodicity
-        real(kind=real64) :: xs,ys,zs                                   ! Distances between source and cell
-        real(kind=real64) :: dist2,path,vol_ph                          ! Distance parameters
-        real(kind=real64) :: coldensh_in                                ! Column density to the cell
-        logical :: stop_rad_transfer                                    ! Flag to stop column density when above max column density
-        real(kind=real64) :: nHI_p                                      ! Local density of neutral hydrogen in the cell
-        real(kind=real64) :: xh_av_p                                    ! Local ionization fraction of cell
-        real(kind=real64) :: phi_ion_p                                  ! Local photoionization rate of cell (to be computed)
+        ! integer :: nx,nd,idim                                         !> loop counters (used in LLS)
+        integer,dimension(3) :: pos                                     !> RT position modulo periodicity
+        real(kind=real64) :: xs,ys,zs                                   !> Distances between source and cell
+        real(kind=real64) :: dist2,path,vol_ph                          !> Distance parameters
+        real(kind=real64) :: coldensh_in                                !> Column density to the cell
+        logical :: stop_rad_transfer                                    !> Flag to stop column density when above max column density
+        real(kind=real64) :: nHI_p                                      !> Local density of neutral hydrogen in the cell
+        real(kind=real64) :: xh_av_p                                    !> Local ionization fraction of cell
+        real(kind=real64) :: phi_ion_p                                  !> Local photoionization rate of cell (to be computed)
 
         ! Reset check on radiative transfer
         stop_rad_transfer=.false.
@@ -340,15 +345,17 @@ module raytracing
             !! Some global variables in original c2ray (e.g. coldensh_out)
             !! have been replaced by arguments for f2py-usage
             !! commented bits of code have been deleted
-            integer,dimension(3),intent(in) :: pos !< cell position (mesh)
-            integer,dimension(3),intent(in) :: srcpos !< source position (mesh)
-            real(kind=real64),intent(out) :: cdensi !< column density to cell
-            real(kind=real64),intent(out) :: path !< path length over cell
-            real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3) !< Outgoing column density of the cells
-            real(kind=real64),intent(in):: sigma_HI_at_ion_freq !< Hydrogen ionization cross section
-            integer, intent(in) :: m1 ! < mesh size x (hidden by f2py)
-            integer, intent(in) :: m2 ! < mesh size y (hidden by f2py)
-            integer, intent(in) :: m3 ! < mesh size z (hidden by f2py)
+            integer,dimension(3),intent(in) :: pos                      !< cell position (mesh)
+            integer,dimension(3),intent(in) :: srcpos                   !< source position (mesh)
+            real(kind=real64),intent(out) :: cdensi                     !< column density to cell
+            real(kind=real64),intent(out) :: path                       !< path length over cell
+            real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)   !< Outgoing column density of the cells
+            real(kind=real64),intent(in):: sigma_HI_at_ion_freq         !< Hydrogen ionization cross section
+            integer, intent(in) :: m1                                   !< mesh size x (hidden by f2py)
+            integer, intent(in) :: m2                                   !< mesh size y (hidden by f2py)
+            integer, intent(in) :: m3                                   !< mesh size z (hidden by f2py)
+
+
             real(kind=real64),parameter :: sqrt3=sqrt(3.0)
             real(kind=real64),parameter :: sqrt2=sqrt(2.0)
             

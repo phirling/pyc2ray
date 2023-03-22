@@ -44,8 +44,6 @@ module chemistry
             enddo
         enddo
 
-        write(*,*) "Number of non-converged points: ",conv_flag, " of ", m1*m2*m3
-
     end subroutine global_pass
 
 
@@ -86,7 +84,7 @@ module chemistry
         xh_av_p = xh_av(pos(1),pos(2),pos(3))
         phi_ion_p = phi_ion(pos(1),pos(2),pos(3))
         
-        call do_chemistry(dt,ndens_p,temperature_start,xh_p,xh_av_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c,conv_flag)
+        call do_chemistry(dt,ndens_p,temperature_start,xh_p,xh_av_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c)
 
         ! Check for convergence (global flag). In original, convergence is tested using neutral fraction, but testing with
         ! ionized fraction should be equivalent. TODO: add temperature convergence criterion when non-isothermal mode
@@ -109,7 +107,7 @@ module chemistry
     ! Original: G. Mellema (2005)
     ! This version: P. Hirling (2023)
     ! ===============================================================================================
-    subroutine do_chemistry(dt,ndens_p,temperature_start,xh_p,xh_av_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c,conv_flag)
+    subroutine do_chemistry(dt,ndens_p,temperature_start,xh_p,xh_av_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c)
         ! TODO: add clumping argument
         ! Subroutine Arguments
         real(kind=real64),intent(in) :: dt                    ! time step
@@ -123,7 +121,6 @@ module chemistry
         real(kind=real64),intent(in) :: colh0                 ! Hydrogen collisional ionization parameter
         real(kind=real64),intent(in) :: temph0                ! Hydrogen ionization energy expressed in K
         real(kind=real64),intent(in) :: abu_c                 ! Carbon abundance
-        integer,intent(inout) :: conv_flag                    ! convergence counter
 
         real(kind=real64) :: temperature_end, temperature_previous_iteration ! TODO: will be useful when implementing non-isothermal mode
         real(kind=real64) :: xh0_p                            ! x0 value of the paper. Always used as IC at each iteration (see original do_chemistry)
