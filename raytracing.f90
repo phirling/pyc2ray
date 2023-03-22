@@ -71,10 +71,13 @@ module raytracing
 
         ! TODO: setup the subbox stuff from do_source line 128 in evolve_source.f90 of original c2ray !
 
-
         ! If no OpenMP, traverse mesh plane by plane in the z direction up/down from the source
         integer :: k  ! z-coord of plane
         
+        ! reset column densities for new source point
+        ! coldensh_out is unique for each source point
+        coldensh_out(:,:,:) = 0.0
+
         ! 1. transfer in the upper part of the grid (above srcpos(3))
         do k=srcpos(3,ns),last_r(3)
             call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
@@ -210,8 +213,8 @@ module raytracing
 
         ! If coldensh_out is zero, we have not done this point
         ! yet, so do it. Otherwise do nothing. (grid is set to 0 for every source)
-        ! ---> if (coldensh_out(pos(1),pos(2),pos(3)) == 0.0) then                      This will be added later on. For testing remove it
-        if (.true.) then
+        if (coldensh_out(pos(1),pos(2),pos(3)) == 0.0) then                      ! This will be added later on. For testing remove it
+        ! if (.true.) then
             ! Find the column density at the entrance point of the cell (short
             ! characteristics)
             if ( all( rtpos(:) == srcpos(:,ns) ) ) then
