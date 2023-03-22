@@ -8,13 +8,14 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-N",type=int,default=128)
+parser.add_argument("--randomdens",action='store_true')
 args = parser.parse_args()
 
 # Number of cells in each dimension
 N = int(args.N)
 
 # Whether to use a random or uniform density field
-randomdens = 0
+randomdens = args.randomdens
 
 # Import the parameters used in original c2ray
 p = Params("parameters.yml")
@@ -36,7 +37,7 @@ dxbox = xbox / N
 dr = dxbox * np.ones(3) # cell size
 #dr = 6.7e20*np.ones(3)
 #avgdens = 1.0e-4
-avgdens = 1.87e-4 # cm-3
+avgdens = 1.981E-04 #1.87e-4 # cm-3
 xhav = 2.e-4 # initial ionization fraction (uniform)
 
 
@@ -44,10 +45,12 @@ xhav = 2.e-4 # initial ionization fraction (uniform)
 numsrc = 1
 srcpos = np.empty((3,numsrc),dtype='int')
 srcflux = np.empty(numsrc)
-srcpos[:,0] = np.array([2,2,2])
+srcpos[:,0] = np.array([2,N//2,N//2])
+#srcpos[:,0] = np.array([50,50,50])
 py_srcpos = srcpos[:,0] - 1
-#srcflux[0] = 1.0e55
-srcflux[0] = 1.0e54
+srcflux[0] = 1.0e55
+#srcflux[0] = 1.0e54
+#srcflux[0] = 1.0e57
 
 
 # For fortran version (non periodic)
@@ -71,21 +74,23 @@ coldens_out_f = np.zeros((N,N,N),order='F')
 temp_f = temp0 * np.ones((N,N,N),order='F')
 
 # RAYTRACE
-print("Evolve Fortran...")
+print("Doing Raytracing/Evolve...")
 t1 = time.perf_counter()
 rtsc.raytracing_sc.evolve3d(srcflux,srcpos,1,last_l,last_r,coldens_out_f,sig,dr,ndens_1_f,xh_av_f,phi_ion_f)
 t2 = time.perf_counter()
 t_evo = t2-t1
 
 # DO CHEMISTRY
-print("Doing chemistry...")
+print("Doing Chemistry...")
 t3 = time.perf_counter()
 cf = rtsc.chemistry.global_pass(dt,ndens_1_f,temp_f,xh_f,xh_av_f,phi_ion_f,bh00,albpow,colh0,temph0,abu_c)
 t4 = time.perf_counter()
 t_chem = t4 - t3
 
+print(np.mean(coldens_out_f))
 
 # DISPLAY
+print("Making Figure...")
 ii = 2
 fig, (ax1, ax2, ax3) = plt.subplots(1, 3,figsize=(12.5,3.7))
 

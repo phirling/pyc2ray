@@ -77,7 +77,7 @@ module chemistry
         real(kind=real64) :: xh_p ! local ionization fraction
         real(kind=real64) :: xh_av_p ! local mean ionization fraction
         real(kind=real64) :: phi_ion_p ! local ionization rate
-
+        real(kind=real64) :: xh_av_p_old ! mean ion fraction before chemistry (to check convergence)
 
         ! Initialize local quantities
         temperature_start = temp(pos(1),pos(2),pos(3))
@@ -87,6 +87,16 @@ module chemistry
         phi_ion_p = phi_ion(pos(1),pos(2),pos(3))
         
         call do_chemistry(dt,ndens_p,temperature_start,xh_p,xh_av_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c,conv_flag)
+
+        ! Check for convergence (global flag). In original, convergence is tested using neutral fraction, but testing with
+        ! ionized fraction should be equivalent. TODO: add temperature convergence criterion when non-isothermal mode
+        ! is added later on.
+        xh_av_p_old = xh_av(pos(1),pos(2),pos(3))
+        if ((abs(xh_av_p - xh_av_p_old) > minimum_fractional_change .and. &
+            abs((xh_av_p - xh_av_p_old) / xh_av_p) > minimum_fractional_change .and. &
+            xh_av_p > minimum_fraction_of_atoms) ) then ! Here temperature criterion will be added
+            conv_flag = conv_flag + 1
+        endif
 
         ! Put local result in global array
         xh(pos(1),pos(2),pos(3)) = xh_p
@@ -123,10 +133,11 @@ module chemistry
 
         ! TODO: clumping
         
+        ! Initialize IC
+        xh0_p = xh_p
         temperature_end = temperature_start
 
         nit = 0
-
         do
             nit = nit + 1
             
@@ -181,7 +192,7 @@ module chemistry
                 !     write(logf,*) abs(ion%h_av(0)-yh0_av_old)
                 ! endif
                 write(*,*) 'Convergence failing (global) nit=', nit
-                conv_flag = conv_flag + 1 ! TODO: place this at correct location
+                !conv_flag = conv_flag + 1 ! TODO: place this at correct location
                 exit
             endif
         enddo

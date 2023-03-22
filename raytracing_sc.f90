@@ -163,7 +163,7 @@ module raytracing_sc
         ! use cinterp_sc, only: cinterp
         ! column density for stopping chemistry !***how should this criterion be for including he and more than one freq bands?
         ! for the moment, leave it as it is, it's probably ok. 
-        real(kind=real64),parameter :: max_coldensh=2e19 !2e29!2.0e22_real64!2e19_real64 
+        real(kind=real64),parameter :: max_coldensh=2e30!2e19 !2e29!2.0e22_real64!2e19_real64 
 
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   ! Number of sources
