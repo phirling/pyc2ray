@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 This is the python function that replaces evolve3D in the Fortran version. It calls
 f2py-compiled subroutines that do the computationally expensive part.
 """
-def evolve3D(dt,dr,srcflux,srcpos,temp,ndens,coldensh_out,xh,xh_av,phi_ion,sig,bh00,albpow,colh0,temph0,abu_c):
+def evolve3D(dt,dr,srcflux,srcpos,temp,ndens,coldensh_out,xh,phi_ion,sig,bh00,albpow,colh0,temph0,abu_c):
     
 
     m1 = ndens.shape[0]         # Mesh size
@@ -30,28 +30,36 @@ def evolve3D(dt,dr,srcflux,srcpos,temp,ndens,coldensh_out,xh,xh_av,phi_ion,sig,b
     converged = False
     niter = 0
 
+    # initialize average and intermediate results to initial values
+    xh_av = np.copy(xh)
+    xh_intermed = np.copy(xh)
+
+    print(f"Convergence Criterion (Number of points): {conv_criterion : n}")
     while not converged:
         niter += 1
 
-        sum_xh1_int = np.sum( xh_av )
+        sum_xh1_int = np.sum( xh_intermed )
 
         if sum_xh1_int > 0.0:
             rel_change_xh = np.abs( (sum_xh1_int - prev_sum_xh1_int) / sum_xh1_int )
         else:
             rel_change_xh = 1.0
 
-        converged = (conv_flag < conv_criterion) or (rel_change_xh < convergence_fraction)
-
         # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
         # First, reset rates:
-        phi_ion = np.zeros((m1,m1,m1),order='F')
+        phi_ion[:,:,:] = 0.0  #= np.zeros((m1,m1,m1),order='F')
         for ns in range(1,NumSrc+1): # (1-indexation in Fortran)
             c2r.raytracing.do_source(srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion)
 
         # Now, apply these rates to compute the updated ionization fraction
-        conv_flag = c2r.chemistry.global_pass(dt,ndens,temp,xh,xh_av,phi_ion,bh00,albpow,colh0,temph0,abu_c)
-        print(f"Number of non converged points: {conv_flag} of {NumCells} ({conv_flag / NumCells * 100 : .3f} % )")
+        conv_flag = c2r.chemistry.global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c)
+        print(f"Number of non-converged points: {conv_flag} of {NumCells} ({conv_flag / NumCells * 100 : .3f} % ), Relative change in ionfrac: {rel_change_xh : .2e}")
 
-        plt.imshow(xh_av[2,:,:])
-        plt.show()
+        converged = (conv_flag < conv_criterion) or (rel_change_xh < convergence_fraction)
+
+        #plt.imshow(xh_intermed[2,:,:],norm='log',cmap='rainbow')
+        #plt.show()
         prev_sum_xh1_int = sum_xh1_int
+        #if niter > 4:
+        #    break
+    return xh_intermed

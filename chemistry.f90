@@ -10,13 +10,14 @@ module chemistry
     real(kind=real64),parameter :: minimum_fraction_of_atoms=1.0e-8
     contains
 
-    subroutine global_pass(dt,ndens,temp,xh,xh_av,phi_ion,bh00,albpow,colh0,temph0,abu_c,conv_flag,m1,m2,m3)
+    subroutine global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c,conv_flag,m1,m2,m3)
         ! Subroutine Arguments
         real(kind=real64),intent(in) :: dt                          ! time step
         real(kind=real64), intent(in) :: temp(m1,m2,m3)             ! Temperature field
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)            ! Hydrogen Density Field
         real(kind=real64),intent(inout) :: xh(m1,m2,m3)             ! HI ionization fractions of the cells
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)          ! Time-averaged HI ionization fractions of the cells
+        real(kind=real64),intent(inout) :: xh_intermed(m1,m2,m3)    ! Intermediate ionization fractions of the cells
         real(kind=real64),intent(in) :: phi_ion(m1,m2,m3)           ! H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
         real(kind=real64),intent(in) :: bh00                        ! Hydrogen recombination parameter (value at 10^4 K)
         real(kind=real64),intent(in) :: albpow                      ! Hydrogen recombination parameter (power law index)
@@ -39,7 +40,8 @@ module chemistry
             do j=1,m2
                 do i=1,m1
                     pos=(/ i,j,k /)
-                    call evolve0D_global(dt,pos,ndens,temp,xh,xh_av,phi_ion,bh00,albpow,colh0,temph0,abu_c,conv_flag,m1,m2,m3)
+                    call evolve0D_global(dt,pos,ndens,temp,xh,xh_av,xh_intermed,phi_ion, &
+                        bh00,albpow,colh0,temph0,abu_c,conv_flag,m1,m2,m3)
                 enddo
             enddo
         enddo
@@ -49,7 +51,7 @@ module chemistry
 
 
 
-    subroutine evolve0D_global(dt,pos,ndens,temp,xh,xh_av,phi_ion,bh00,albpow,colh0,temph0,abu_c,conv_flag,m1,m2,m3)
+    subroutine evolve0D_global(dt,pos,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c,conv_flag,m1,m2,m3)
         ! Subroutine Arguments
         real(kind=real64),intent(in) :: dt                          ! time step
         integer,dimension(3),intent(in) :: pos                      ! cell position
@@ -57,6 +59,7 @@ module chemistry
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)            ! Hydrogen Density Field
         real(kind=real64),intent(inout) :: xh(m1,m2,m3)             ! HI ionization fractions of the cells
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)          ! Time-averaged HI ionization fractions of the cells
+        real(kind=real64),intent(inout) :: xh_intermed(m1,m2,m3)    ! Intermediate ionization fractions of the cells
         real(kind=real64),intent(in) :: phi_ion(m1,m2,m3)           ! H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
         real(kind=real64),intent(in) :: bh00                        ! Hydrogen recombination parameter (value at 10^4 K)
         real(kind=real64),intent(in) :: albpow                      ! Hydrogen recombination parameter (power law index)
@@ -74,17 +77,21 @@ module chemistry
         real(kind=real64) :: ndens_p ! local hydrogen density
         real(kind=real64) :: xh_p ! local ionization fraction
         real(kind=real64) :: xh_av_p ! local mean ionization fraction
+        real(kind=real64) :: xh_intermed_p ! local mean ionization fraction
         real(kind=real64) :: phi_ion_p ! local ionization rate
         real(kind=real64) :: xh_av_p_old ! mean ion fraction before chemistry (to check convergence)
 
         ! Initialize local quantities
         temperature_start = temp(pos(1),pos(2),pos(3))
         ndens_p = ndens(pos(1),pos(2),pos(3))
+        phi_ion_p = phi_ion(pos(1),pos(2),pos(3))
+
+        ! Initialize local ion fractions
         xh_p = xh(pos(1),pos(2),pos(3))
         xh_av_p = xh_av(pos(1),pos(2),pos(3))
-        phi_ion_p = phi_ion(pos(1),pos(2),pos(3))
-        
-        call do_chemistry(dt,ndens_p,temperature_start,xh_p,xh_av_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c)
+        xh_intermed_p = xh_intermed(pos(1),pos(2),pos(3))
+
+        call do_chemistry(dt,ndens_p,temperature_start,xh_p,xh_av_p,xh_intermed_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c)
 
         ! Check for convergence (global flag). In original, convergence is tested using neutral fraction, but testing with
         ! ionized fraction should be equivalent. TODO: add temperature convergence criterion when non-isothermal mode
@@ -97,7 +104,7 @@ module chemistry
         endif
 
         ! Put local result in global array
-        xh(pos(1),pos(2),pos(3)) = xh_p
+        xh_intermed(pos(1),pos(2),pos(3)) = xh_intermed_p
         xh_av(pos(1),pos(2),pos(3)) = xh_av_p
 
     end subroutine evolve0D_global
@@ -107,14 +114,15 @@ module chemistry
     ! Original: G. Mellema (2005)
     ! This version: P. Hirling (2023)
     ! ===============================================================================================
-    subroutine do_chemistry(dt,ndens_p,temperature_start,xh_p,xh_av_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c)
+    subroutine do_chemistry(dt,ndens_p,temperature_start,xh_p,xh_av_p,xh_intermed_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c)
         ! TODO: add clumping argument
         ! Subroutine Arguments
         real(kind=real64),intent(in) :: dt                    ! time step
         real(kind=real64), intent(in) :: temperature_start    ! Local starting temperature
         real(kind=real64), intent(in) :: ndens_p              ! Local Hydrogen Density
         real(kind=real64),intent(inout) :: xh_p               ! HI ionization fractions of the cells
-        real(kind=real64),intent(inout) :: xh_av_p            ! Time-averaged HI ionization fractions of the cells
+        real(kind=real64),intent(out) :: xh_av_p            ! Time-averaged HI ionization fractions of the cells
+        real(kind=real64),intent(out) :: xh_intermed_p       ! Time-averaged HI ionization fractions of the cells
         real(kind=real64),intent(in) :: phi_ion_p             ! H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
         real(kind=real64),intent(in) :: bh00                  ! Hydrogen recombination parameter (value at 10^4 K)
         real(kind=real64),intent(in) :: albpow                ! Hydrogen recombination parameter (power law index)
@@ -123,7 +131,7 @@ module chemistry
         real(kind=real64),intent(in) :: abu_c                 ! Carbon abundance
 
         real(kind=real64) :: temperature_end, temperature_previous_iteration ! TODO: will be useful when implementing non-isothermal mode
-        real(kind=real64) :: xh0_p                            ! x0 value of the paper. Always used as IC at each iteration (see original do_chemistry)
+        !real(kind=real64) :: xh0_p                            ! x0 value of the paper. Always used as IC at each iteration (see original do_chemistry)
         real(kind=real64) :: xh_av_p_old                      ! Time-average ionization fraction from previous iteration
         real(kind=real64) :: de                               ! local electron density
         integer :: nit                                        ! Iteration counter
@@ -131,7 +139,7 @@ module chemistry
         ! TODO: clumping
         
         ! Initialize IC
-        xh0_p = xh_p
+        !xh0_p = xh_p
         temperature_end = temperature_start
 
         nit = 0
@@ -157,7 +165,7 @@ module chemistry
 
             ! Calculate the new and mean ionization states
             ! In this version: xh0_p (x0) is used as input, while doric outputs a new x(t) ("xh_av") and <x> ("xh_av_p")
-            call doric(xh0_p,dt,temperature_end,de,phi_ion_p,bh00,albpow,colh0,temph0,1.0_real64,xh_p,xh_av_p)
+            call doric(xh_p,dt,temperature_end,de,phi_ion_p,bh00,albpow,colh0,temph0,1.0_real64,xh_intermed_p,xh_av_p)
             ! --> de=electrondens(ndens_p,ion%h_av) ---> Why call this a second time ??
 
             ! --> if (.not.isothermal) &

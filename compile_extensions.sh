@@ -1,1 +1,1 @@
-f2py -c raytracing.f90 photorates.f90 chemistry.f90 evolve.f90 -m c2ray_core --f2cmap f2c.f2py_f2cmap
+f2py -c raytracing.f90 photorates.f90 chemistry.f90 -m c2ray_core --f2cmap f2c.f2py_f2cmap
