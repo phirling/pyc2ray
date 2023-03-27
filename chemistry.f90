@@ -77,6 +77,7 @@ module chemistry
         real(kind=real64) :: ndens_p ! local hydrogen density
         real(kind=real64) :: xh_p ! local ionization fraction
         real(kind=real64) :: xh_av_p ! local mean ionization fraction
+        real(kind=real64) :: yh_av_p ! local mean neutral fraction
         real(kind=real64) :: xh_intermed_p ! local mean ionization fraction
         real(kind=real64) :: phi_ion_p ! local ionization rate
         real(kind=real64) :: xh_av_p_old ! mean ion fraction before chemistry (to check convergence)
@@ -90,7 +91,7 @@ module chemistry
         xh_p = xh(pos(1),pos(2),pos(3))
         xh_av_p = xh_av(pos(1),pos(2),pos(3))
         xh_intermed_p = xh_intermed(pos(1),pos(2),pos(3))
-
+        yh_av_p = 1.0 - xh_av_p
         call do_chemistry(dt,ndens_p,temperature_start,xh_p,xh_av_p,xh_intermed_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c)
 
         ! Check for convergence (global flag). In original, convergence is tested using neutral fraction, but testing with
@@ -98,8 +99,8 @@ module chemistry
         ! is added later on.
         xh_av_p_old = xh_av(pos(1),pos(2),pos(3))
         if ((abs(xh_av_p - xh_av_p_old) > minimum_fractional_change .and. &
-            abs((xh_av_p - xh_av_p_old) / xh_av_p) > minimum_fractional_change .and. &
-            xh_av_p > minimum_fraction_of_atoms) ) then ! Here temperature criterion will be added
+            abs((xh_av_p - xh_av_p_old) / yh_av_p) > minimum_fractional_change .and. &
+            yh_av_p > minimum_fraction_of_atoms) ) then ! Here temperature criterion will be added
             conv_flag = conv_flag + 1
         endif
 
@@ -179,9 +180,9 @@ module chemistry
             ! --> Why this local convergence ?
             ! Test for convergence on time-averaged neutral fraction
             ! For low values of this number assume convergence
-            if ((abs((xh_av_p-xh_av_p_old)/xh_av_p) < &
+            if ((abs((xh_av_p-xh_av_p_old)/(1.0_real64 - xh_av_p)) < &
             minimum_fractional_change .or. &
-            (xh_av_p < minimum_fraction_of_atoms)).and. &
+            (1.0_real64 - xh_av_p < minimum_fraction_of_atoms)).and. &
             (abs((temperature_end-temperature_previous_iteration)/ &
             temperature_end) < minimum_fractional_change) & 
             ) then
