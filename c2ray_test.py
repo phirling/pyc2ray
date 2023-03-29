@@ -64,8 +64,6 @@ abu_c=7.1e-7
 # Initialize Arrays
 ndens_f = avgdens * np.ones((N,N,N),order='F')
 xh_f = xhav*np.ones((N,N,N),order='F')
-phi_ion_f = np.zeros((N,N,N),order='F')
-coldens_out_f = np.zeros((N,N,N),order='F')
 temp_f = temp0 * np.ones((N,N,N),order='F')
 
 # Initialize next step
@@ -80,16 +78,18 @@ print(f"Simulation time is {tsim:.2f} Myr(s), using timestep {tsim/tsteps:.2f} M
 print("Starting main loop...")
 
 # ===================================== Main loop =====================================
+outputn = 0
 for t in range(tsteps):
     ct = ((t+1) * dt) * u.s.to('yr')
     if t % delta_results == 0:
-        out = res_basename + f"xfrac_{t:n}.pkl"
+        out = res_basename + f"xfrac_{outputn:04}.pkl"
+        outputn += 1
         with open(out,'wb') as f:
             pkl.dump(xh_new_f,f)
     tnow = time.time()
     print(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
-    xh_new_f = evo.evolve3D(dt,dr,srcflux,srcpos,temp_f,ndens_f,coldens_out_f,
-                xh_new_f,phi_ion_f,sig,bh00,albpow,colh0,temph0,abu_c)
+    xh_new_f, phi_ion_f, coldens_out_f = evo.evolve3D(dt,dr,srcflux,srcpos,temp_f,ndens_f,
+                xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c)
 # =====================================================================================
 
 # Final output

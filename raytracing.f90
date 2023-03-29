@@ -24,6 +24,8 @@
 ! ( see ionfractions_module.f90 )
 !
 ! Here, we'll simply use x, the ionized fraction, and compute y = 1-x whenever necessary
+!
+! 29.3.23: Replaced cell size by float since we are always using cubic cells
 ! ========================================================================================
 
 module raytracing
@@ -55,7 +57,7 @@ module raytracing
         real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
         integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
-        real(kind=real64), dimension(3), intent(in) :: dr               !> Cell size
+        real(kind=real64), intent(in) :: dr               !> Cell size
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells (--> density of ionized H is xh_av * ndens)
         real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
@@ -106,7 +108,7 @@ module raytracing
         real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
         integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
-        real(kind=real64), dimension(3), intent(in) :: dr               !> Cell size
+        real(kind=real64), intent(in) :: dr               !> Cell size
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells
         real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
@@ -180,7 +182,7 @@ module raytracing
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
         real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
         integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
-        real(kind=real64), dimension(3), intent(in) :: dr               !> Cell size
+        real(kind=real64), intent(in) :: dr               !> Cell size
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells
         real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
@@ -221,23 +223,23 @@ module raytracing
                 ! Do not call cinterp for the source point.
                 ! Set coldensh and path by hand
                 coldensh_in=0.0
-                path=0.5*dr(1)
+                path=0.5*dr !(1)
 
                 ! Find the distance to the source (average?)
                 !dist2=0.5*dr(1) !NOT NEEDED         ! this makes vol=dx*dy*dz
                 !vol_ph=4.0/3.0*pi*dist2**3
-                vol_ph=dr(1)*dr(2)*dr(3)
+                vol_ph = dr*dr*dr / (4*pi) !dr(1)*dr(2)*dr(3)
                 
             else
                 ! For all other points call cinterp to find the column density
                 call cinterp(rtpos,srcpos(:,ns),coldensh_in,path,coldensh_out,sig,m1,m2,m3)
 
-                path=path*dr(1)
+                path=path*dr ! (1)
 
                 ! Find the distance to the source
-                xs=dr(1)*real(rtpos(1)-srcpos(1,ns))
-                ys=dr(2)*real(rtpos(2)-srcpos(2,ns))
-                zs=dr(3)*real(rtpos(3)-srcpos(3,ns))
+                xs = dr*real(rtpos(1)-srcpos(1,ns)) ! dr(1)*real(rtpos(1)-srcpos(1,ns))
+                ys = dr*real(rtpos(2)-srcpos(2,ns)) ! dr(2)*real(rtpos(2)-srcpos(2,ns))
+                zs = dr*real(rtpos(3)-srcpos(3,ns)) ! dr(3)*real(rtpos(3)-srcpos(3,ns))
                 dist2=xs*xs+ys*ys+zs*zs
 
                 ! Find the volume of the shell this cell is part of 

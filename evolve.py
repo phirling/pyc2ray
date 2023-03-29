@@ -3,7 +3,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-def evolve3D(dt,dr,srcflux,srcpos,temp,ndens,coldensh_out,xh,phi_ion,sig,bh00,albpow,colh0,temph0,abu_c):
+def evolve3D(dt,dr,srcflux,srcpos,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c):
     """Evolves the ionization fraction over one timestep for the whole grid.
 
     For a given list of sources and hydrogen number density, computes the evolution of
@@ -15,27 +15,20 @@ def evolve3D(dt,dr,srcflux,srcpos,temp,ndens,coldensh_out,xh,phi_ion,sig,bh00,al
     ----------
     dt : float
         Timestep in seconds
-    dr : 1D-array
-        Cell dimension in each direction, in cm. TODO: replace by float since here we are
-        only dealing with cubic cells
+    dr : float
+        Cell dimension in each direction in cm
     srcflux : 1D-array
-        Array containing the normalization for the ionizing flux of each source
+        Array containing the normalization for the ionizing flux of each source. Shape: (NumSources)
     srcpos : 2D-array
-        Array containing the position of each source
+        Array containing the position of each source. Shape: (NumSources,3)
     temp : 3D-array
         The initial temperature of each cell in K
     ndens : 3D-array
         The hydrogen number density of each cell in cm^-3
-    coldensh_out : 3D-array
-        Outgoing column density of each cell. TODO: replace by internal variable since this
-        is a totally-outgoing argument
     xh : 3D-array
         Initial ionized fraction of each cell
-    phi_ion : 3D-array
-        Photoionization rate of each cell. TODO: replace by internal variable since this
-        is a totally-outgoing argument
     sig : float
-        Constant photoionization cross-section of hydrogen. TODO: replace by general (frequency-dependent)
+        Constant photoionization cross-section of hydrogen in cm^2. TODO: replace by general (frequency-dependent)
         case.
     bh00 : float
         Hydrogen recombination parameter at 10^4 K in the case B OTS approximation
@@ -52,6 +45,10 @@ def evolve3D(dt,dr,srcflux,srcpos,temp,ndens,coldensh_out,xh,phi_ion,sig,bh00,al
     -------
     xh_intermed : 3D-array
         The updated ionization fraction of each cell at the end of the timestep
+    phi_ion : 3D-array
+        Photoionization rate of each cell due to all sources
+    coldensh_out : 3D-array
+        Outgoing column density of each cell due to the last source (for debugging, will be removed later on)
     """
 
     m1 = ndens.shape[0]         # Mesh size
@@ -83,7 +80,9 @@ def evolve3D(dt,dr,srcflux,srcpos,temp,ndens,coldensh_out,xh,phi_ion,sig,bh00,al
         niter += 1
 
         # Set rates to 0
-        phi_ion[:,:,:] = 0.0
+        # phi_ion[:,:,:] = 0.0
+        phi_ion = np.zeros((m1,m1,m1),order='F')
+        coldensh_out = np.zeros((m1,m1,m1),order='F')
 
         # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
         for ns in range(1,NumSrc+1): # (1-indexation in Fortran)
@@ -116,4 +115,4 @@ def evolve3D(dt,dr,srcflux,srcpos,temp,ndens,coldensh_out,xh,phi_ion,sig,bh00,al
         prev_sum_xh0_int = sum_xh0_int
 
     # When converged, return the updated ionization fractions at the end of the timestep
-    return xh_intermed
+    return xh_intermed, phi_ion, coldensh_out
