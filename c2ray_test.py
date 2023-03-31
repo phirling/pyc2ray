@@ -93,7 +93,7 @@ for t in range(tsteps):
 # =====================================================================================
 
 # Final output
-with open(res_basename + f"xfrac_{tsteps:n}.pkl",'wb') as f:
+with open(res_basename + f"xfrac_{tsteps:04n}.pkl",'wb') as f:
             pkl.dump(xh_new_f,f)
 
 # Display Results
