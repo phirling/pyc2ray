@@ -26,9 +26,9 @@ res_basename = "./results/"             # Directory to store pickled results
 delta_results = 10                      # Number of timesteps between results
 
 # Run Parameters (sizes, etc.)
-tsim = 140                              # Simulation Time (in Myrs)
+tsim = 10                              # Simulation Time (in Myrs)
 t_evol = tsim * u.Myr.to('s')           # Simulation Time (in seconds)
-tsteps = 140                            # Number of timesteps
+tsteps = 10                            # Number of timesteps
 dt = t_evol / tsteps                    # Timestep
 boxsize = 14 * u.kpc.to('cm')           # Simulation box size
 dxbox = boxsize / N                     # Cell Size (1D)
