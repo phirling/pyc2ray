@@ -32,12 +32,12 @@ int main()
     do_source_octa(srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,N);
 
     double mean;
-    double* cdh = coldensh_out.data()->data()->data();
+    double* cdh = &coldensh_out[0][0][0]; //coldensh_out.data()->data()->data();
 
-    mean = gsl_stats_mean(cdh,1,N*N*N);
+    //mean = gsl_stats_mean(cdh,1,N*N);
+    mean = coldensh_out[70][70][70];
 
-    //std::cout << coldensh_out[90][90][90] << std::endl;
+    //std::cout << coldensh_out[0][0][0] << " " << coldensh_out[1][1][1] << " " << coldensh_out[2][2][2] << " " << std::endl;
     std::cout << mean << std::endl;
-    
     return 0;
 }

@@ -115,7 +115,7 @@ module raytracing
         integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
         ! integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
         ! integer,dimension(3), intent(in) :: last_r                      !> mesh position of right end point for RT  
-        
+
         integer,dimension(3) :: rtpos
         integer :: r,k,j
         integer :: max_r
@@ -368,6 +368,7 @@ module raytracing
             !  upon the difference between the in and out column density.
             !  Instead add the LLS to coldensh_in, see above
             coldensh_out(pos(1),pos(2),pos(3))=coldensh_in + nHI_p * path
+
             ! TODO: Calculate (photon-conserving) photo-ionization rate from the
             ! column densities. This is eq. 17 of the paper, where the Gamma value is
             ! calculated using precomputed tables
@@ -528,6 +529,9 @@ module raytracing
                 jp =modulo(j-1, m2)+1
                 jmp=modulo(jm-1,m2)+1
                 kmp=modulo(km-1,m3)+1
+
+                ! write(*,*) ip,imp,jp,jmp,kmp
+
                 c1=     coldensh_out(imp,jmp,kmp)    !# column densities at the
                 c2=     coldensh_out(ip,jmp,kmp)     !# four corners
                 c3=     coldensh_out(imp,jp,kmp)

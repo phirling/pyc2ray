@@ -5,7 +5,8 @@ N = 128
 numsrc = 1                              # Number of sources
 srcpos = np.empty((3,numsrc),dtype='int')
 srcflux = np.empty(numsrc)
-srcpos[:,0] = np.array([64,64,64])      # Position of source
+#srcpos[:,0] = np.array([63,63,63])      # Position of source
+srcpos[:,0] = np.array([65,65,65])      # Position of source
 srcflux[0] = 5.0e48                     # Strength of source
 
 coldensh_out = np.zeros((N,N,N),order='F')
@@ -27,4 +28,5 @@ dr = 1.0
 
 c2r.raytracing.do_source_octa(srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion)
 
-print(coldensh_out.mean())
+#print(coldensh_out.mean())
+print(coldensh_out[70,70,70])

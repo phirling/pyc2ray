@@ -6,23 +6,26 @@ static const double sqrt2 = std::sqrt(2.0);
 static const double sqrt3 = std::sqrt(3.0);
 static const double minweight = 1.0/0.6;
 
-void do_source_octa(const std::vector<std::vector<int> > & srcpos,
-    const int & ns,
-    std::vector<std::vector<std::vector<double> > > & coldensh_out,
-    const double & sig,
-    const double & dr,
-    const std::vector<std::vector<std::vector<double> > > & ndens,
-    const std::vector<std::vector<std::vector<double> > > & xh_av,
-    std::vector<std::vector<std::vector<double> > > & phi_ion,
-    const int & NumSrc,
-    const int & m1)
-    {
+void do_source_octa(const std::vector<std::vector<int> > & srcpos,      // Position of all sources
+    const int & ns,                                                     // Source number
+    std::vector<std::vector<std::vector<double> > > & coldensh_out,     // Outgoing column density
+    const double & sig,                                                 // Cross section
+    const double & dr,                                                  // Cell size
+    const std::vector<std::vector<std::vector<double> > > & ndens,      // Hydrogen number density
+    const std::vector<std::vector<std::vector<double> > > & xh_av,      // Time-average ionization fraction
+    std::vector<std::vector<std::vector<double> > > & phi_ion,          // Ionization Rates
+    const int & NumSrc,                                                 // Number of sources
+    const int & m1)                                                     // Mesh size
+    {   
+        // Source position
+        std::vector<int> srcpos_p = {srcpos[0][ns], srcpos[1][ns], srcpos[2][ns]};
+
         // First, do the source cell
-        int max_r = std::ceil(1.5 * m1);
-        std::vector<int> rtpos = {srcpos[0][ns],srcpos[1][ns],srcpos[2][ns]};
-        evolve0D(rtpos,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
+        std::vector<int> rtpos = {srcpos_p[0],srcpos_p[1],srcpos_p[2]};
+        evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
 
         // Sweep the grid by treating the faces of octahedra of increasing size.
+        int max_r = std::ceil(1.5 * m1);
         for (int r=1 ; r <= max_r; r++)
         {
             for (int k = 0; k <= r; k++)
@@ -30,53 +33,54 @@ void do_source_octa(const std::vector<std::vector<int> > & srcpos,
                 //std::cout << "k=" << k << std::endl;
                 for (int j = 0; j <= k; j++)
                 {   
-                    rtpos[2] = srcpos[2][ns] + (r-k);
-                    rtpos[0] = srcpos[0][ns] + (k-j);
-                    rtpos[1] = srcpos[1][ns] + (k-(k-j));
-                    evolve0D(rtpos,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
+                    rtpos[2] = srcpos_p[2] + (r-k);
+                    rtpos[0] = srcpos_p[0] + (k-j);
+                    rtpos[1] = srcpos_p[1] + (k-(k-j));
+                    evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
 
-                    rtpos[2] = srcpos[2][ns] + (r-k);
-                    rtpos[0] = srcpos[0][ns] - (k-j);
-                    rtpos[1] = srcpos[1][ns] + (k-(k-j));
+                    rtpos[2] = srcpos_p[2] + (r-k);
+                    rtpos[0] = srcpos_p[0] - (k-j);
+                    rtpos[1] = srcpos_p[1] + (k-(k-j));
                     //std::cout << rtpos[0] << " " << rtpos[1] << " " << rtpos[2] << std::endl;
-                    evolve0D(rtpos,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
+                    evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
 
-                    rtpos[2] = srcpos[2][ns] + (r-k);
-                    rtpos[0] = srcpos[0][ns] + (k-j);
-                    rtpos[1] = srcpos[1][ns] - (k-(k-j));
-                    evolve0D(rtpos,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
+                    rtpos[2] = srcpos_p[2] + (r-k);
+                    rtpos[0] = srcpos_p[0] + (k-j);
+                    rtpos[1] = srcpos_p[1] - (k-(k-j));
+                    evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
 
-                    rtpos[2] = srcpos[2][ns] + (r-k);
-                    rtpos[0] = srcpos[0][ns] - (k-j);
-                    rtpos[1] = srcpos[1][ns] - (k-(k-j));
-                    evolve0D(rtpos,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
+                    rtpos[2] = srcpos_p[2] + (r-k);
+                    rtpos[0] = srcpos_p[0] - (k-j);
+                    rtpos[1] = srcpos_p[1] - (k-(k-j));
+                    evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
 
-                    rtpos[2] = srcpos[2][ns] - (r-k);
-                    rtpos[0] = srcpos[0][ns] + (k-j);
-                    rtpos[1] = srcpos[1][ns] + (k-(k-j));
-                    evolve0D(rtpos,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
+                    rtpos[2] = srcpos_p[2] - (r-k);
+                    rtpos[0] = srcpos_p[0] + (k-j);
+                    rtpos[1] = srcpos_p[1] + (k-(k-j));
+                    evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
 
-                    rtpos[2] = srcpos[2][ns] - (r-k);
-                    rtpos[0] = srcpos[0][ns] - (k-j);
-                    rtpos[1] = srcpos[1][ns] + (k-(k-j));
-                    evolve0D(rtpos,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
+                    rtpos[2] = srcpos_p[2] - (r-k);
+                    rtpos[0] = srcpos_p[0] - (k-j);
+                    rtpos[1] = srcpos_p[1] + (k-(k-j));
+                    evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
 
-                    rtpos[2] = srcpos[2][ns] - (r-k);
-                    rtpos[0] = srcpos[0][ns] + (k-j);
-                    rtpos[1] = srcpos[1][ns] - (k-(k-j));
-                    evolve0D(rtpos,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
+                    rtpos[2] = srcpos_p[2] - (r-k);
+                    rtpos[0] = srcpos_p[0] + (k-j);
+                    rtpos[1] = srcpos_p[1] - (k-(k-j));
+                    evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
 
-                    rtpos[2] = srcpos[2][ns] - (r-k);
-                    rtpos[0] = srcpos[0][ns] - (k-j);
-                    rtpos[1] = srcpos[1][ns] - (k-(k-j));
-                    evolve0D(rtpos,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
+                    rtpos[2] = srcpos_p[2] - (r-k);
+                    rtpos[0] = srcpos_p[0] - (k-j);
+                    rtpos[1] = srcpos_p[1] - (k-(k-j));
+                    evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
                 }
             }
         }
     }
+    
 void evolve0D(
     const std::vector<int> & rtpos,
-    const std::vector<std::vector<int> > & srcpos,
+    const std::vector<int> & srcpos_p,
     const int & ns,
     std::vector<std::vector<std::vector<double> > > & coldensh_out,
     const double & sig,
@@ -97,7 +101,6 @@ void evolve0D(
     double nHI_p;                                      // Local density of neutral hydrogen in the cell
     double xh_av_p;                                    // Local ionization fraction of cell
     double phi_ion_p;                                  // Local photoionization rate of cell (to be computed)
-    std::vector<int> srcpos_p(3);
     stop_rad_transfer = false;
 
     // Map pos to mesh pos, assuming a periodic mesh
@@ -113,12 +116,12 @@ void evolve0D(
     pos[1] = modulo(rtpos[1],m1);
     pos[2] = modulo(rtpos[2],m1);
 
-    srcpos_p[0] = srcpos[0][ns];
-    srcpos_p[1] = srcpos[1][ns];
-    srcpos_p[2] = srcpos[2][ns];
+    //srcpos_p[0] = srcpos[0][ns];
+    //srcpos_p[1] = srcpos[1][ns];
+    //srcpos_p[2] = srcpos[2][ns];
 
     xh_av_p = xh_av[pos[0]][pos[1]][pos[2]];
-    nHI_p = ndens[pos[0]][pos[1]][pos[2]];
+    nHI_p = ndens[pos[0]][pos[1]][pos[2]] * (1.0 - xh_av_p);
 
     if (coldensh_out[pos[0]][pos[1]][pos[2]] == 0.0)
     {
@@ -150,7 +153,7 @@ void cinterp(const std::vector<int> & pos,const std::vector<int> & srcpos,
     int idel,jdel,kdel;
     int idela,jdela,kdela;
     int im,jm,km;
-    int ip,imp,jp,jmp,kp,kmp;
+    unsigned int ip,imp,jp,jmp,kp,kmp;
     int sgni,sgnj,sgnk;
     double alam,xc,yc,zc,dx,dy,dz,s1,s2,s3,s4;
     double c1,c2,c3,c4;
@@ -217,12 +220,19 @@ void cinterp(const std::vector<int> & pos,const std::vector<int> & srcpos,
         // jmp=(jm-1) % m1 + 1;
         // kmp=(km-1) % m1 + 1;
 
-        ip =(i)  % m1;
-        imp=(im) % m1;
-        jp =(j)  % m1;
-        jmp=(jm) % m1;
-        kmp=(km) % m1;
+        // ip =(i)  % m1;
+        // imp=(im) % m1;
+        // jp =(j)  % m1;
+        // jmp=(jm) % m1;
+        // kmp=(km) % m1;
 
+        ip  = modulo(i  ,m1);
+        imp = modulo(im ,m1);
+        jp  = modulo(j  ,m1);
+        jmp = modulo(jm ,m1);
+        kmp = modulo(km ,m1);
+        
+        // std::cout << ip << " " << imp << " " <<  jp << " " <<  jmp << " " <<  kmp << " " <<  std::endl;
         c1=     coldensh_out[imp][jmp][kmp];    //# column densities at the
         c2=     coldensh_out[ip][jmp][kmp];     //# four corners
         c3=     coldensh_out[imp][jp][kmp];
@@ -270,11 +280,18 @@ void cinterp(const std::vector<int> & pos,const std::vector<int> & srcpos,
         // kp=(k-1)   % m1 +1;
         // kmp=(km-1) % m1 +1;
 
-        ip=(i)   % m1;
-        imp=(im) % m1;
-        jmp=(jm) % m1;
-        kp=(k)   % m1;
-        kmp=(km) % m1;
+        // ip=(i)   % m1;
+        // imp=(im) % m1;
+        // jmp=(jm) % m1;
+        // kp=(k)   % m1;
+        // kmp=(km) % m1;
+
+        ip  = modulo(i,m1);
+        imp = modulo(im,m1);
+        jmp = modulo(jm,m1);
+        kp  = modulo(k,m1);
+        kmp = modulo(km,m1);
+    
 
         c1=  coldensh_out[imp][jmp][kmp];
         c2=  coldensh_out[ip][jmp][kmp];
@@ -321,11 +338,17 @@ void cinterp(const std::vector<int> & pos,const std::vector<int> & srcpos,
         // kp= (k-1)  % m1 +1;
         // kmp=(km-1) % m1 +1;
 
-        imp=(im) % m1;
-        jp= (j)  % m1;
-        jmp=(jm) % m1;
-        kp= (k)  % m1;
-        kmp=(km) % m1;
+        // imp=(im) % m1;
+        // jp= (j)  % m1;
+        // jmp=(jm) % m1;
+        // kp= (k)  % m1;
+        // kmp=(km) % m1;
+
+        imp=modulo(im ,m1);
+        jp= modulo(j  ,m1);
+        jmp=modulo(jm ,m1);
+        kp= modulo(k  ,m1);
+        kmp=modulo(km ,m1);
 
         c1=  coldensh_out[imp][jmp][kmp];
         c2=  coldensh_out[imp][jp][kmp];
