@@ -98,7 +98,7 @@ module raytracing
     !! intended use is as a reference for future parallelization on GPU. Using it as it is
     !! on the CPU will result in a factor ~2 performance decrease.
     ! ===============================================================================================
-    subroutine do_source_octa(srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
+    subroutine do_source_octa(srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   !> Number of sources
         integer,intent(in)      :: ns                                   !> source number 
@@ -113,8 +113,8 @@ module raytracing
         integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
-        integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
-        integer,dimension(3), intent(in) :: last_r                      !> mesh position of right end point for RT  
+        ! integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
+        ! integer,dimension(3), intent(in) :: last_r                      !> mesh position of right end point for RT  
         
         integer,dimension(3) :: rtpos
         integer :: r,k,j

@@ -10,6 +10,9 @@ __pycache__/
 *.gch
 *.o
 
+# Fortran Modules
+*.mod
+
 # Vscode
 **/.vscode
 
