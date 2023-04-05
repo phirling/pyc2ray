@@ -1,0 +1,2 @@
+- try to replace all calls to global arrays by float
+- try without call to cinterp to isolate error

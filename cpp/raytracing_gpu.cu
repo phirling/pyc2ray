@@ -11,7 +11,12 @@ inline __device__ int sign_gpu(const double & x) { if (x>=0) return 1; else retu
 inline __device__ int mem_offst(const int & i,const int & j,const int & k,const int & N)
 {   
     //return 1000;
-    return N*N*i + N*j + k;
+    int addr = N*N*i + N*j + k;
+    if (addr < 0 or addr >= N*N*N)
+    {
+	return 0;
+    }
+    else return addr;
 }
 
 __device__ inline double weightf_gpu(const double & cd, const double & sig)
