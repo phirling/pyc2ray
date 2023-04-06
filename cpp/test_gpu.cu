@@ -9,6 +9,29 @@ using time_point = std::chrono::time_point<clk>;
 
 int main()
 {   
+    int dev_id = 0;
+
+    cudaDeviceProp device_prop;
+    cudaGetDevice(&dev_id);
+    cudaGetDeviceProperties(&device_prop, dev_id);
+    if (device_prop.computeMode == cudaComputeModeProhibited) {
+        std::cerr << "Error: device is running in <Compute Mode Prohibited>, no "
+                    "threads can use ::cudaSetDevice()"
+                << std::endl;
+        return -1;
+    }
+
+    auto error = cudaGetLastError();
+    if (error != cudaSuccess) {
+        std::cout << "cudaGetDeviceProperties returned error code " << error
+                << ", line(" << __LINE__ << ")" << std::endl;
+        return error;
+    } else {
+        std::cout << "GPU Device " << dev_id << ": \"" << device_prop.name
+                << "\" with compute capability " << device_prop.major << "."
+                << device_prop.minor << std::endl;
+    }
+
     int N = 128;
     std::vector<std::vector<int>> srcpos(3,std::vector<int>(1));
     //std::vector<std::vector<std::vector<double> > > coldensh_out(N,std::vector<std::vector<double> >(N,std::vector<double>(N)));
