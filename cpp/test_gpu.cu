@@ -1,10 +1,15 @@
 #include <iostream>
 #include "raytracing_gpu.cuh"
 #include <vector>
+#include <chrono>
+
+using clk = std::chrono::high_resolution_clock;
+using second = std::chrono::duration<double>;
+using time_point = std::chrono::time_point<clk>;
 
 int main()
 {   
-    int N = 300;
+    int N = 128;
     std::vector<std::vector<int>> srcpos(3,std::vector<int>(1));
     //std::vector<std::vector<std::vector<double> > > coldensh_out(N,std::vector<std::vector<double> >(N,std::vector<double>(N)));
     std::vector<std::vector<std::vector<double> > > ndens(N,std::vector<std::vector<double> >(N,std::vector<double>(N,1.0)));
@@ -31,8 +36,11 @@ int main()
     // evolve0D(rtpos,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,N);
     // std::cout << coldensh_out[65][65][65] << std::endl;
     
+    auto t1 = clk::now();
     do_source_octa_gpu(srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,N);
+    second elapsed = clk::now() - t1;
 
+    std::cout << "Time for RT  = " << elapsed.count() << " [s]\n";
     double mean;
     //double* cdh = &coldensh_out[0][0][0]; //coldensh_out.data()->data()->data();
 

@@ -381,8 +381,8 @@ void do_source_octa_gpu(const std::vector<std::vector<int> > & srcpos,      // P
         cudaMalloc(&phi_ion_dev,meshsize);
 
         cudaMemcpy(coldensh_out_dev,coldensh_out,meshsize,cudaMemcpyHostToDevice);
-        cudaMemcpy(ndens_dev,ndens.data(),meshsize,cudaMemcpyHostToDevice);
-        cudaMemcpy(xh_av_dev,xh_av.data(),meshsize,cudaMemcpyHostToDevice);
+        // cudaMemcpy(ndens_dev,ndens.data(),meshsize,cudaMemcpyHostToDevice);
+        // cudaMemcpy(xh_av_dev,xh_av.data(),meshsize,cudaMemcpyHostToDevice);
         //cudaMemcpy(phi_ion_dev,phi_ion.data(),meshsize,cudaMemcpyHostToDevice);
         for (int r=1 ; r <= max_r; r++)
         {   
@@ -407,9 +407,9 @@ void do_source_octa_gpu(const std::vector<std::vector<int> > & srcpos,      // P
         }
 
         auto error = cudaMemcpy(coldensh_out,coldensh_out_dev,meshsize,cudaMemcpyDeviceToHost);
-            if(error != cudaSuccess) {
-                throw std::runtime_error("Error Launching Kernel: "
-                                        + std::string(cudaGetErrorName(error)) + " - "
-                                        + std::string(cudaGetErrorString(error)));
-            }
+        
+        cudaFree(&coldensh_out_dev);
+        cudaFree(&ndens_dev);
+        cudaFree(&xh_av_dev);
+        cudaFree(&phi_ion_dev);
     }
