@@ -1,7 +1,7 @@
 #include <cuda.h>
 #include <vector>
 
-inline __device__ int modulo_gpu(int a, int b);
+inline __device__ int modulo_gpu(const int & a,const int & b);
 
 inline __device__ int sign_gpu(const double & x);
 
@@ -26,12 +26,12 @@ __global__ void evolve0D_gpu(
     const int j0,
     const int k0,
     double* coldensh_out,
-    const double & sig,
-    const double & dr,
+    const double sig,
+    const double dr,
     const double* ndens,
     const double* xh_av,
     double* phi_ion,
-    const int & m1);
+    const int m1);
 
 void do_source_octa_gpu(const std::vector<std::vector<int> > & srcpos,      // Position of all sources
     const int & ns,                                                     // Source number

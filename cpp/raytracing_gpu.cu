@@ -4,19 +4,20 @@
 #include <string>
 #include <iostream>
 
-inline __device__ int modulo_gpu(int a, int b) { return (a%b+b)%b; }
+inline __device__ int modulo_gpu(const int & a,const int & b) { return (a%b+b)%b; }
 
 inline __device__ int sign_gpu(const double & x) { if (x>=0) return 1; else return -1;}
 
 inline __device__ int mem_offst(const int & i,const int & j,const int & k,const int & N)
 {   
+    return N*N*i + N*j + k;
     //return 1000;
-    int addr = N*N*i + N*j + k;
-    if (addr < 0 or addr >= N*N*N)
-    {
-	return 0;
-    }
-    else return addr;
+    //int addr = N*N*i + N*j + k;
+    //if (addr < 0 or addr >= N*N*N)
+    //{
+	//return 0;
+    //}
+    //else return addr;
 }
 
 __device__ inline double weightf_gpu(const double & cd, const double & sig)
@@ -277,12 +278,12 @@ __global__ void evolve0D_gpu(
     const int j0,
     const int k0,
     double* coldensh_out,
-    const double & sig,
-    const double & dr,
+    const double sig,
+    const double dr,
     const double* ndens,
     const double* xh_av,
     double* phi_ion,
-    const int & m1)
+    const int m1)
 {
     // integer :: nx,nd,idim                                         // loop counters (used in LLS)
     //std::vector<int> pos(3);                                     // RT position modulo periodicity
@@ -332,11 +333,15 @@ __global__ void evolve0D_gpu(
                 cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
                 path *= dr;
             }
-            // std::cout << coldensh_in << "    " << path << std::endl;
+            // std::cout << coldensh_in << "    " << path << std::endl
             coldensh_out[mem_offst(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
+            //printf("%i ",mem_offst(pos[0],pos[1],pos[2],m1));
+            //coldensh_out[mem_offst(pos[0],pos[1],pos[2],m1)] = coldensh_in;
+            //phi_ion[0] = 1.0;
+            //coldensh_out[mem_offst(1,1,1,m1)] = 26.0;
+            coldensh_out[878057] = 26.0;
         }
     }
-    
 }
 
 void do_source_octa_gpu(const std::vector<std::vector<int> > & srcpos,      // Position of all sources
@@ -393,5 +398,10 @@ void do_source_octa_gpu(const std::vector<std::vector<int> > & srcpos,      // P
             }
         }
 
-        cudaMemcpy(coldensh_out.data(),coldensh_out_dev,meshsize,cudaMemcpyDeviceToHost);
+        auto error = cudaMemcpy(coldensh_out.data(),coldensh_out_dev,meshsize,cudaMemcpyDeviceToHost);
+            if(error != cudaSuccess) {
+                throw std::runtime_error("Error Launching Kernel: "
+                                        + std::string(cudaGetErrorName(error)) + " - "
+                                        + std::string(cudaGetErrorString(error)));
+            }
     }

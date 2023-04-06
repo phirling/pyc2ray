@@ -34,7 +34,7 @@ int main()
     double* cdh = &coldensh_out[0][0][0]; //coldensh_out.data()->data()->data();
 
     //mean = gsl_stats_mean(cdh,1,N*N);
-    mean = coldensh_out[64][64][64];
+    mean = coldensh_out[65][65][65];
 
     //std::cout << coldensh_out[0][0][0] << " " << coldensh_out[1][1][1] << " " << coldensh_out[2][2][2] << " " << std::endl;
     std::cout << mean << std::endl;
