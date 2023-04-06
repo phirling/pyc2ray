@@ -131,12 +131,12 @@ void evolve0D(
         {
             coldensh_in = 0.0;
             path = 0.5*dr;
-            // std::cout << path << std::endl;
             vol_ph = dr*dr*dr / (4*M_PI);
         }
         else
         {
             cinterp(rtpos,srcpos_p,coldensh_in,path,coldensh_out,sig,m1);
+            std::cout << path << std::endl;
             path *= dr;
         }
         // std::cout << coldensh_in << "    " << path << std::endl;

@@ -8,16 +8,9 @@ inline __device__ int modulo_gpu(const int & a,const int & b) { return (a%b+b)%b
 
 inline __device__ int sign_gpu(const double & x) { if (x>=0) return 1; else return -1;}
 
-inline __device__ int mem_offst(const int & i,const int & j,const int & k,const int & N)
+inline __device__ int mem_offst_gpu(const int & i,const int & j,const int & k,const int & N)
 {   
     return N*N*i + N*j + k;
-    //return 1000;
-    //int addr = N*N*i + N*j + k;
-    //if (addr < 0 or addr >= N*N*N)
-    //{
-	//return 0;
-    //}
-    //else return addr;
 }
 
 __device__ inline double weightf_gpu(const double & cd, const double & sig)
@@ -42,7 +35,7 @@ __device__ void cinterp_gpu(
     double & cdensi,
     double & path,
     double* coldensh_out,
-    const double & sigma_HI_at_ion_freq,
+    const double sigma_HI_at_ion_freq,
     const int & m1)
 {
     int idel,jdel,kdel;
@@ -119,10 +112,10 @@ __device__ void cinterp_gpu(
         kmp = modulo_gpu(km ,m1);
         
         // std::cout << ip << " " << imp << " " <<  jp << " " <<  jmp << " " <<  kmp << " " <<  std::endl;
-        c1=     coldensh_out[mem_offst(imp,jmp,kmp,m1)]; //coldensh_out[imp][jmp][kmp];    //# column densities at the
-        c2=     coldensh_out[mem_offst(ip,jmp,kmp,m1)]; //coldensh_out[ip][jmp][kmp];     //# four corners
-        c3=     coldensh_out[mem_offst(imp,jp,kmp,m1)]; //coldensh_out[imp][jp][kmp];
-        c4=     coldensh_out[mem_offst(ip,jp,kmp,m1)]; //coldensh_out[ip][jp][kmp];
+        c1=     coldensh_out[mem_offst_gpu(imp,jmp,kmp,m1)]; //coldensh_out[imp][jmp][kmp];    //# column densities at the
+        c2=     coldensh_out[mem_offst_gpu(ip,jmp,kmp,m1)]; //coldensh_out[ip][jmp][kmp];     //# four corners
+        c3=     coldensh_out[mem_offst_gpu(imp,jp,kmp,m1)]; //coldensh_out[imp][jp][kmp];
+        c4=     coldensh_out[mem_offst_gpu(ip,jp,kmp,m1)]; //coldensh_out[ip][jp][kmp];
 
         // extra weights for better fit to analytical solution
         w1=   s1*weightf_gpu(c1,sigma_HI_at_ion_freq);
@@ -184,10 +177,10 @@ __device__ void cinterp_gpu(
         //c3=  coldensh_out[imp][jmp][kp];
         //c4=  coldensh_out[ip][jmp][kp];
 
-        c1=  coldensh_out[mem_offst(imp,jmp,kmp,m1)];
-        c2=  coldensh_out[mem_offst(ip,jmp,kmp,m1)];
-        c3=  coldensh_out[mem_offst(imp,jmp,kp,m1)];
-        c4=  coldensh_out[mem_offst(ip,jmp,kp,m1)];
+        c1=  coldensh_out[mem_offst_gpu(imp,jmp,kmp,m1)];
+        c2=  coldensh_out[mem_offst_gpu(ip,jmp,kmp,m1)];
+        c3=  coldensh_out[mem_offst_gpu(imp,jmp,kp,m1)];
+        c4=  coldensh_out[mem_offst_gpu(ip,jmp,kp,m1)];
 
         // extra weights for better fit to analytical solution
         w1=s1*weightf_gpu(c1,sigma_HI_at_ion_freq);
@@ -247,10 +240,10 @@ __device__ void cinterp_gpu(
         //c3=  coldensh_out[imp][jmp][kp];
         //c4=  coldensh_out[imp][jp][kp];
 
-        c1=  coldensh_out[mem_offst(imp,jmp,kmp,m1)];
-        c2=  coldensh_out[mem_offst(imp,jp,kmp,m1)];
-        c3=  coldensh_out[mem_offst(imp,jmp,kp,m1)];
-        c4=  coldensh_out[mem_offst(imp,jp,kp,m1)];
+        c1=  coldensh_out[mem_offst_gpu(imp,jmp,kmp,m1)];
+        c2=  coldensh_out[mem_offst_gpu(imp,jp,kmp,m1)];
+        c3=  coldensh_out[mem_offst_gpu(imp,jmp,kp,m1)];
+        c4=  coldensh_out[mem_offst_gpu(imp,jp,kp,m1)];
 
         // extra weights for better fit to analytical solution
         w1   =s1*weightf_gpu(c1,sigma_HI_at_ion_freq);
@@ -283,7 +276,10 @@ __global__ void evolve0D_gpu(
     const double* ndens,
     const double* xh_av,
     double* phi_ion,
-    const int m1)
+    const int m1,
+    const int d1,
+    const int d2,
+    const int d3)
 {
     // integer :: nx,nd,idim                                         // loop counters (used in LLS)
     //std::vector<int> pos(3);                                     // RT position modulo periodicity
@@ -300,11 +296,11 @@ __global__ void evolve0D_gpu(
     //stop_rad_transfer = false;
     int i,j,k;
 
-    k = k0 + (r-blockIdx.x);
-    i = i0 + (blockIdx.x - threadIdx.x);
-    j = j0 + (blockIdx.x - (blockIdx.x - threadIdx.x));
+    k = k0 + d1*(r-blockIdx.x);
+    i = i0 + d2*(blockIdx.x - threadIdx.x);
+    j = j0 + d3*(blockIdx.x - (blockIdx.x - threadIdx.x));
 
-    if (k <= r && j <= k)
+    if (blockIdx.x <= r && threadIdx.x <= blockIdx.x)
     {
         pos[0] = modulo_gpu(i,m1);
         pos[1] = modulo_gpu(j,m1);
@@ -314,10 +310,13 @@ __global__ void evolve0D_gpu(
         //srcpos_p[1] = srcpos[1][ns];
         //srcpos_p[2] = srcpos[2][ns];
 
-        xh_av_p = xh_av[mem_offst(pos[0],pos[1],pos[2],m1)];
-        nHI_p = ndens[mem_offst(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
+        xh_av_p = 1e-3;
+        nHI_p = (1.0 - xh_av_p);
 
-        if (coldensh_out[mem_offst(pos[0],pos[1],pos[2],m1)] == 0.0)
+        //xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
+        //nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
+
+        if (coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
         {
             if (i == i0 &&
                 j == j0 &&
@@ -331,22 +330,21 @@ __global__ void evolve0D_gpu(
             else
             {
                 cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
+                //printf("%f \n",path);
                 path *= dr;
             }
             // std::cout << coldensh_in << "    " << path << std::endl
-            coldensh_out[mem_offst(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
-            //printf("%i ",mem_offst(pos[0],pos[1],pos[2],m1));
-            //coldensh_out[mem_offst(pos[0],pos[1],pos[2],m1)] = coldensh_in;
+            coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
+            //printf("%i ",mem_offst_gpu(pos[0],pos[1],pos[2],m1));
+            //coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in;
             //phi_ion[0] = 1.0;
-            //coldensh_out[mem_offst(1,1,1,m1)] = 26.0;
-            coldensh_out[878057] = 26.0;
         }
     }
 }
 
 void do_source_octa_gpu(const std::vector<std::vector<int> > & srcpos,      // Position of all sources
     const int & ns,                                                     // Source number
-    std::vector<std::vector<std::vector<double> > > & coldensh_out,     // Outgoing column density
+    double* coldensh_out,     // Outgoing column density
     const double & sig,                                                 // Cross section
     const double & dr,                                                  // Cell size
     const std::vector<std::vector<std::vector<double> > > & ndens,      // Hydrogen number density
@@ -360,16 +358,18 @@ void do_source_octa_gpu(const std::vector<std::vector<int> > & srcpos,      // P
         int k0 = srcpos[2][ns];
 
         // Source position
-        std::vector<int> srcpos_p = {srcpos[0][ns], srcpos[1][ns], srcpos[2][ns]};
+        //std::vector<int> srcpos_p = {srcpos[0][ns], srcpos[1][ns], srcpos[2][ns]};
 
+        auto meshsize = m1*m1*m1*sizeof(double);
         // First, do the source cell
-        std::vector<int> rtpos = {srcpos_p[0],srcpos_p[1],srcpos_p[2]};
-        evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
+        //std::vector<int> rtpos = {srcpos_p[0],srcpos_p[1],srcpos_p[2]};
+        //evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
+        double path = 0.5*dr;
+        coldensh_out[mem_offst(i0,j0,k0,m1)] = ndens[i0][j0][k0] * path * (1.0 - xh_av[i0][j0][k0]); //TODO: change here
 
         // Sweep the grid by treating the faces of octahedra of increasing size.
         int max_r = std::ceil(1.5 * m1);
 
-        auto meshsize = m1*m1*m1*sizeof(double);
         double* coldensh_out_dev;
         double* ndens_dev;
         double* xh_av_dev;
@@ -380,15 +380,23 @@ void do_source_octa_gpu(const std::vector<std::vector<int> > & srcpos,      // P
         cudaMalloc(&xh_av_dev,meshsize);
         cudaMalloc(&phi_ion_dev,meshsize);
 
-        cudaMemcpy(coldensh_out_dev,coldensh_out.data(),meshsize,cudaMemcpyHostToDevice);
+        cudaMemcpy(coldensh_out_dev,coldensh_out,meshsize,cudaMemcpyHostToDevice);
         cudaMemcpy(ndens_dev,ndens.data(),meshsize,cudaMemcpyHostToDevice);
         cudaMemcpy(xh_av_dev,xh_av.data(),meshsize,cudaMemcpyHostToDevice);
         //cudaMemcpy(phi_ion_dev,phi_ion.data(),meshsize,cudaMemcpyHostToDevice);
-
         for (int r=1 ; r <= max_r; r++)
         {   
-            evolve0D_gpu<<<r,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,1,1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,-1,1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,1,-1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,-1,-1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,1,1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,-1,1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,1,-1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,-1,-1);
+
             cudaDeviceSynchronize();
+
             auto error = cudaGetLastError();
             if(error != cudaSuccess) {
                 std::cout << "error at r=" << r << std::endl;
@@ -398,7 +406,7 @@ void do_source_octa_gpu(const std::vector<std::vector<int> > & srcpos,      // P
             }
         }
 
-        auto error = cudaMemcpy(coldensh_out.data(),coldensh_out_dev,meshsize,cudaMemcpyDeviceToHost);
+        auto error = cudaMemcpy(coldensh_out,coldensh_out_dev,meshsize,cudaMemcpyDeviceToHost);
             if(error != cudaSuccess) {
                 throw std::runtime_error("Error Launching Kernel: "
                                         + std::string(cudaGetErrorName(error)) + " - "

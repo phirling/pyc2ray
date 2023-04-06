@@ -326,7 +326,7 @@ module raytracing
             else
                 ! For all other points call cinterp to find the column density
                 call cinterp(rtpos,srcpos(:,ns),coldensh_in,path,coldensh_out,sig,m1,m2,m3)
-
+                ! write(*,*) coldensh_in
                 path=path*dr ! (1)
 
                 ! Find the distance to the source

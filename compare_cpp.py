@@ -1,7 +1,7 @@
 import c2ray_core as c2r
 import numpy as np
 
-N = 128
+N = 300
 numsrc = 1                              # Number of sources
 srcpos = np.empty((3,numsrc),dtype='int')
 srcflux = np.empty(numsrc)
@@ -29,4 +29,4 @@ dr = 1.0
 c2r.raytracing.do_source_octa(srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion)
 
 #print(coldensh_out.mean())
-print(coldensh_out[70,70,70])
+print(coldensh_out[80,80,65])
