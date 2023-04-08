@@ -1,5 +1,6 @@
 #include <iostream>
 #include "raytracing_gpu.cuh"
+#include "raytracing.hh"
 #include <vector>
 #include <chrono>
 
@@ -32,7 +33,7 @@ int main()
                 << device_prop.minor << std::endl;
     }
 
-    int N = 128;
+    int N = 3;
     std::vector<std::vector<int>> srcpos(3,std::vector<int>(1));
     //std::vector<std::vector<std::vector<double> > > coldensh_out(N,std::vector<std::vector<double> >(N,std::vector<double>(N)));
     std::vector<std::vector<std::vector<double> > > ndens(N,std::vector<std::vector<double> >(N,std::vector<double>(N,1.0)));
@@ -42,9 +43,9 @@ int main()
     double* coldensh_out = (double*)calloc(N*N*N,sizeof(double));
     //double* coldensh_out = &(cdh[0][0][N]);
 
-    srcpos[0][0] = 64;
-    srcpos[1][0] = 64;
-    srcpos[2][0] = 64;
+    srcpos[0][0] = 1;
+    srcpos[1][0] = 1;
+    srcpos[2][0] = 1;
 
     int ns=0;
     int NumSrc = 1;
@@ -68,7 +69,7 @@ int main()
     //double* cdh = &coldensh_out[0][0][0]; //coldensh_out.data()->data()->data();
 
     //mean = gsl_stats_mean(cdh,1,N*N);
-    mean = coldensh_out[mem_offst(80,80,65,N)];
+    mean = coldensh_out[mem_offst(2,2,1,N)];
     //mean = coldensh_out[mem_offst(2,2,2,N)];
 
     //std::cout << coldensh_out[0][0][0] << " " << coldensh_out[1][1][1] << " " << coldensh_out[2][2][2] << " " << std::endl;

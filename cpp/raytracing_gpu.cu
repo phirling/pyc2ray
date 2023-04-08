@@ -18,13 +18,162 @@ __device__ inline double weightf_gpu(const double & cd, const double & sig)
     return 1.0/fmax(0.6,cd*sig);
 }
 
-// __device__ void cinterp_gpu(const std::vector<int> & pos,
-//     const std::vector<int> & srcpos,
-//     double & cdensi,
-//     double & path,
-//     std::vector<std::vector<std::vector<double> > > & coldensh_out,
-//     const double & sigma_HI_at_ion_freq,
-//     const int & m1)
+
+
+
+
+void do_source_octa_gpu(
+    const std::vector<std::vector<int> > & srcpos,      // Position of all sources
+    const int & ns,                                                     // Source number
+    double* coldensh_out,     // Outgoing column density
+    const double & sig,                                                 // Cross section
+    const double & dr,                                                  // Cell size
+    const std::vector<std::vector<std::vector<double> > > & ndens,      // Hydrogen number density
+    const std::vector<std::vector<std::vector<double> > > & xh_av,      // Time-average ionization fraction
+    std::vector<std::vector<std::vector<double> > > & phi_ion,          // Ionization Rates
+    const int & NumSrc,                                                 // Number of sources
+    const int & m1)                                                     // Mesh size
+    {   
+        int i0 = srcpos[0][ns];
+        int j0 = srcpos[1][ns];
+        int k0 = srcpos[2][ns];
+        // Source position
+        //std::vector<int> srcpos_p = {srcpos[0][ns], srcpos[1][ns], srcpos[2][ns]};
+
+        auto meshsize = m1*m1*m1*sizeof(double);
+        // First, do the source cell
+        //std::vector<int> rtpos = {srcpos_p[0],srcpos_p[1],srcpos_p[2]};
+        //evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
+        double path = 0.5*dr;
+        coldensh_out[mem_offst(i0,j0,k0,m1)] = ndens[i0][j0][k0] * path * (1.0 - xh_av[i0][j0][k0]); //TODO: change here
+
+        std::cout << coldensh_out[mem_offst(i0,j0,k0,m1)] << std::endl;
+        // Sweep the grid by treating the faces of octahedra of increasing size.
+        int max_r = std::ceil(1.5 * m1);
+
+        double* coldensh_out_dev;
+        double* ndens_dev;
+        double* xh_av_dev;
+        double* phi_ion_dev;
+
+        cudaMalloc(&coldensh_out_dev,meshsize);
+        cudaMalloc(&ndens_dev,meshsize);
+        cudaMalloc(&xh_av_dev,meshsize);
+        cudaMalloc(&phi_ion_dev,meshsize);
+
+        cudaMemcpy(coldensh_out_dev,coldensh_out,meshsize,cudaMemcpyHostToDevice);
+        // cudaMemcpy(ndens_dev,ndens.data(),meshsize,cudaMemcpyHostToDevice);
+        // cudaMemcpy(xh_av_dev,xh_av.data(),meshsize,cudaMemcpyHostToDevice);
+        //cudaMemcpy(phi_ion_dev,phi_ion.data(),meshsize,cudaMemcpyHostToDevice);
+        for (int r=1 ; r <= max_r; r++)
+        {   
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,1,1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,-1,1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,1,-1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,-1,-1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,1,1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,-1,1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,1,-1);
+            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,-1,-1);
+
+            cudaDeviceSynchronize();
+
+            auto error = cudaGetLastError();
+            if(error != cudaSuccess) {
+                std::cout << "error at r=" << r << std::endl;
+                throw std::runtime_error("Error Launching Kernel: "
+                                        + std::string(cudaGetErrorName(error)) + " - "
+                                        + std::string(cudaGetErrorString(error)));
+            }
+        }
+
+        auto error = cudaMemcpy(coldensh_out,coldensh_out_dev,meshsize,cudaMemcpyDeviceToHost);
+        
+        cudaFree(&coldensh_out_dev);
+        cudaFree(&ndens_dev);
+        cudaFree(&xh_av_dev);
+        cudaFree(&phi_ion_dev);
+    }
+
+__global__ void evolve0D_gpu(
+    const int r,
+    const int i0,
+    const int j0,
+    const int k0,
+    double* coldensh_out,
+    const double sig,
+    const double dr,
+    const double* ndens,
+    const double* xh_av,
+    double* phi_ion,
+    const int m1,
+    const int d1,
+    const int d2,
+    const int d3)
+{
+    // integer :: nx,nd,idim                                         // loop counters (used in LLS)
+    //std::vector<int> pos(3);                                     // RT position modulo periodicity
+    int pos[3];
+    //double xs,ys,zs;                                   // Distances between source and cell
+    //double dist2,
+    double path;
+    //double vol_ph;                          // Distance parameters
+    double coldensh_in;                                // Column density to the cell
+    // bool stop_rad_transfer;                                    // Flag to stop column density when above max column density
+    double nHI_p;                                      // Local density of neutral hydrogen in the cell
+    double xh_av_p;                                    // Local ionization fraction of cell
+    //double phi_ion_p;                                  // Local photoionization rate of cell (to be computed)
+    //stop_rad_transfer = false;
+    int i,j,k;
+
+    k = k0 + d1*(r-blockIdx.x);
+    i = i0 + d2*(blockIdx.x - threadIdx.x);
+    j = j0 + d3*(blockIdx.x - (blockIdx.x - threadIdx.x));
+
+    if (blockIdx.x <= r && threadIdx.x <= blockIdx.x)
+    {
+        pos[0] = modulo_gpu(i,m1);
+        pos[1] = modulo_gpu(j,m1);
+        pos[2] = modulo_gpu(k,m1);
+
+        //srcpos_p[0] = srcpos[0][ns];
+        //srcpos_p[1] = srcpos[1][ns];
+        //srcpos_p[2] = srcpos[2][ns];
+
+        xh_av_p = 1e-3;
+        nHI_p = (1.0 - xh_av_p);
+
+        //xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
+        //nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
+        //printf("%i %i %i \n",i,j,k);
+
+        if (coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
+        {
+            if (i == i0 &&
+                j == j0 &&
+                k == k0)
+            {
+                coldensh_in = 0.0;
+                path = 0.5*dr;
+                // std::cout << path << std::endl;
+                //vol_ph = dr*dr*dr / (4*M_PI);
+            }
+            else
+            {
+                cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
+                printf("%f \n",coldensh_in);
+                path *= dr;
+            }
+            // std::cout << coldensh_in << "    " << path << std::endl
+            coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
+            //printf("%i ",mem_offst_gpu(pos[0],pos[1],pos[2],m1));
+            //coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in;
+            //phi_ion[0] = 1.0;
+        }
+    }
+}
+
+
 __device__ void cinterp_gpu(
     const int i,
     const int j,
@@ -264,152 +413,3 @@ __device__ void cinterp_gpu(
         path=sqrt(1.0+(dj*dj+dk*dk)/(di*di));
     }
 }
-
-__global__ void evolve0D_gpu(
-    const int r,
-    const int i0,
-    const int j0,
-    const int k0,
-    double* coldensh_out,
-    const double sig,
-    const double dr,
-    const double* ndens,
-    const double* xh_av,
-    double* phi_ion,
-    const int m1,
-    const int d1,
-    const int d2,
-    const int d3)
-{
-    // integer :: nx,nd,idim                                         // loop counters (used in LLS)
-    //std::vector<int> pos(3);                                     // RT position modulo periodicity
-    int pos[3];
-    //double xs,ys,zs;                                   // Distances between source and cell
-    //double dist2,
-    double path;
-    //double vol_ph;                          // Distance parameters
-    double coldensh_in;                                // Column density to the cell
-    // bool stop_rad_transfer;                                    // Flag to stop column density when above max column density
-    double nHI_p;                                      // Local density of neutral hydrogen in the cell
-    double xh_av_p;                                    // Local ionization fraction of cell
-    //double phi_ion_p;                                  // Local photoionization rate of cell (to be computed)
-    //stop_rad_transfer = false;
-    int i,j,k;
-
-    k = k0 + d1*(r-blockIdx.x);
-    i = i0 + d2*(blockIdx.x - threadIdx.x);
-    j = j0 + d3*(blockIdx.x - (blockIdx.x - threadIdx.x));
-
-    if (blockIdx.x <= r && threadIdx.x <= blockIdx.x)
-    {
-        pos[0] = modulo_gpu(i,m1);
-        pos[1] = modulo_gpu(j,m1);
-        pos[2] = modulo_gpu(k,m1);
-
-        //srcpos_p[0] = srcpos[0][ns];
-        //srcpos_p[1] = srcpos[1][ns];
-        //srcpos_p[2] = srcpos[2][ns];
-
-        xh_av_p = 1e-3;
-        nHI_p = (1.0 - xh_av_p);
-
-        //xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
-        //nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
-
-        if (coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
-        {
-            if (i == i0 &&
-                j == j0 &&
-                k == k0)
-            {
-                coldensh_in = 0.0;
-                path = 0.5*dr;
-                // std::cout << path << std::endl;
-                //vol_ph = dr*dr*dr / (4*M_PI);
-            }
-            else
-            {
-                cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
-                //printf("%f \n",path);
-                path *= dr;
-            }
-            // std::cout << coldensh_in << "    " << path << std::endl
-            coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
-            //printf("%i ",mem_offst_gpu(pos[0],pos[1],pos[2],m1));
-            //coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in;
-            //phi_ion[0] = 1.0;
-        }
-    }
-}
-
-void do_source_octa_gpu(const std::vector<std::vector<int> > & srcpos,      // Position of all sources
-    const int & ns,                                                     // Source number
-    double* coldensh_out,     // Outgoing column density
-    const double & sig,                                                 // Cross section
-    const double & dr,                                                  // Cell size
-    const std::vector<std::vector<std::vector<double> > > & ndens,      // Hydrogen number density
-    const std::vector<std::vector<std::vector<double> > > & xh_av,      // Time-average ionization fraction
-    std::vector<std::vector<std::vector<double> > > & phi_ion,          // Ionization Rates
-    const int & NumSrc,                                                 // Number of sources
-    const int & m1)                                                     // Mesh size
-    {   
-        int i0 = srcpos[0][ns];
-        int j0 = srcpos[1][ns];
-        int k0 = srcpos[2][ns];
-
-        // Source position
-        //std::vector<int> srcpos_p = {srcpos[0][ns], srcpos[1][ns], srcpos[2][ns]};
-
-        auto meshsize = m1*m1*m1*sizeof(double);
-        // First, do the source cell
-        //std::vector<int> rtpos = {srcpos_p[0],srcpos_p[1],srcpos_p[2]};
-        //evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
-        double path = 0.5*dr;
-        coldensh_out[mem_offst(i0,j0,k0,m1)] = ndens[i0][j0][k0] * path * (1.0 - xh_av[i0][j0][k0]); //TODO: change here
-
-        // Sweep the grid by treating the faces of octahedra of increasing size.
-        int max_r = std::ceil(1.5 * m1);
-
-        double* coldensh_out_dev;
-        double* ndens_dev;
-        double* xh_av_dev;
-        double* phi_ion_dev;
-
-        cudaMalloc(&coldensh_out_dev,meshsize);
-        cudaMalloc(&ndens_dev,meshsize);
-        cudaMalloc(&xh_av_dev,meshsize);
-        cudaMalloc(&phi_ion_dev,meshsize);
-
-        cudaMemcpy(coldensh_out_dev,coldensh_out,meshsize,cudaMemcpyHostToDevice);
-        // cudaMemcpy(ndens_dev,ndens.data(),meshsize,cudaMemcpyHostToDevice);
-        // cudaMemcpy(xh_av_dev,xh_av.data(),meshsize,cudaMemcpyHostToDevice);
-        //cudaMemcpy(phi_ion_dev,phi_ion.data(),meshsize,cudaMemcpyHostToDevice);
-        for (int r=1 ; r <= max_r; r++)
-        {   
-            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,1,1);
-            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,-1,1);
-            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,1,-1);
-            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,-1,-1);
-            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,1,1);
-            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,-1,1);
-            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,1,-1);
-            evolve0D_gpu<<<r+1,r>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,-1,-1);
-
-            cudaDeviceSynchronize();
-
-            auto error = cudaGetLastError();
-            if(error != cudaSuccess) {
-                std::cout << "error at r=" << r << std::endl;
-                throw std::runtime_error("Error Launching Kernel: "
-                                        + std::string(cudaGetErrorName(error)) + " - "
-                                        + std::string(cudaGetErrorString(error)));
-            }
-        }
-
-        auto error = cudaMemcpy(coldensh_out,coldensh_out_dev,meshsize,cudaMemcpyDeviceToHost);
-        
-        cudaFree(&coldensh_out_dev);
-        cudaFree(&ndens_dev);
-        cudaFree(&xh_av_dev);
-        cudaFree(&phi_ion_dev);
-    }
