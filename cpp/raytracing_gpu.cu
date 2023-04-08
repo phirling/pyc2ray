@@ -23,20 +23,20 @@ __device__ inline double weightf_gpu(const double & cd, const double & sig)
 
 
 void do_source_octa_gpu(
-    const std::vector<std::vector<int> > & srcpos,      // Position of all sources
-    const int & ns,                                                     // Source number
-    double* coldensh_out,     // Outgoing column density
-    const double & sig,                                                 // Cross section
-    const double & dr,                                                  // Cell size
-    const std::vector<std::vector<std::vector<double> > > & ndens,      // Hydrogen number density
-    const std::vector<std::vector<std::vector<double> > > & xh_av,      // Time-average ionization fraction
-    std::vector<std::vector<std::vector<double> > > & phi_ion,          // Ionization Rates
-    const int & NumSrc,                                                 // Number of sources
-    const int & m1)                                                     // Mesh size
+    int* srcpos,
+    const int & ns,
+    double* coldensh_out,
+    const double & sig,
+    const double & dr,
+    double* ndens,
+    double* xh_av,
+    double* phi_ion,
+    const int & NumSrc,
+    const int & m1)
     {   
-        int i0 = srcpos[0][ns];
-        int j0 = srcpos[1][ns];
-        int k0 = srcpos[2][ns];
+        int i0 = srcpos[ns];            //srcpos[0][ns];
+        int j0 = srcpos[NumSrc + ns];   //srcpos[1][ns];
+        int k0 = srcpos[2*NumSrc + ns]; //srcpos[2][ns];
         // Source position
         //std::vector<int> srcpos_p = {srcpos[0][ns], srcpos[1][ns], srcpos[2][ns]};
 
@@ -45,9 +45,9 @@ void do_source_octa_gpu(
         //std::vector<int> rtpos = {srcpos_p[0],srcpos_p[1],srcpos_p[2]};
         //evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
         double path = 0.5*dr;
-        coldensh_out[mem_offst(i0,j0,k0,m1)] = ndens[i0][j0][k0] * path * (1.0 - xh_av[i0][j0][k0]); //TODO: change here
+        coldensh_out[mem_offst(i0,j0,k0,m1)] = ndens[mem_offst(i0,j0,k0,m1)] * path * (1.0 - xh_av[mem_offst(i0,j0,k0,m1)]); //TODO: change here
 
-        std::cout << coldensh_out[mem_offst(i0,j0,k0,m1)] << std::endl;
+        //std::cout << coldensh_out[mem_offst(i0,j0,k0,m1)] << std::endl;
         // Sweep the grid by treating the faces of octahedra of increasing size.
         int max_r = std::ceil(1.5 * m1);
 
@@ -145,7 +145,6 @@ __global__ void evolve0D_gpu(
 
         //xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
         //nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
-        //printf("%i %i %i \n",i,j,k);
 
         if (coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
         {
@@ -160,8 +159,9 @@ __global__ void evolve0D_gpu(
             }
             else
             {
+                //printf("%i %i %i %i %i %i %f %f %f %i\n",i,j,k,i0,j0,k0,coldensh_in,path,sig,m1);
                 cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
-                printf("%f \n",coldensh_in);
+                //printf("%f \n",path);
                 path *= dr;
             }
             // std::cout << coldensh_in << "    " << path << std::endl

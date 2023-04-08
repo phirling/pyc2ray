@@ -1,4 +1,4 @@
-#include <cuda.h>
+#include <cuda_runtime.h>
 #include <vector>
 
 inline __device__ int modulo_gpu(const int & a,const int & b);
@@ -37,13 +37,14 @@ __global__ void evolve0D_gpu(
     const int d2,
     const int d3);
 
-void do_source_octa_gpu(const std::vector<std::vector<int> > & srcpos,
+void do_source_octa_gpu(
+    int* srcpos,
     const int & ns,
     double* coldensh_out,
     const double & sig,
     const double & dr,
-    const std::vector<std::vector<std::vector<double> > > & ndens,
-    const std::vector<std::vector<std::vector<double> > > & xh_av,
-    std::vector<std::vector<std::vector<double> > > & phi_ion,
+    double* ndens,
+    double* xh_av,
+    double* phi_ion,
     const int & NumSrc,
     const int & m1);

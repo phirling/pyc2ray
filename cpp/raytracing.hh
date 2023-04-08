@@ -2,7 +2,7 @@
 
 inline int sign(const double & x) { if (x>=0) return 1; else return -1;}
 
-inline int modulo(int a, int b) { return (a%b+b)%b; }
+inline int modulo(const int & a,const int & b) { return (a%b+b)%b; }
 
 inline int mem_offst(const int & i,const int & j,const int & k,const int & N)
 {   

@@ -8,7 +8,7 @@ static const double minweight = 1.0/0.6;
 
 inline double weightf(const double & cd, const double & sig)
 {
-    return 1.0/std::max(0.6,cd*sig);
+    return 1.0/fmax(0.6,cd*sig);
 }
 
 
@@ -38,28 +38,64 @@ void do_source_octa(
         int i0 = srcpos[ns];            //srcpos[0][ns];
         int j0 = srcpos[NumSrc + ns];   //srcpos[1][ns];
         int k0 = srcpos[2*NumSrc + ns]; //srcpos[2][ns];
-        std::cout << i0 << j0 << k0 << std::endl;
         int i = i0;
         int j = j0;
         int k = k0;
 
         evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-
+        printf("%i %i %i",i0,j0,k0);
         std::cout << coldensh_out[mem_offst(i0,j0,k0,m1)] << std::endl;
         // Sweep the grid by treating the faces of octahedra of increasing size.
         int max_r = std::ceil(1.5 * m1);
         for (int r=1 ; r <= max_r; r++)
-        {
+        {   
+            //printf("r = %i \n",r);
             for (int s = 0; s <= r; s++)
             {   
-                //std::cout << "k=" << k << std::endl;
                 for (int t = 0; t <= s; t++)
                 {   
+                    //std::cout << i0 << j0 << k0 << std::endl;
                     k = k0 + (r-s);
                     i = i0 + (s-t);
                     j = j0 + (s-(s-t));
                     evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-                }
+
+                    k = k0 + (r-s);
+                    i = i0 - (s-t);
+                    j = j0 + (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 + (r-s);
+                    i = i0 + (s-t);
+                    j = j0 - (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 + (r-s);
+                    i = i0 - (s-t);
+                    j = j0 - (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+
+                    k = k0 - (r-s);
+                    i = i0 + (s-t);
+                    j = j0 + (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 - (r-s);
+                    i = i0 - (s-t);
+                    j = j0 + (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 - (r-s);
+                    i = i0 + (s-t);
+                    j = j0 - (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 - (r-s);
+                    i = i0 - (s-t);
+                    j = j0 - (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                }   
             }
         }
     }
@@ -106,7 +142,7 @@ void evolve0D(
 
     //xh_av_p = xh_av[mem_offst(pos[0],pos[1],pos[2],m1)];
     //nHI_p = ndens[mem_offst(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
-    //printf("%i %i %i \n",i,j,k);
+    
 
     if (coldensh_out[mem_offst(pos[0],pos[1],pos[2],m1)] == 0.0)
     {
@@ -121,8 +157,10 @@ void evolve0D(
         }
         else
         {
+            //printf("%i %i %i %i %i %i %f %f %f %i\n",i,j,k,i0,j0,k0,coldensh_in,path,sig,m1);
+            //printf("mod=%f \n",weightf(mem_offst(i,j,k,m1),sig));
             cinterp(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
-            printf("%f \n",coldensh_in);
+            //printf("%f \n",path);
             path *= dr;
         }
         // std::cout << coldensh_in << "    " << path << std::endl
@@ -161,9 +199,9 @@ void cinterp(
     idel=i-i0;
     jdel=j-j0;
     kdel=k-k0;
-    idela=abs(idel);
-    jdela=abs(jdel);
-    kdela=abs(kdel);
+    idela=std::abs(idel);
+    jdela=std::abs(jdel);
+    kdela=std::abs(kdel);
     
     // Find coordinates of points closer to source
     sgni=sign(idel);
@@ -193,8 +231,8 @@ void cinterp(
         xc=alam*di+double(i0); // x of crossing point on z-plane 
         yc=alam*dj+double(j0); // y of crossing point on z-plane
         
-        dx=2.0*abs(xc-(double(im)+0.5*sgni)); // distances from c-point to
-        dy=2.0*abs(yc-(double(jm)+0.5*sgnj)); // the corners.
+        dx=2.0*std::abs(xc-(double(im)+0.5*sgni)); // distances from c-point to
+        dy=2.0*std::abs(yc-(double(jm)+0.5*sgnj)); // the corners.
         
         s1=(1.-dx)*(1.-dy);    // interpolation weights of
         s2=(1.-dy)*dx;         // corner points to c-point
@@ -232,6 +270,7 @@ void cinterp(
         w4=   s4*weightf(c4,sigma_HI_at_ion_freq);
         
         // column density at the crossing point
+        //printf("%i %i %i \n",imp,jmp,kmp);
         cdensi   =(c1   *w1   +c2   *w2   +c3   *w3   +c4   *w4   )/(w1+w2+w3+w4);
         // Take care of diagonals
         // if (kdela == idela||kdela == jdela) then
@@ -254,8 +293,8 @@ void cinterp(
         alam=(double(jm-j0)+sgnj*0.5)/dj;
         zc=alam*dk+double(k0);
         xc=alam*di+double(i0);
-        dz=2.0*abs(zc-(double(km)+0.5*sgnk));
-        dx=2.0*abs(xc-(double(im)+0.5*sgni));
+        dz=2.0*std::abs(zc-(double(km)+0.5*sgnk));
+        dx=2.0*std::abs(xc-(double(im)+0.5*sgni));
         s1=(1.-dx)*(1.-dz);
         s2=(1.-dz)*dx;
         s3=(1.-dx)*dz;
@@ -318,8 +357,8 @@ void cinterp(
         alam=(double(im-i0)+sgni*0.5)/di;
         zc=alam*dk+double(k0);
         yc=alam*dj+double(j0);
-        dz=2.0*abs(zc-(double(km)+0.5*sgnk));
-        dy=2.0*abs(yc-(double(jm)+0.5*sgnj));
+        dz=2.0*std::abs(zc-(double(km)+0.5*sgnk));
+        dy=2.0*std::abs(yc-(double(jm)+0.5*sgnj));
         s1=(1.-dz)*(1.-dy);
         s2=(1.-dz)*dy;
         s3=(1.-dy)*dz;

@@ -30,3 +30,9 @@ c2r.raytracing.do_source_octa(srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,
 
 #print(coldensh_out.mean())
 print(coldensh_out[2,2,1])
+
+coldensh_out = np.zeros((N,N,N),order='F')
+c2r.raytracing.do_source(srcflux,srcpos,ns,np.ones(3),N*np.ones(3),coldensh_out,sig,dr,ndens,xh_av,phi_ion)
+
+
+print(coldensh_out[2,2,1])
