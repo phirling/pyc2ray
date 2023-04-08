@@ -311,7 +311,6 @@ module raytracing
         ! yet, so do it. Otherwise do nothing. (grid is set to 0 for every source)
         if (coldensh_out(pos(1),pos(2),pos(3)) == 0.0) then                      ! This will be added later on. For testing remove it
         ! if (.true.) then
-            write(*,*)  rtpos(1), rtpos(2), rtpos(3)
             ! Find the column density at the entrance point of the cell (short
             ! characteristics)
             if ( all( rtpos(:) == srcpos(:,ns) ) ) then

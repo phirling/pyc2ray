@@ -35,8 +35,10 @@ extern "C"
             return NULL;
         
         // Error checking
-        if (!PyArray_Check(srcpos) || !PyArray_ISINTEGER(srcpos))
-        {
+        if (!PyArray_Check(srcpos) || (PyArray_TYPE(srcpos) != NPY_INT32))
+        {   
+            printf("%i",PyArray_TYPE(coldensh_out));
+            printf("%i",NPY_INT32);
             PyErr_SetString(PyExc_TypeError,"Srcpos must be Array of type int");
             return NULL;
         }

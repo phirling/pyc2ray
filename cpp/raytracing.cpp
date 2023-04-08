@@ -137,11 +137,11 @@ void evolve0D(
     //srcpos_p[1] = srcpos[1][ns];
     //srcpos_p[2] = srcpos[2][ns];
 
-    xh_av_p = 1e-3;
-    nHI_p = (1.0 - xh_av_p);
+    //xh_av_p = 1e-3;
+    //nHI_p = (1.0 - xh_av_p);
 
-    //xh_av_p = xh_av[mem_offst(pos[0],pos[1],pos[2],m1)];
-    //nHI_p = ndens[mem_offst(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
+    xh_av_p = xh_av[mem_offst(pos[0],pos[1],pos[2],m1)];
+    nHI_p = ndens[mem_offst(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
     
 
     if (coldensh_out[mem_offst(pos[0],pos[1],pos[2],m1)] == 0.0)

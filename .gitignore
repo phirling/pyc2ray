@@ -13,9 +13,6 @@ __pycache__/
 # Fortran Modules
 *.mod
 
-# Vscode
-**/.vscode
-
 # Distribution / packaging
 .Python
 build/

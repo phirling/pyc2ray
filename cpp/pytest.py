@@ -25,5 +25,5 @@ print(f"Time (CPU): {t2-t1 : .3f} [s]")
 print(f"Time (GPU): {t4-t3 : .3f} [s]")
 
 cdhim = cdh.reshape((N,N,N),order='C')
-plt.imshow(cdhim[:,:,90])
+plt.imshow(cdhim[:,:,64])
 plt.show()
