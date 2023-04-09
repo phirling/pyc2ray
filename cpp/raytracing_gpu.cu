@@ -23,6 +23,9 @@ __device__ inline double weightf_gpu(const double & cd, const double & sig)
 
 unsigned long meshsizze;
 double* cdh_dev;
+double* n_dev;
+double* x_dev;
+double* phi_dev;
 
 
 void do_source_octa_gpu(
@@ -54,23 +57,23 @@ void do_source_octa_gpu(
         // Sweep the grid by treating the faces of octahedra of increasing size.
         int max_r = std::ceil(1.5 * m1);
 
-        double* coldensh_out_dev;
-        double* ndens_dev;
-        double* xh_av_dev;
-        double* phi_ion_dev;
+        // double* coldensh_out_dev;
+        // double* ndens_dev;
+        // double* xh_av_dev;
+        // double* phi_ion_dev;
 
-        cudaMalloc(&coldensh_out_dev,meshsize);
-        cudaMalloc(&ndens_dev,meshsize);
-        cudaMalloc(&xh_av_dev,meshsize);
-        cudaMalloc(&phi_ion_dev,meshsize);
+        // cudaMalloc(&coldensh_out_dev,meshsize);
+        // cudaMalloc(&ndens_dev,meshsize);
+        // cudaMalloc(&xh_av_dev,meshsize);
+        // cudaMalloc(&phi_ion_dev,meshsize);
 
-        thrust::device_ptr<double> cdh(coldensh_out_dev);
+        thrust::device_ptr<double> cdh(cdh_dev);
         thrust::fill(cdh,cdh + m1*m1*m1,0.0);
         thrust::fill(cdh + mem_offst(i0,j0,k0,m1), cdh + mem_offst(i0,j0,k0,m1) +1,src_cell_val);
 
         // cudaMemcpy(coldensh_out_dev,coldensh_out,meshsize,cudaMemcpyHostToDevice);
-        cudaMemcpy(ndens_dev,ndens,meshsize,cudaMemcpyHostToDevice);
-        cudaMemcpy(xh_av_dev,xh_av,meshsize,cudaMemcpyHostToDevice);
+        cudaMemcpy(n_dev,ndens,meshsize,cudaMemcpyHostToDevice);
+        cudaMemcpy(x_dev,xh_av,meshsize,cudaMemcpyHostToDevice);
         //cudaMemcpy(phi_ion_dev,phi_ion.data(),meshsize,cudaMemcpyHostToDevice);
         cudaStream_t stream[8];
         for (int a = 0; a < 8 ; a++)
@@ -79,14 +82,14 @@ void do_source_octa_gpu(
         }
         for (int r=1 ; r <= max_r; r++)
         {   
-            evolve0D_gpu<<<r+1,r+1,0,stream[0]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,1,1);
-            evolve0D_gpu<<<r+1,r+1,0,stream[1]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,-1,1);
-            evolve0D_gpu<<<r+1,r+1,0,stream[2]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,1,-1);
-            evolve0D_gpu<<<r+1,r+1,0,stream[3]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,-1,-1);
-            evolve0D_gpu<<<r+1,r+1,0,stream[4]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,1,1);
-            evolve0D_gpu<<<r+1,r+1,0,stream[5]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,-1,1);
-            evolve0D_gpu<<<r+1,r+1,0,stream[6]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,1,-1);
-            evolve0D_gpu<<<r+1,r+1,0,stream[7]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,-1,-1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[0]>>>(r,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,1,1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[1]>>>(r,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,-1,1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[2]>>>(r,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,1,-1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[3]>>>(r,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,-1,-1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[4]>>>(r,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,1,1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[5]>>>(r,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,-1,1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[6]>>>(r,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,1,-1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[7]>>>(r,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,-1,-1);
 
             cudaDeviceSynchronize();
 
@@ -104,12 +107,12 @@ void do_source_octa_gpu(
             cudaStreamDestroy(stream[a]);
         }
 
-        auto error = cudaMemcpy(coldensh_out,coldensh_out_dev,meshsize,cudaMemcpyDeviceToHost);
+        auto error = cudaMemcpy(coldensh_out,cdh_dev,meshsize,cudaMemcpyDeviceToHost);
         
-        cudaFree(&coldensh_out_dev);
-        cudaFree(&ndens_dev);
-        cudaFree(&xh_av_dev);
-        cudaFree(&phi_ion_dev);
+        // cudaFree(&coldensh_out_dev);
+        // cudaFree(&ndens_dev);
+        // cudaFree(&xh_av_dev);
+        // cudaFree(&phi_ion_dev);
     }
 
 __global__ void evolve0D_gpu(
@@ -457,4 +460,16 @@ void device_init(const int & N)
     }
 
     cudaMalloc(&cdh_dev,N*N*N*sizeof(double));
+    cudaMalloc(&n_dev,N*N*N*sizeof(double));
+    cudaMalloc(&x_dev,N*N*N*sizeof(double));
+    cudaMalloc(&phi_dev,N*N*N*sizeof(double));
+}
+
+void device_close()
+{   
+    printf("Freeing device pointers...\n");
+    cudaFree(&cdh_dev);
+    cudaFree(&n_dev);
+    cudaFree(&x_dev);
+    cudaFree(&phi_dev);
 }

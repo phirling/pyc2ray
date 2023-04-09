@@ -74,6 +74,7 @@ cdh2 = cdh2.reshape((N,N,N))
 max_cdh = coldensh_out_1.max()
 min_cdh = coldensh_out_1.min()
 
+RTC.device_close()
 # Display Results
 def residual(A,B):
     return A[:,:,zslice] / B[:,:,zslice] - 1

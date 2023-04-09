@@ -15,9 +15,14 @@ inline __device__ bool in_box_gpu(const int & i,const int & j,const int & k,cons
 
 void device_init(const int &);
 
+void device_close();
+
 //extern unsigned long meshsizze;
 
 extern double * cdh_dev;
+extern double * n_dev;
+extern double * x_dev;
+extern double * phi_dev;
 
 __device__ void cinterp_gpu(
     const int i,

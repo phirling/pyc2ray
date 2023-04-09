@@ -111,9 +111,17 @@ extern "C"
         return PyFloat_FromDouble(1.0);
     }
 
+    static PyObject *
+    rtc_device_close(PyObject *self, PyObject *args)
+    {
+        device_close();
+        return PyFloat_FromDouble(1.0);
+    }
+
     static PyMethodDef RTCMethods[] = {
         {"octa",  rtc_octa, METH_VARARGS,"Do OCTA raytracing (CPU)"},
         {"octa_gpu",  rtc_octa_gpu, METH_VARARGS,"Do OCTA raytracing (GPU)"},
+        {"device_close",  rtc_device_close, METH_VARARGS,"Free GPU memory"},
         {NULL, NULL, 0, NULL}        /* Sentinel */
     };
 
