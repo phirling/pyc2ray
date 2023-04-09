@@ -21,7 +21,8 @@ __device__ inline double weightf_gpu(const double & cd, const double & sig)
 }
 
 
-
+unsigned long meshsizze;
+double* cdh_dev;
 
 
 void do_source_octa_gpu(
@@ -71,16 +72,21 @@ void do_source_octa_gpu(
         cudaMemcpy(ndens_dev,ndens,meshsize,cudaMemcpyHostToDevice);
         cudaMemcpy(xh_av_dev,xh_av,meshsize,cudaMemcpyHostToDevice);
         //cudaMemcpy(phi_ion_dev,phi_ion.data(),meshsize,cudaMemcpyHostToDevice);
+        cudaStream_t stream[8];
+        for (int a = 0; a < 8 ; a++)
+        {
+            cudaStreamCreate(&stream[a]);
+        }
         for (int r=1 ; r <= max_r; r++)
         {   
-            evolve0D_gpu<<<r+1,r+1>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,1,1);
-            evolve0D_gpu<<<r+1,r+1>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,-1,1);
-            evolve0D_gpu<<<r+1,r+1>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,1,-1);
-            evolve0D_gpu<<<r+1,r+1>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,-1,-1);
-            evolve0D_gpu<<<r+1,r+1>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,1,1);
-            evolve0D_gpu<<<r+1,r+1>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,-1,1);
-            evolve0D_gpu<<<r+1,r+1>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,1,-1);
-            evolve0D_gpu<<<r+1,r+1>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,-1,-1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[0]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,1,1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[1]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,-1,1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[2]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,1,-1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[3]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,1,-1,-1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[4]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,1,1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[5]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,-1,1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[6]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,1,-1);
+            evolve0D_gpu<<<r+1,r+1,0,stream[7]>>>(r,i0,j0,k0,coldensh_out_dev,sig,dr,ndens_dev,xh_av_dev,phi_ion_dev,m1,-1,-1,-1);
 
             cudaDeviceSynchronize();
 
@@ -91,6 +97,11 @@ void do_source_octa_gpu(
                                         + std::string(cudaGetErrorName(error)) + " - "
                                         + std::string(cudaGetErrorString(error)));
             }
+        }
+
+        for (int a = 0; a < 8 ; a++)
+        {
+            cudaStreamDestroy(stream[a]);
         }
 
         auto error = cudaMemcpy(coldensh_out,coldensh_out_dev,meshsize,cudaMemcpyDeviceToHost);
@@ -117,64 +128,66 @@ __global__ void evolve0D_gpu(
     const int d2,
     const int d3)
 {
-    // integer :: nx,nd,idim                                         // loop counters (used in LLS)
-    //std::vector<int> pos(3);                                     // RT position modulo periodicity
-    int pos[3];
-    //double xs,ys,zs;                                   // Distances between source and cell
-    //double dist2,
-    double path;
-    //double vol_ph;                          // Distance parameters
-    double coldensh_in;                                // Column density to the cell
-    // bool stop_rad_transfer;                                    // Flag to stop column density when above max column density
-    double nHI_p;                                      // Local density of neutral hydrogen in the cell
-    double xh_av_p;                                    // Local ionization fraction of cell
-    //double phi_ion_p;                                  // Local photoionization rate of cell (to be computed)
-    //stop_rad_transfer = false;
-    int i,j,k;
-
-    k = k0 + d1*(r-blockIdx.x);
-    i = i0 + d2*(blockIdx.x - threadIdx.x);
-    j = j0 + d3*(blockIdx.x - (blockIdx.x - threadIdx.x));
-
     if (blockIdx.x <= r && threadIdx.x <= blockIdx.x)
-    {
-        pos[0] = modulo_gpu(i,m1);
-        pos[1] = modulo_gpu(j,m1);
-        pos[2] = modulo_gpu(k,m1);
+    {   
+        // integer :: nx,nd,idim                                         // loop counters (used in LLS)
+        //std::vector<int> pos(3);                                     // RT position modulo periodicity
+        int pos[3];
+        //double xs,ys,zs;                                   // Distances between source and cell
+        //double dist2,
+        double path;
+        //double vol_ph;                          // Distance parameters
+        double coldensh_in;                                // Column density to the cell
+        // bool stop_rad_transfer;                                    // Flag to stop column density when above max column density
+        double nHI_p;                                      // Local density of neutral hydrogen in the cell
+        double xh_av_p;                                    // Local ionization fraction of cell
+        //double phi_ion_p;                                  // Local photoionization rate of cell (to be computed)
+        //stop_rad_transfer = false;
 
-        //srcpos_p[0] = srcpos[0][ns];
-        //srcpos_p[1] = srcpos[1][ns];
-        //srcpos_p[2] = srcpos[2][ns];
+        int k = k0 + d1*(r-blockIdx.x);
+        int i = i0 + d2*(blockIdx.x - threadIdx.x);
+        int j = j0 + d3*(blockIdx.x - (blockIdx.x - threadIdx.x));
 
-        // xh_av_p = 1e-3;
-        // nHI_p = (1.0 - xh_av_p);
-
-        xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
-        nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
-
-        if (coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
+        if (in_box_gpu(i,j,k,m1))
         {
-            if (i == i0 &&
-                j == j0 &&
-                k == k0)
+            pos[0] = modulo_gpu(i,m1);
+            pos[1] = modulo_gpu(j,m1);
+            pos[2] = modulo_gpu(k,m1);
+
+            //srcpos_p[0] = srcpos[0][ns];
+            //srcpos_p[1] = srcpos[1][ns];
+            //srcpos_p[2] = srcpos[2][ns];
+
+            // xh_av_p = 1e-3;
+            // nHI_p = (1.0 - xh_av_p);
+
+            xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
+            nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
+
+            if (coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
             {
-                coldensh_in = 0.0;
-                path = 0.5*dr;
-                // std::cout << path << std::endl;
-                //vol_ph = dr*dr*dr / (4*M_PI);
+                if (i == i0 &&
+                    j == j0 &&
+                    k == k0)
+                {
+                    coldensh_in = 0.0;
+                    path = 0.5*dr;
+                    // std::cout << path << std::endl;
+                    //vol_ph = dr*dr*dr / (4*M_PI);
+                }
+                else
+                {
+                    //printf("%i %i %i %i %i %i %f %f %f %i\n",i,j,k,i0,j0,k0,coldensh_in,path,sig,m1);
+                    cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
+                    //printf("%f \n",path);
+                    path *= dr;
+                }
+                // std::cout << coldensh_in << "    " << path << std::endl
+                coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
+                //printf("%i ",mem_offst_gpu(pos[0],pos[1],pos[2],m1));
+                //coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in;
+                //phi_ion[0] = 1.0;
             }
-            else
-            {
-                //printf("%i %i %i %i %i %i %f %f %f %i\n",i,j,k,i0,j0,k0,coldensh_in,path,sig,m1);
-                cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
-                //printf("%f \n",path);
-                path *= dr;
-            }
-            // std::cout << coldensh_in << "    " << path << std::endl
-            coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
-            //printf("%i ",mem_offst_gpu(pos[0],pos[1],pos[2],m1));
-            //coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in;
-            //phi_ion[0] = 1.0;
         }
     }
 }
@@ -420,7 +433,7 @@ __device__ void cinterp_gpu(
     }
 }
 
-void device_init()
+void device_init(const int & N)
 {
     int dev_id = 0;
 
@@ -442,4 +455,6 @@ void device_init()
                 << "\" with compute capability " << device_prop.major << "."
                 << device_prop.minor << std::endl;
     }
+
+    cudaMalloc(&cdh_dev,N*N*N*sizeof(double));
 }

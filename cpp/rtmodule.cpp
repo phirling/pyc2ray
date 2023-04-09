@@ -131,7 +131,7 @@ extern "C"
     {   
         PyObject* module = PyModule_Create(&rtcmodule);
         import_array();
-        device_init();
+        device_init(300);
         return module;
     }
 }

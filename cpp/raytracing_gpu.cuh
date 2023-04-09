@@ -1,3 +1,4 @@
+#pragma once
 #include <cuda_runtime.h>
 #include <vector>
 
@@ -7,7 +8,16 @@ inline __device__ int sign_gpu(const double & x);
 
 inline __device__ int mem_offst_gpu(const int & i,const int & j,const int & k,const int & N);
 
-void device_init();
+inline __device__ bool in_box_gpu(const int & i,const int & j,const int & k,const int & N)
+{
+    return (i >= 0 && i < N) && (j >= 0 && j < N) && (k >= 0 && k < N);
+}
+
+void device_init(const int &);
+
+//extern unsigned long meshsizze;
+
+extern double * cdh_dev;
 
 __device__ void cinterp_gpu(
     const int i,

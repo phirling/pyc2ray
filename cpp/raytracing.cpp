@@ -56,43 +56,51 @@ void do_source_octa(
                     k = k0 + (r-s);
                     i = i0 + (s-t);
                     j = j0 + (s-(s-t));
-                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
                     k = k0 + (r-s);
                     i = i0 - (s-t);
                     j = j0 + (s-(s-t));
-                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
                     k = k0 + (r-s);
                     i = i0 + (s-t);
                     j = j0 - (s-(s-t));
-                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
                     k = k0 + (r-s);
                     i = i0 - (s-t);
                     j = j0 - (s-(s-t));
-                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
 
                     k = k0 - (r-s);
                     i = i0 + (s-t);
                     j = j0 + (s-(s-t));
-                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
                     k = k0 - (r-s);
                     i = i0 - (s-t);
                     j = j0 + (s-(s-t));
-                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
                     k = k0 - (r-s);
                     i = i0 + (s-t);
                     j = j0 - (s-(s-t));
-                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
                     k = k0 - (r-s);
                     i = i0 - (s-t);
                     j = j0 - (s-(s-t));
-                    evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
                 }   
             }
         }

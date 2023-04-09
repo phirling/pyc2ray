@@ -9,6 +9,11 @@ inline int mem_offst(const int & i,const int & j,const int & k,const int & N)
     return N*N*i + N*j + k;
 }
 
+inline bool in_box(const int & i,const int & j,const int & k,const int & N)
+{
+    return (i >= 0 && i < N) && (j >= 0 && j < N) && (k >= 0 && k < N);
+}
+
 void cinterp(
     const int i,
     const int j,
