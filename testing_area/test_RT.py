@@ -7,7 +7,7 @@ import RTC
 
 N = 300
 
-zslice = 64
+zslice = 150
 
 
 dt = 1.0 * u.Myr.to('s')                # Timestep
@@ -21,7 +21,7 @@ xhav = 1.2e-3                           # Initial ionization fraction
 numsrc = 1                              # Number of sources
 srcpos = np.empty((3,numsrc),dtype='int')
 srcflux = np.empty(numsrc)
-srcpos[:,0] = np.array([65,65,65])      # Position of source
+srcpos[:,0] = np.array([151,151,151])      # Position of source
 srcflux[0] = 5.0e48                     # Strength of source
 
 # /////////////////////////////////////////////////////////////////////////////////
@@ -52,7 +52,7 @@ t2 = time.time()
 # C++ version
 cdh1 = np.ravel(np.zeros((N,N,N),dtype='float64'))
 cdh2 = np.ravel(np.zeros((N,N,N),dtype='float64'))
-srcpos = np.ravel(np.array([[64],[64],[64]],dtype='int32'))
+srcpos = np.ravel(np.array([[150],[150],[150]],dtype='int32'))
 ndens = 1e-3*np.ravel(np.ones((N,N,N),dtype='float64') )
 phi_ion = np.ravel(np.zeros((N,N,N),dtype='float64') )
 xh_av = 1.2e-3 * np.ravel(np.ones((N,N,N),dtype='float64') )
@@ -77,6 +77,19 @@ min_cdh = coldensh_out_1.min()
 # Display Results
 def residual(A,B):
     return A[:,:,zslice] / B[:,:,zslice] - 1
+
+def score(A,B):
+    return np.sqrt(((A / B - 1)**2).sum())
+
+
+print("-- Timings --")
+print(f"Time (C2Ray):       {t2-t1:.3f}$ [s]")
+print(f"Time (OCTA):        {t4-t3:.3f}$ [s]")
+print(f"Time (OCTA GPU):    {t6-t4:.3f}$ [s]")
+print("\n-- Results --")
+print(f"Global error score (C2Ray):       {score(coldensh_out_1,coldensh_out_1):.3e}")
+print(f"Global error score (OCTA):        {score(cdh1,coldensh_out_1):.3e}")
+print(f"Global error score (OCTA GPU):    {score(cdh2,coldensh_out_1):.3e}")
 
 fig, ax = plt.subplots(2, 3,figsize=(12.5,8))
 
@@ -104,7 +117,7 @@ c5 = plt.colorbar(im5,ax=ax[0,2])
 
 ax[1,2].set_title("Residual",fontsize=12)
 resid3 = residual(cdh2, coldensh_out_1)
-im6 = ax[1,2].imshow(resid3,cmap='bwr',origin='lower')
+im6 = ax[1,2].imshow(resid3,cmap='bwr',origin='lower',vmin=-1,vmax=1)
 c6 = plt.colorbar(im6,ax=ax[1,2])
 
 fig.tight_layout()

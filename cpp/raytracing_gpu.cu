@@ -1,5 +1,7 @@
 #include "raytracing_gpu.cuh"
 #include "raytracing.hh"
+#include <thrust/fill.h>
+#include <thrust/device_ptr.h>
 #include <exception>
 #include <string>
 #include <iostream>
@@ -45,7 +47,7 @@ void do_source_octa_gpu(
         //std::vector<int> rtpos = {srcpos_p[0],srcpos_p[1],srcpos_p[2]};
         //evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
         double path = 0.5*dr;
-        coldensh_out[mem_offst(i0,j0,k0,m1)] = ndens[mem_offst(i0,j0,k0,m1)] * path * (1.0 - xh_av[mem_offst(i0,j0,k0,m1)]); //TODO: change here
+        double src_cell_val = ndens[mem_offst(i0,j0,k0,m1)] * path * (1.0 - xh_av[mem_offst(i0,j0,k0,m1)]);
 
         //std::cout << coldensh_out[mem_offst(i0,j0,k0,m1)] << std::endl;
         // Sweep the grid by treating the faces of octahedra of increasing size.
@@ -61,9 +63,13 @@ void do_source_octa_gpu(
         cudaMalloc(&xh_av_dev,meshsize);
         cudaMalloc(&phi_ion_dev,meshsize);
 
-        cudaMemcpy(coldensh_out_dev,coldensh_out,meshsize,cudaMemcpyHostToDevice);
-        // cudaMemcpy(ndens_dev,ndens.data(),meshsize,cudaMemcpyHostToDevice);
-        // cudaMemcpy(xh_av_dev,xh_av.data(),meshsize,cudaMemcpyHostToDevice);
+        thrust::device_ptr<double> cdh(coldensh_out_dev);
+        thrust::fill(cdh,cdh + m1*m1*m1,0.0);
+        thrust::fill(cdh + mem_offst(i0,j0,k0,m1), cdh + mem_offst(i0,j0,k0,m1) +1,src_cell_val);
+
+        // cudaMemcpy(coldensh_out_dev,coldensh_out,meshsize,cudaMemcpyHostToDevice);
+        cudaMemcpy(ndens_dev,ndens,meshsize,cudaMemcpyHostToDevice);
+        cudaMemcpy(xh_av_dev,xh_av,meshsize,cudaMemcpyHostToDevice);
         //cudaMemcpy(phi_ion_dev,phi_ion.data(),meshsize,cudaMemcpyHostToDevice);
         for (int r=1 ; r <= max_r; r++)
         {   
@@ -140,11 +146,11 @@ __global__ void evolve0D_gpu(
         //srcpos_p[1] = srcpos[1][ns];
         //srcpos_p[2] = srcpos[2][ns];
 
-        xh_av_p = 1e-3;
-        nHI_p = (1.0 - xh_av_p);
+        // xh_av_p = 1e-3;
+        // nHI_p = (1.0 - xh_av_p);
 
-        //xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
-        //nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
+        xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
+        nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
 
         if (coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
         {
@@ -411,5 +417,29 @@ __device__ void cinterp_gpu(
         }
         }
         path=sqrt(1.0+(dj*dj+dk*dk)/(di*di));
+    }
+}
+
+void device_init()
+{
+    int dev_id = 0;
+
+    cudaDeviceProp device_prop;
+    cudaGetDevice(&dev_id);
+    cudaGetDeviceProperties(&device_prop, dev_id);
+    if (device_prop.computeMode == cudaComputeModeProhibited) {
+        std::cerr << "Error: device is running in <Compute Mode Prohibited>, no "
+                    "threads can use ::cudaSetDevice()"
+                << std::endl;
+    }
+
+    auto error = cudaGetLastError();
+    if (error != cudaSuccess) {
+        std::cout << "cudaGetDeviceProperties returned error code " << error
+                << ", line(" << __LINE__ << ")" << std::endl;
+    } else {
+        std::cout << "GPU Device " << dev_id << ": \"" << device_prop.name
+                << "\" with compute capability " << device_prop.major << "."
+                << device_prop.minor << std::endl;
     }
 }

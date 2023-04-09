@@ -43,8 +43,6 @@ void do_source_octa(
         int k = k0;
 
         evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-        printf("%i %i %i",i0,j0,k0);
-        std::cout << coldensh_out[mem_offst(i0,j0,k0,m1)] << std::endl;
         // Sweep the grid by treating the faces of octahedra of increasing size.
         int max_r = std::ceil(1.5 * m1);
         for (int r=1 ; r <= max_r; r++)

@@ -7,6 +7,7 @@ inline __device__ int sign_gpu(const double & x);
 
 inline __device__ int mem_offst_gpu(const int & i,const int & j,const int & k,const int & N);
 
+void device_init();
 
 __device__ void cinterp_gpu(
     const int i,
