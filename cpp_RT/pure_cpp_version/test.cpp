@@ -35,7 +35,7 @@ int main()
     double dr = 1.0;
 
     
-    do_source_octa(srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,N);
+    do_source_octa(srcpos,ns,1.8*N,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,N);
 
     double mean;
 

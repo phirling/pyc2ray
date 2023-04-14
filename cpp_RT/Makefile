@@ -1,27 +1,22 @@
 CXX=g++
-LD=${CXX}
-CXXFLAGS+=-std=c++11 -O3 -pedantic #-Wall -Wextra -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-overflow=5 -Wswitch-default -Wundef -Werror -Wno-unused
-NVFLAGS+=-std=c++14 -O3 #-Wall -Wextra -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-overflow=5 -Wswitch-default -Wundef -Werror -Wno-unused
-LDFLAGS+= -L/usr/local/lib -lm $(CXXFLAGS) -lgsl -lcblas -v
+NVCC=nvcc
+# Include Paths for both local and piz daint
+INC=-I/usr/include/python3.10 -I/home/phirling/miniconda3/envs/astro/lib/python3.10/site-packages/numpy/core/include -I/usr/include/python3.6m -I/users/phirling/miniconda3/envs/ion/lib/python3.10/site-packages/numpy/core/include
+CXXFLAGS+=-std=c++14 -O2 -pedantic -fPIC #-Wall -Wextra -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-overflow=5 -Wswitch-default -Wundef -Werror -Wno-unused
+CUDAFLAGS+=-std=c++14 -O2  -Xcompiler -fPIC #-Wall -Wextra -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-overflow=5 -Wswitch-default -Wundef -Werror -Wno-unused
 
-all: test test_gpu
+all: RTC.so
 
-cpu: test
-
-gpu: test_gpu
-
-test: test.o raytracing.o
-	$(LD) $(LDFLAGS) -o test test.o raytracing.o
-test.o: test.cpp
-	$(CXX) $(CXXFLAGS) -c test.cpp
+RTC.so: raytracing.o raytracing_gpu.o rtmodule.o
+	$(NVCC) $(CUDAFLAGS) $(INC) -shared -o RTC.so raytracing.o raytracing_gpu.o rtmodule.o
 raytracing.o: raytracing.cpp
-	$(CXX) $(CXXFLAGS) -c raytracing.cpp raytracing.hh
+	$(CXX) $(CXXFLAGS) $(INC) -c raytracing.cpp
 
-test_gpu: test_gpu.o raytracing_gpu.o raytracing.o
-	nvcc $(NVFLAGS) test_gpu.o raytracing.o raytracing_gpu.o -o test_gpu 
-test_gpu.o: test_gpu.cu
-	nvcc $(NVFLAGS) -dc test_gpu.cu
 raytracing_gpu.o: raytracing_gpu.cu
-	nvcc $(NVFLAGS) -dc raytracing_gpu.cu
+	$(NVCC) $(CUDAFLAGS) $(INC) -dc raytracing_gpu.cu
+
+rtmodule.o: rtmodule.cpp
+	$(NVCC) $(CUDAFLAGS) $(INC) -c rtmodule.cpp
+
 clean:
-	rm -f test test_gpu *.o *~
+	rm *.so *.o

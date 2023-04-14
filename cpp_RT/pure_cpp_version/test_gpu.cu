@@ -70,7 +70,7 @@ int main()
     double mean;
     
     auto t1 = clk::now();
-    do_source_octa_gpu(srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,N);
+    do_source_octa_gpu(srcpos,ns,1.8*N,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,N);
     second elapsed = clk::now() - t1;
     std::cout << "Time for RT (GPU) = " << elapsed.count() << " [s]\n";
 
@@ -79,7 +79,7 @@ int main()
     
     std::fill(coldensh_out,coldensh_out + N*N*N,0.0);
     t1 = clk::now();
-    do_source_octa(srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,N);
+    do_source_octa(srcpos,ns,1.8*N,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,N);
     elapsed = clk::now() - t1;
     std::cout << "Time for RT (CPU) = " << elapsed.count() << " [s]\n";
 

@@ -10,11 +10,12 @@ import time
 """ /////////////////////////////// Main Setup //////////////////////////////////////// """
 
 # Test Parameters
-N = 300         # Grid Size
-srcx = 150      # Source x-position (x=y=z)
-rad = 149       # Radius of Raytracing
-zslice = 150    # z-coordinate of box to visualize
-numsrc = 1
+N       = 300       # Grid Size
+srcx    = 150       # Source x-position (x=y=z)
+rad     = 149       # Radius of Raytracing
+numsrc  = 1         # Number of sources
+zslice  = 150       # z-coordinate of box to visualize
+plot    = False     # Whether or not to plot results
 
 # Numerical/Physical Setup
 dt = 1.0 * u.Myr.to('s')                # Timestep
@@ -117,38 +118,39 @@ print(f"Global error score (OCTA GPU):    {score(cdh2,coldensh_out_f):.3e}")
 
 """ ///////////////////////////////// Visualization /////////////////////////////////// """
 
-fig, ax = plt.subplots(2, 3,figsize=(12.5,8))
+if plot:
+    fig, ax = plt.subplots(2, 3,figsize=(12.5,8))
 
-ax[0,0].set_title(f"Reference (C2Ray), $t = {t2-t1:.3f}$ s",fontsize=12)
-im1 = ax[0,0].imshow(coldensh_out_f[:,:,zslice],origin='lower') #,vmin=min_cdh,vmax=max_cdh)
-c1 = plt.colorbar(im1,ax=ax[0,0])
-ax[0,0].add_patch(Circle([srcx,srcx],rad,fill=0,ls='--',ec='white'))
+    ax[0,0].set_title(f"Reference (C2Ray), $t = {t2-t1:.3f}$ s",fontsize=12)
+    im1 = ax[0,0].imshow(coldensh_out_f[:,:,zslice],origin='lower') #,vmin=min_cdh,vmax=max_cdh)
+    c1 = plt.colorbar(im1,ax=ax[0,0])
+    ax[0,0].add_patch(Circle([srcx,srcx],rad,fill=0,ls='--',ec='white'))
 
-ax[1,0].set_title("Residual",fontsize=12)
-resid1 = residual(coldensh_out_f, coldensh_out_f)
-im3 = ax[1,0].imshow(resid1,cmap='bwr',origin='lower')
-c3 = plt.colorbar(im3,ax=ax[1,0])
+    ax[1,0].set_title("Residual",fontsize=12)
+    resid1 = residual(coldensh_out_f, coldensh_out_f)
+    im3 = ax[1,0].imshow(resid1,cmap='bwr',origin='lower')
+    c3 = plt.colorbar(im3,ax=ax[1,0])
 
-ax[0,1].set_title(f"OCTA, $t = {t4-t3:.3f}$ s",fontsize=12)
-im2 = ax[0,1].imshow(cdh1[:,:,zslice],origin='lower')
-c2 = plt.colorbar(im2,ax=ax[0,1])
-ax[0,1].add_patch(Circle([srcx,srcx],rad,fill=0,ls='--',ec='white'))
+    ax[0,1].set_title(f"OCTA, $t = {t4-t3:.3f}$ s",fontsize=12)
+    im2 = ax[0,1].imshow(cdh1[:,:,zslice],origin='lower')
+    c2 = plt.colorbar(im2,ax=ax[0,1])
+    ax[0,1].add_patch(Circle([srcx,srcx],rad,fill=0,ls='--',ec='white'))
 
-ax[1,1].set_title("Residual",fontsize=12)
-resid2 = residual(cdh1, coldensh_out_f)
-im4 = ax[1,1].imshow(resid2,cmap='bwr',origin='lower',vmin=-1,vmax=1)
-c4 = plt.colorbar(im4,ax=ax[1,1])
+    ax[1,1].set_title("Residual",fontsize=12)
+    resid2 = residual(cdh1, coldensh_out_f)
+    im4 = ax[1,1].imshow(resid2,cmap='bwr',origin='lower',vmin=-1,vmax=1)
+    c4 = plt.colorbar(im4,ax=ax[1,1])
 
-ax[0,2].set_title(f"OCTA GPU, $t = {t6-t5:.3f}$ s",fontsize=12)
-im5 = ax[0,2].imshow(cdh2[:,:,zslice],origin='lower')
-c5 = plt.colorbar(im5,ax=ax[0,2])
-ax[0,2].add_patch(Circle([srcx,srcx],rad,fill=0,ls='--',ec='white'))
+    ax[0,2].set_title(f"OCTA GPU, $t = {t6-t5:.3f}$ s",fontsize=12)
+    im5 = ax[0,2].imshow(cdh2[:,:,zslice],origin='lower')
+    c5 = plt.colorbar(im5,ax=ax[0,2])
+    ax[0,2].add_patch(Circle([srcx,srcx],rad,fill=0,ls='--',ec='white'))
 
-ax[1,2].set_title("Residual",fontsize=12)
-resid3 = residual(cdh2, coldensh_out_f)
-im6 = ax[1,2].imshow(resid3,cmap='bwr',origin='lower',vmin=-1,vmax=1)
-c6 = plt.colorbar(im6,ax=ax[1,2])
+    ax[1,2].set_title("Residual",fontsize=12)
+    resid3 = residual(cdh2, coldensh_out_f)
+    im6 = ax[1,2].imshow(resid3,cmap='bwr',origin='lower',vmin=-1,vmax=1)
+    c6 = plt.colorbar(im6,ax=ax[1,2])
 
-fig.tight_layout()
+    fig.tight_layout()
 
-plt.show()
+    plt.show()
