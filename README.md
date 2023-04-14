@@ -1,9 +1,5 @@
-### Requirements
-- Numpy
-- Matplotlib
-- Pickle
-- Astropy
-- gfortran compiler
-
-### How to use
-Run `compile_extensions.sh` to compile the Fortran subroutines using f2py. Then, to execute a simple test run using a grid of size 128 with a single source at the center, run `c2ray_test.py`. The final state of the box will be displayed and, by default, the ionization fractions of the grid are written to Pickle files every 10 timesteps. 
+## Directories Explanations
+* c2ray_wrapped: Core routines of the Fortran C2Ray code wrapped using `f2py` for Python. Includes raytracing, simple photoionization rate computation and chemsitry equation solver.
+* fortran_RT: Same as above but includes only the raytracing part for comparison with the *OCTA* version
+* cpp_RT: Raytracing implemented with the OCTA algorithm, written in C++ and C++ CUDA
+* testing_area: Scripts to compare the above two implementations

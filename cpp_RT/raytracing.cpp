@@ -45,7 +45,7 @@ void do_source_octa(
 
         evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
         // Sweep the grid by treating the faces of octahedra of increasing size.
-        int max_q =  std::ceil(sqrt3 * R); // std::ceil(1.5 * m1); //
+        int max_q =  std::floor(sqrt3 * R); // std::ceil(1.5 * m1); //
         for (int q=1 ; q <= max_q; q++)
         {   
             //printf("r = %i \n",r);
