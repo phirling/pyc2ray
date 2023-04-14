@@ -12,6 +12,7 @@ extern "C"
     {
         PyArrayObject * srcpos;
         int ns;
+        double R;
         PyArrayObject * coldensh_out;
         double sig;
         double dr;
@@ -21,9 +22,10 @@ extern "C"
         int NumSrc;
         int m1;
 
-        if (!PyArg_ParseTuple(args,"OiOddOOOii",
+        if (!PyArg_ParseTuple(args,"OidOddOOOii",
         &srcpos,
         &ns,
+        &R,
         &coldensh_out,
         &sig,
         &dr,
@@ -55,7 +57,7 @@ extern "C"
         double * phi_ion_data = (double*)PyArray_DATA(phi_ion);
         double * xh_av_data = (double*)PyArray_DATA(xh_av);
 
-        do_source_octa(srcpos_data,ns,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1);
+        do_source_octa(srcpos_data,ns,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1);
 
         return PyFloat_FromDouble(1.0);
     }
@@ -65,6 +67,7 @@ extern "C"
     {
         PyArrayObject * srcpos;
         int ns;
+        double R;
         PyArrayObject * coldensh_out;
         double sig;
         double dr;
@@ -74,9 +77,10 @@ extern "C"
         int NumSrc;
         int m1;
 
-        if (!PyArg_ParseTuple(args,"OiOddOOOii",
+        if (!PyArg_ParseTuple(args,"OidOddOOOii",
         &srcpos,
         &ns,
+        &R,
         &coldensh_out,
         &sig,
         &dr,
@@ -106,8 +110,18 @@ extern "C"
         double * phi_ion_data = (double*)PyArray_DATA(phi_ion);
         double * xh_av_data = (double*)PyArray_DATA(xh_av);
 
-        do_source_octa_gpu(srcpos_data,ns,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1);
+        do_source_octa_gpu(srcpos_data,ns,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1);
 
+        return PyFloat_FromDouble(1.0);
+    }
+
+    static PyObject *
+    rtc_device_init(PyObject *self, PyObject *args)
+    {
+        int N;
+        if (!PyArg_ParseTuple(args,"i",&N))
+            return NULL;
+        device_init(N);
         return PyFloat_FromDouble(1.0);
     }
 
@@ -121,6 +135,7 @@ extern "C"
     static PyMethodDef RTCMethods[] = {
         {"octa",  rtc_octa, METH_VARARGS,"Do OCTA raytracing (CPU)"},
         {"octa_gpu",  rtc_octa_gpu, METH_VARARGS,"Do OCTA raytracing (GPU)"},
+        {"device_init",  rtc_device_init, METH_VARARGS,"Free GPU memory"},
         {"device_close",  rtc_device_close, METH_VARARGS,"Free GPU memory"},
         {NULL, NULL, 0, NULL}        /* Sentinel */
     };
@@ -139,7 +154,6 @@ extern "C"
     {   
         PyObject* module = PyModule_Create(&rtcmodule);
         import_array();
-        device_init(300);
         return module;
     }
 }

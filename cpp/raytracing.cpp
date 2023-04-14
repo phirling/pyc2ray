@@ -25,6 +25,7 @@ inline double weightf(const double & cd, const double & sig)
 void do_source_octa(
     int* srcpos,      // Position of all sources
     const int & ns,                                                     // Source number
+    const double & R,
     double* coldensh_out,     // Outgoing column density
     const double & sig,                                                 // Cross section
     const double & dr,                                                  // Cell size
@@ -44,59 +45,59 @@ void do_source_octa(
 
         evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
         // Sweep the grid by treating the faces of octahedra of increasing size.
-        int max_r = std::ceil(1.5 * m1);
-        for (int r=1 ; r <= max_r; r++)
+        int max_q =  std::ceil(sqrt3 * R); // std::ceil(1.5 * m1); //
+        for (int q=1 ; q <= max_q; q++)
         {   
             //printf("r = %i \n",r);
-            for (int s = 0; s <= r; s++)
+            for (int s = 0; s <= q; s++)
             {   
                 for (int t = 0; t <= s; t++)
                 {   
                     //std::cout << i0 << j0 << k0 << std::endl;
-                    k = k0 + (r-s);
+                    k = k0 + (q-s);
                     i = i0 + (s-t);
                     j = j0 + (s-(s-t));
                     if (in_box(i,j,k,m1))
                         evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
-                    k = k0 + (r-s);
+                    k = k0 + (q-s);
                     i = i0 - (s-t);
                     j = j0 + (s-(s-t));
                     if (in_box(i,j,k,m1))
                         evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
-                    k = k0 + (r-s);
+                    k = k0 + (q-s);
                     i = i0 + (s-t);
                     j = j0 - (s-(s-t));
                     if (in_box(i,j,k,m1))
                         evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
-                    k = k0 + (r-s);
+                    k = k0 + (q-s);
                     i = i0 - (s-t);
                     j = j0 - (s-(s-t));
                     if (in_box(i,j,k,m1))
                         evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
 
-                    k = k0 - (r-s);
+                    k = k0 - (q-s);
                     i = i0 + (s-t);
                     j = j0 + (s-(s-t));
                     if (in_box(i,j,k,m1))
                         evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
-                    k = k0 - (r-s);
+                    k = k0 - (q-s);
                     i = i0 - (s-t);
                     j = j0 + (s-(s-t));
                     if (in_box(i,j,k,m1))
                         evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
-                    k = k0 - (r-s);
+                    k = k0 - (q-s);
                     i = i0 + (s-t);
                     j = j0 - (s-(s-t));
                     if (in_box(i,j,k,m1))
                         evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
-                    k = k0 - (r-s);
+                    k = k0 - (q-s);
                     i = i0 - (s-t);
                     j = j0 - (s-(s-t));
                     if (in_box(i,j,k,m1))

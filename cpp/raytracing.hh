@@ -46,6 +46,7 @@ void evolve0D(
 void do_source_octa(
     int* srcpos,
     const int & ns,
+    const double & R,
     double* coldensh_out,
     const double & sig,
     const double & dr,

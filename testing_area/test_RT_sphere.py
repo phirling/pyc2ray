@@ -1,6 +1,7 @@
 import c2ray as c2r
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 import astropy.units as u
 import time
 import RTC
@@ -8,8 +9,9 @@ import RTC
 N = 300
 zslice = 150
 srcx = 150
-RTC.device_init(N)
+rad = 150
 
+RTC.device_init(N)
 
 dt = 1.0 * u.Myr.to('s')                # Timestep
 boxsize = 14 * u.kpc.to('cm')           # Simulation box size
@@ -34,21 +36,30 @@ srcflux[0] = 5.0e48                     # Strength of source
 temp0 = 1e4
 sig = 6.30e-18
 
+
+# Create Mask for score
+iv = np.arange(-srcx,N-srcx)
+ii,jj,kk = np.meshgrid(iv,iv,iv)
+rr = np.sqrt(ii**2 + jj**2 + kk**2)
+in_sphere = rr < rad # <-- mask for all cells that are in the sphere to be tested
+
 # Initialize Arrays
 ndens_f = avgdens * np.ones((N,N,N),order='F')
 xh_f = xhav*np.ones((N,N,N),order='F')
 xh_f2 = xhav*np.ones((N,N,N),order='F')
 temp_f = temp0 * np.ones((N,N,N),order='F')
 
-last_l = np.ones(3)         # mesh position of left end point for RT
-last_r = N * np.ones(3)    # mesh position of right end point for RT
+last_l = srcx+1-rad*np.ones(3) #np.ones(3)         # mesh position of left end point for RT
+last_r = srcx+1+rad*np.ones(3) #N * np.ones(3)    # mesh position of right end point for RT
 
 phi_ion_f = np.zeros((N,N,N),order='F')
 coldensh_out_1 = np.zeros((N,N,N),order='F')
 
+print("Running c2ray...",end=" ")
 t1 = time.time()
 c2r.raytracing.do_source(srcflux,srcpos,1,last_l,last_r,coldensh_out_1,sig,dr,ndens_f,xh_f,phi_ion_f)
 t2 = time.time()
+print("done")
 
 # C++ version
 cdh1 = np.ravel(np.zeros((N,N,N),dtype='float64'))
@@ -59,35 +70,42 @@ phi_ion = np.ravel(np.zeros((N,N,N),dtype='float64') )
 xh_av = 1.2e-3 * np.ravel(np.ones((N,N,N),dtype='float64') )
 NumSrc = 1
 
+print("Running OCTA...",end=" ")
 t3 = time.time()
-RTC.octa(srcpos,0,srcx*3**(0.5),cdh1,sig,dxbox,ndens,xh_av,phi_ion,NumSrc,N)
+RTC.octa(srcpos,0,rad,cdh1,sig,dxbox,ndens,xh_av,phi_ion,NumSrc,N)
 t4 = time.time()
 cdh1 = cdh1.reshape((N,N,N))
+print("done")
 
 # CUDA version
+print("Running OCTA GPU...",end=" ")
 t5 = time.time()
-RTC.octa_gpu(srcpos,0,srcx*3**(0.5),cdh2,sig,dxbox,ndens,xh_av,phi_ion,NumSrc,N)
+RTC.octa_gpu(srcpos,0,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion,NumSrc,N)
 t6 = time.time()
+print("done")
 cdh2 = cdh2.reshape((N,N,N))
-
-#score = np.sqrt(((coldensh_out_2 / coldensh_out_1 - 1)**2).sum())
 
 max_cdh = coldensh_out_1.max()
 min_cdh = coldensh_out_1.min()
 
 RTC.device_close()
+
 # Display Results
 def residual(A,B):
-    return A[:,:,zslice] / B[:,:,zslice] - 1
+    A_m = np.where(in_sphere,A,1)
+    B_m = np.where(in_sphere,B,1)
+    return A_m[:,:,zslice] / B_m[:,:,zslice] - 1
 
 def score(A,B):
-    return np.sqrt(((A / B - 1)**2).sum())
+    A_m = np.where(in_sphere,A,1)
+    B_m = np.where(in_sphere,B,1)
+    return np.sqrt(((A_m / B_m - 1)**2).sum())
 
 
 print("-- Timings --")
 print(f"Time (C2Ray):       {t2-t1:.3f} [s]")
 print(f"Time (OCTA):        {t4-t3:.3f} [s]")
-print(f"Time (OCTA GPU):    {t6-t4:.3f} [s]")
+print(f"Time (OCTA GPU):    {t6-t5:.3f} [s]")
 print("\n-- Results --")
 print(f"Global error score (C2Ray):       {score(coldensh_out_1,coldensh_out_1):.3e}")
 print(f"Global error score (OCTA):        {score(cdh1,coldensh_out_1):.3e}")
@@ -98,6 +116,7 @@ fig, ax = plt.subplots(2, 3,figsize=(12.5,8))
 ax[0,0].set_title(f"Reference (C2Ray), $t = {t2-t1:.3f}$ s",fontsize=12)
 im1 = ax[0,0].imshow(coldensh_out_1[:,:,zslice],origin='lower') #,vmin=min_cdh,vmax=max_cdh)
 c1 = plt.colorbar(im1,ax=ax[0,0])
+ax[0,0].add_patch(Circle([srcx,srcx],rad,fill=0,ls='--',ec='white'))
 
 ax[1,0].set_title("Residual",fontsize=12)
 resid1 = residual(coldensh_out_1, coldensh_out_1)
@@ -107,6 +126,7 @@ c3 = plt.colorbar(im3,ax=ax[1,0])
 ax[0,1].set_title(f"OCTA, $t = {t4-t3:.3f}$ s",fontsize=12)
 im2 = ax[0,1].imshow(cdh1[:,:,zslice],origin='lower')
 c2 = plt.colorbar(im2,ax=ax[0,1])
+ax[0,1].add_patch(Circle([srcx,srcx],rad,fill=0,ls='--',ec='white'))
 
 ax[1,1].set_title("Residual",fontsize=12)
 resid2 = residual(cdh1, coldensh_out_1)

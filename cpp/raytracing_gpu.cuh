@@ -38,7 +38,7 @@ __device__ void cinterp_gpu(
     const int & m1);
 
 __global__ void evolve0D_gpu(
-    const int r,
+    const int q,
     const int i0,
     const int j0,
     const int k0,
@@ -56,6 +56,7 @@ __global__ void evolve0D_gpu(
 void do_source_octa_gpu(
     int* srcpos,
     const int & ns,
+    const double & R,
     double* coldensh_out,
     const double & sig,
     const double & dr,

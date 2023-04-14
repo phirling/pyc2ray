@@ -26,6 +26,10 @@
 ! Here, we'll simply use x, the ionized fraction, and compute y = 1-x whenever necessary
 !
 ! 29.3.23: Replaced cell size by float since we are always using cubic cells
+!
+!
+! THIS IS A SIMPLIFIED VERSION WITH ONLY COLUMN DENSITY CALCULATION, USED FOR COMPARISON
+! WITH "OCTA" METHOD
 ! ========================================================================================
 
 module raytracing
@@ -37,14 +41,13 @@ module raytracing
     !! Author: P. Hirling, 2023
 
     use, intrinsic :: iso_fortran_env, only: real64          ! This replaces the "dp" parameter in original c2ray (unpractical to use)
-    use photorates, only: photoion_rates_test                ! Separate module to compute photoionization rate from column density
-    use cudafor
     implicit none
 
     real(kind=real64), parameter :: pi = 3.14159265358979323846264338_real64    ! Double precision pi
     real(kind=real64), parameter :: epsilon=1e-14_real64                        ! Double precision very small number
 
     contains
+
     ! ===============================================================================================
     !! This subroutine computes the column density and ionization rate on the whole
     !! grid, for one source. The global rates of all sources are then added and applied
@@ -68,7 +71,6 @@ module raytracing
         integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
         integer,dimension(3), intent(in) :: last_r                      !> mesh position of right end point for RT        
 
-        integer :: istat
         ! TODO: add OpenMP parallelization at the Fortran level.
         ! This should work with f2py, see https://stackoverflow.com/questions/46505778/f2py-with-openmp-gives-import-error-in-python
 
@@ -99,7 +101,7 @@ module raytracing
     !! intended use is as a reference for future parallelization on GPU. Using it as it is
     !! on the CPU will result in a factor ~2 performance decrease.
     ! ===============================================================================================
-    subroutine do_source_octa(srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
+    subroutine do_source_octa(srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   !> Number of sources
         integer,intent(in)      :: ns                                   !> source number 
@@ -114,9 +116,9 @@ module raytracing
         integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
-        integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
-        integer,dimension(3), intent(in) :: last_r                      !> mesh position of right end point for RT  
-        
+        ! integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
+        ! integer,dimension(3), intent(in) :: last_r                      !> mesh position of right end point for RT  
+
         integer,dimension(3) :: rtpos
         integer :: r,k,j
         integer :: max_r
@@ -287,13 +289,11 @@ module raytracing
 
         ! integer :: nx,nd,idim                                         !> loop counters (used in LLS)
         integer,dimension(3) :: pos                                     !> RT position modulo periodicity
-        real(kind=real64) :: xs,ys,zs                                   !> Distances between source and cell
-        real(kind=real64) :: dist2,path,vol_ph                          !> Distance parameters
+        real(kind=real64) :: path                          !> Distance parameters
         real(kind=real64) :: coldensh_in                                !> Column density to the cell
         logical :: stop_rad_transfer                                    !> Flag to stop column density when above max column density
         real(kind=real64) :: nHI_p                                      !> Local density of neutral hydrogen in the cell
         real(kind=real64) :: xh_av_p                                    !> Local ionization fraction of cell
-        real(kind=real64) :: phi_ion_p                                  !> Local photoionization rate of cell (to be computed)
 
         ! Reset check on radiative transfer
         stop_rad_transfer=.false.
@@ -319,98 +319,13 @@ module raytracing
                 ! Set coldensh and path by hand
                 coldensh_in=0.0
                 path=0.5*dr !(1)
-                ! Find the distance to the source (average?)
-                !dist2=0.5*dr(1) !NOT NEEDED         ! this makes vol=dx*dy*dz
-                !vol_ph=4.0/3.0*pi*dist2**3
-                vol_ph = dr*dr*dr / (4*pi) !dr(1)*dr(2)*dr(3)
-                
             else
                 ! For all other points call cinterp to find the column density
                 call cinterp(rtpos,srcpos(:,ns),coldensh_in,path,coldensh_out,sig,m1,m2,m3)
-
                 path=path*dr ! (1)
-
-                ! Find the distance to the source
-                xs = dr*real(rtpos(1)-srcpos(1,ns)) ! dr(1)*real(rtpos(1)-srcpos(1,ns))
-                ys = dr*real(rtpos(2)-srcpos(2,ns)) ! dr(2)*real(rtpos(2)-srcpos(2,ns))
-                zs = dr*real(rtpos(3)-srcpos(3,ns)) ! dr(3)*real(rtpos(3)-srcpos(3,ns))
-                dist2=xs*xs+ys*ys+zs*zs
-
-                ! Find the volume of the shell this cell is part of 
-                ! (dilution factor).
-                ! vol_ph=4.0*pi*dist2*path
-                vol_ph = dist2 * path
-
-                ! Add LLS opacity TODO
-                ! Initialize local LLS (if type of LLS is appropriate)
-                ! --> if (use_LLS) then
-                ! -->     if (type_of_LLS == 3) then
-                ! -->         ! Set the flag for stopping radiative transfer if the
-                ! -->         ! distance is larger than the maximum distance set by
-                ! -->         ! the LLS model.
-                ! -->         if (dist2 > R_max_LLS*R_max_LLS) stop_rad_transfer=.true.
-                ! -->         else
-                ! -->         if (type_of_LLS == 2) call LLS_point (pos(1),pos(2),pos(3))
-                ! -->         coldensh_in = coldensh_in + coldensh_LLS * path/dr(1)
-                ! -->         endif
-                ! -->     endif          
-                ! --> endif
-
-                ! Set the flag for no further radiative transfer if the ingoing column
-                ! density is above the maximum allowed value
-                if (coldensh_in > max_coldensh) stop_rad_transfer=.true.
-
             endif
-
-            ! Add the (time averaged) column density of this cell
-            ! to the total column density (for this source)
-            ! and add the LLS column density to this.
-            ! GM/110224: No! This messes up phi since phi is based
-            !  upon the difference between the in and out column density.
-            !  Instead add the LLS to coldensh_in, see above
+            
             coldensh_out(pos(1),pos(2),pos(3))=coldensh_in + nHI_p * path
-            ! TODO: Calculate (photon-conserving) photo-ionization rate from the
-            ! column densities. This is eq. 17 of the paper, where the Gamma value is
-            ! calculated using precomputed tables
-
-            ! Limit the calculation to a certain maximum column density (hydrogen)
-            if (.not.stop_rad_transfer) then 
-                call photoion_rates_test(srcflux(NumSrc),coldensh_in,coldensh_out(pos(1),pos(2),pos(3)),vol_ph,nHI_p,sig,phi_ion_p)
-            ! -->     phi=photoion_rates(coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
-            ! -->         vol_ph,ns,ion%h_av(1))
-            ! -->     ! Divide the photo-ionization rates by the appropriate neutral density
-            ! -->     ! (part of the photon-conserving rate prescription)
-            ! -->     phi%photo_cell_HI=phi%photo_cell_HI/(ion%h_av(0)*ndens_p)
-            ! -->     
-            ! -->     ! Calculate the losses due to LLSs. TODO
-            ! -->     ! -->  if (use_LLS) call total_LLS_loss(phi%photo_in_HI*vol/vol_ph, &
-            ! -->     ! -->      coldensh_LLS * path/dr(1))
-            else
-                phi_ion_p = 0.0
-            ! If the H0 column density is above the maximum or the R_max
-            ! condition from the LLS model is triggered, set rates to zero
-            ! -->     phi%photo_cell_HI = 0.0_real64
-            ! -->     phi%photo_out_HI = 0.0_real64
-            ! -->     phi%heat = 0.0_real64
-            ! -->     phi%photo_in = 0.0_real64
-            ! -->     phi%photo_out = 0.0_real64
-            endif
-
-            ! Add photo-ionization rate to the global array 
-            ! (this array is applied in evolve0D_global)
-            phi_ion(pos(1),pos(2),pos(3)) = phi_ion(pos(1),pos(2),pos(3)) + phi_ion_p
-            ! --> phih_grid(pos(1),pos(2),pos(3))= &
-            ! -->     phih_grid(pos(1),pos(2),pos(3))+phi%photo_cell_HI
-            ! --> if (.not. isothermal) &
-            ! -->     phiheat(pos(1),pos(2),pos(3))=phiheat(pos(1),pos(2),pos(3))+phi%heat
-            ! --> ! Photon statistics: register number of photons leaving the grid
-            ! --> ! Note: This is only the H0 photo-ionization rate
-            ! --> if ( (any(rtpos(:) == last_l(:))) .or. &
-            ! -->     (any(rtpos(:) == last_r(:))) ) then
-            ! -->     photon_loss_src_thread(tn)=photon_loss_src_thread(tn) + &
-            ! -->         phi%photo_out*vol/vol_ph
-            ! -->     !photon_loss_src(1,tn)=photon_loss_src(1,tn) + phi%h_out*vol/vol_ph
-            ! --> endif
         endif
         
     end subroutine evolve0D
@@ -529,6 +444,9 @@ module raytracing
                 jp =modulo(j-1, m2)+1
                 jmp=modulo(jm-1,m2)+1
                 kmp=modulo(km-1,m3)+1
+
+                ! write(*,*) ip,imp,jp,jmp,kmp
+
                 c1=     coldensh_out(imp,jmp,kmp)    !# column densities at the
                 c2=     coldensh_out(ip,jmp,kmp)     !# four corners
                 c3=     coldensh_out(imp,jp,kmp)
