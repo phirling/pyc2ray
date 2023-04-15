@@ -322,6 +322,7 @@ __global__ void do_rates(
     double* coldensh_in,
     double* path,
     double* ndens,
+    double* phi_ion,
     const double sig,
     const double dr,
     const int m1
@@ -357,7 +358,7 @@ __global__ void do_rates(
 
         cdh_out = cdh_in + path[mem_offst_gpu(pos[0],pos[1],pos[2],m1)]*nHI;
         phi = photoion_rate_test_gpu(strength,cdh_in,cdh_out,vol_ph,nHI,sig);
-        phi_dev[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
+        phi_ion[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
 
     } 
 }
