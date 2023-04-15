@@ -312,7 +312,7 @@ __global__ void evolve0D_gpu(
     }
 }
 
-// WIP: compute rates in a separate step ?
+// WIP: compute rates in a separate step ? This would require having a path and coldensh_in grid (replace cdh_out by path)
 __global__ void do_rates(
     const int rad,
     const int i0,
@@ -320,10 +320,11 @@ __global__ void do_rates(
     const int k0,
     const double strength,
     double* coldensh_in,
-    double* coldensh_out,
+    double* path,
     double* ndens,
     const double sig,
-    const double dr
+    const double dr,
+    const int m1
 )
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -333,6 +334,14 @@ __global__ void do_rates(
     if (abs(i) + abs(j) + abs(k) <= rad)
     {
         double vol_ph;
+        int pos[3];
+        pos[0] = modulo_gpu(i,m1);
+        pos[1] = modulo_gpu(j,m1);
+        pos[2] = modulo_gpu(k,m1);
+        double cdh_in = coldensh_in[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
+        double nHI = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
+        double cdh_out;
+        double phi;
         if (i == i0 && j == j0 && k == k0)
         {
             vol_ph = dr*dr*dr / (4*M_PI);
@@ -343,11 +352,14 @@ __global__ void do_rates(
             double ys = dr*(j-j0);
             double zs = dr*(k-k0);
             double dist2=xs*xs+ys*ys+zs*zs;
-            // vol_ph = dist2 * path;
+            vol_ph = dist2 * path[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
         }
-        
 
-    }
+        cdh_out = cdh_in + path[mem_offst_gpu(pos[0],pos[1],pos[2],m1)]*nHI;
+        phi = photoion_rate_test_gpu(strength,cdh_in,cdh_out,vol_ph,nHI,sig);
+        phi_dev[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
+
+    } 
 }
 
 __device__ void cinterp_gpu(
