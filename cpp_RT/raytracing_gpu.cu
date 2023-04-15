@@ -83,7 +83,7 @@ void do_source_octa_gpu(
         // cudaMemcpy(coldensh_out_dev,coldensh_out,meshsize,cudaMemcpyHostToDevice);
         cudaMemcpy(n_dev,ndens,meshsize,cudaMemcpyHostToDevice);
         cudaMemcpy(x_dev,xh_av,meshsize,cudaMemcpyHostToDevice);
-        cudaMemcpy(phi_dev,phi_ion,meshsize,cudaMemcpyHostToDevice);
+        //cudaMemcpy(phi_dev,phi_ion,meshsize,cudaMemcpyHostToDevice);
         cudaStream_t stream[8];
         for (int a = 0; a < 8 ; a++)
         {
@@ -130,7 +130,7 @@ __global__ void evolve0D_gpu(
     const int i0,
     const int j0,
     const int k0,
-    const double & strength,
+    const double strength,
     double* coldensh_out,
     const double sig,
     const double dr,
@@ -214,7 +214,7 @@ __global__ void evolve0D_gpu(
                 if (coldensh_in <= MAX_COLDENSH)
                 {
                     double phi = photoion_rate_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,nHI_p,sig);
-                    phi_dev[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += 1.0; //phi;
+                    phi_dev[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
                 }
                 #endif
             }
@@ -516,8 +516,8 @@ __device__ double photoion_rate_test_gpu(const double & strength,const double & 
 
     // If cell is optically thick
     if (fabs(tau_out - tau_in) > TAU_PHOTO_LIMIT)
-        return strength * INV4PI / (Vfact * nHI) * (std::exp(-tau_in) - std::exp(-tau_out));
+        return strength * INV4PI / (Vfact * nHI) * (exp(-tau_in) - exp(-tau_out));
     // If cell is optically thin
     else
-        return strength * INV4PI * sig * (tau_out - tau_in) / (Vfact) * std::exp(-tau_in);
+        return strength * INV4PI * sig * (tau_out - tau_in) / (Vfact) * exp(-tau_in);
 }

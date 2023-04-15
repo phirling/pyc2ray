@@ -93,7 +93,7 @@ cdh1 = cdh1.reshape((N,N,N)) # Convert flatened array to 3D
 
 print("Running OCTA GPU...")
 t5 = time.time()
-RTC.octa_gpu(srcpos,0,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion,numsrc,N)
+RTC.octa_gpu(srcpos,srcflux,0,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion,numsrc,N)
 t6 = time.time()
 cdh2 = cdh2.reshape((N,N,N)) # Convert flatened array to 3D
 

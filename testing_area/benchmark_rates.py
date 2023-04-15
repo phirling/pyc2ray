@@ -14,7 +14,7 @@ N       = 128       # Grid Size
 srcx    = 64       # Source x-position (x=y=z)
 rad     = 64       # Radius of Raytracing
 numsrc  = 1         # Number of sources
-zslice  = 70       # z-coordinate of box to visualize
+zslice  = 64       # z-coordinate of box to visualize
 plot    = True     # Whether or not to plot results
 
 # Numerical/Physical Setup

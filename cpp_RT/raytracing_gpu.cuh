@@ -45,7 +45,7 @@ __global__ void evolve0D_gpu(
     const int i0,
     const int j0,
     const int k0,
-    const double & strength,
+    const double strength,
     double* coldensh_out,
     const double sig,
     const double dr,
