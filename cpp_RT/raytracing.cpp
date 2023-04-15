@@ -5,25 +5,156 @@
 static const double sqrt2 = std::sqrt(2.0);
 static const double sqrt3 = std::sqrt(3.0);
 static const double minweight = 1.0/0.6;
+static const double inv4pi = 0.079577471545947672804111050482;
+static const double tau_photo_limit = 1.0e-7;
+static const double max_coldensh = 2e30;
 
-inline double weightf(const double & cd, const double & sig)
-{
-    return 1.0/fmax(0.6,cd*sig);
+inline double weightf(const double & cd, const double & sig) {return 1.0/fmax(0.6,cd*sig);}
+
+void all_sources_octa(
+    int* srcpos,      // Position of all sources
+    double* srcstrength,                                                     // Source number
+    const double & R,
+    double* coldensh_out,     // Outgoing column density
+    const double & sig,                                                 // Cross section
+    const double & dr,                                                  // Cell size
+    double* ndens,      // Hydrogen number density
+    double* xh_av,      // Time-average ionization fraction
+    double* phi_ion,          // Ionization Rates
+    const int & NumSrc,                                                 // Number of sources
+    const int & m1)                                                     // Mesh size
+{   
+    // TODO: do this with a separate method like "pass all sources"
+    for (int nss=0; nss < NumSrc; nss++)
+    {   
+        std::cout << "Doing source " << nss+1 << std::endl;
+        std::fill(coldensh_out,coldensh_out+m1*m1*m1,0.0);
+        // First, do the source cell
+        int i0 = srcpos[nss];            //srcpos[0][ns];
+        int j0 = srcpos[NumSrc + nss];   //srcpos[1][ns];
+        int k0 = srcpos[2*NumSrc + nss]; //srcpos[2][ns];
+        int i = i0;
+        int j = j0;
+        int k = k0;
+        double strength = srcstrength[nss];
+
+        evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+        // Sweep the grid by treating the faces of octahedra of increasing size.
+        int max_q =  std::floor(sqrt3 * R); // std::ceil(1.5 * m1); //
+        for (int q=1 ; q <= max_q; q++)
+        {   
+            //printf("r = %i \n",r);
+            for (int s = 0; s <= q; s++)
+            {   
+                for (int t = 0; t <= s; t++)
+                {   
+                    // Depending on whether compiled as periodic, check if point in box before each cell
+
+                    // ======================= Periodic Case =============================
+                    #if defined(PERIODIC)
+
+                    k = k0 + (q-s);
+                    i = i0 + (s-t);
+                    j = j0 + (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 + (q-s);
+                    i = i0 - (s-t);
+                    j = j0 + (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 + (q-s);
+                    i = i0 + (s-t);
+                    j = j0 - (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 + (q-s);
+                    i = i0 - (s-t);
+                    j = j0 - (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 - (q-s);
+                    i = i0 + (s-t);
+                    j = j0 + (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 - (q-s);
+                    i = i0 - (s-t);
+                    j = j0 + (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 - (q-s);
+                    i = i0 + (s-t);
+                    j = j0 - (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 - (q-s);
+                    i = i0 - (s-t);
+                    j = j0 - (s-(s-t));
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                    
+                    // ======================= Nonperiodic Case =============================
+                    #else
+
+                    k = k0 + (q-s);
+                    i = i0 + (s-t);
+                    j = j0 + (s-(s-t));
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 + (q-s);
+                    i = i0 - (s-t);
+                    j = j0 + (s-(s-t));
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 + (q-s);
+                    i = i0 + (s-t);
+                    j = j0 - (s-(s-t));
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 + (q-s);
+                    i = i0 - (s-t);
+                    j = j0 - (s-(s-t));
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 - (q-s);
+                    i = i0 + (s-t);
+                    j = j0 + (s-(s-t));
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 - (q-s);
+                    i = i0 - (s-t);
+                    j = j0 + (s-(s-t));
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 - (q-s);
+                    i = i0 + (s-t);
+                    j = j0 - (s-(s-t));
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                    k = k0 - (q-s);
+                    i = i0 - (s-t);
+                    j = j0 - (s-(s-t));
+                    if (in_box(i,j,k,m1))
+                        evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+
+                    #endif
+                }   
+            }
+        }
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
 
 void do_source_octa(
     int* srcpos,      // Position of all sources
+    double* srcstrength,
     const int & ns,                                                     // Source number
     const double & R,
     double* coldensh_out,     // Outgoing column density
@@ -34,78 +165,130 @@ void do_source_octa(
     double* phi_ion,          // Ionization Rates
     const int & NumSrc,                                                 // Number of sources
     const int & m1)                                                     // Mesh size
+{   
+    std::fill(coldensh_out,coldensh_out+m1*m1*m1,0.0);
+    // First, do the source cell
+    int i0 = srcpos[ns];            //srcpos[0][ns];
+    int j0 = srcpos[NumSrc + ns];   //srcpos[1][ns];
+    int k0 = srcpos[2*NumSrc + ns]; //srcpos[2][ns];
+    int i = i0;
+    int j = j0;
+    int k = k0;
+    double strength = srcstrength[ns];
+
+    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+    // Sweep the grid by treating the faces of octahedra of increasing size.
+    int max_q =  std::floor(sqrt3 * R); // std::ceil(1.5 * m1); //
+    for (int q=1 ; q <= max_q; q++)
     {   
-        // First, do the source cell
-        int i0 = srcpos[ns];            //srcpos[0][ns];
-        int j0 = srcpos[NumSrc + ns];   //srcpos[1][ns];
-        int k0 = srcpos[2*NumSrc + ns]; //srcpos[2][ns];
-        int i = i0;
-        int j = j0;
-        int k = k0;
-
-        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-        // Sweep the grid by treating the faces of octahedra of increasing size.
-        int max_q =  std::floor(sqrt3 * R); // std::ceil(1.5 * m1); //
-        for (int q=1 ; q <= max_q; q++)
+        //printf("r = %i \n",r);
+        for (int s = 0; s <= q; s++)
         {   
-            //printf("r = %i \n",r);
-            for (int s = 0; s <= q; s++)
+            for (int t = 0; t <= s; t++)
             {   
-                for (int t = 0; t <= s; t++)
-                {   
-                    //std::cout << i0 << j0 << k0 << std::endl;
-                    k = k0 + (q-s);
-                    i = i0 + (s-t);
-                    j = j0 + (s-(s-t));
-                    if (in_box(i,j,k,m1))
-                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                // Depending on whether compiled as periodic, check if point in box before each cell
 
-                    k = k0 + (q-s);
-                    i = i0 - (s-t);
-                    j = j0 + (s-(s-t));
-                    if (in_box(i,j,k,m1))
-                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                // ======================= Periodic Case =============================
+                #if defined(PERIODIC)
 
-                    k = k0 + (q-s);
-                    i = i0 + (s-t);
-                    j = j0 - (s-(s-t));
-                    if (in_box(i,j,k,m1))
-                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                k = k0 + (q-s);
+                i = i0 + (s-t);
+                j = j0 + (s-(s-t));
+                evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
-                    k = k0 + (q-s);
-                    i = i0 - (s-t);
-                    j = j0 - (s-(s-t));
-                    if (in_box(i,j,k,m1))
-                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                k = k0 + (q-s);
+                i = i0 - (s-t);
+                j = j0 + (s-(s-t));
+                evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                k = k0 + (q-s);
+                i = i0 + (s-t);
+                j = j0 - (s-(s-t));
+                evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                k = k0 + (q-s);
+                i = i0 - (s-t);
+                j = j0 - (s-(s-t));
+                evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                k = k0 - (q-s);
+                i = i0 + (s-t);
+                j = j0 + (s-(s-t));
+                evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                k = k0 - (q-s);
+                i = i0 - (s-t);
+                j = j0 + (s-(s-t));
+                evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                k = k0 - (q-s);
+                i = i0 + (s-t);
+                j = j0 - (s-(s-t));
+                evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                k = k0 - (q-s);
+                i = i0 - (s-t);
+                j = j0 - (s-(s-t));
+                evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                
+                // ======================= Nonperiodic Case =============================
+                #else
+
+                k = k0 + (q-s);
+                i = i0 + (s-t);
+                j = j0 + (s-(s-t));
+                if (in_box(i,j,k,m1))
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                k = k0 + (q-s);
+                i = i0 - (s-t);
+                j = j0 + (s-(s-t));
+                if (in_box(i,j,k,m1))
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                k = k0 + (q-s);
+                i = i0 + (s-t);
+                j = j0 - (s-(s-t));
+                if (in_box(i,j,k,m1))
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                k = k0 + (q-s);
+                i = i0 - (s-t);
+                j = j0 - (s-(s-t));
+                if (in_box(i,j,k,m1))
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                k = k0 - (q-s);
+                i = i0 + (s-t);
+                j = j0 + (s-(s-t));
+                if (in_box(i,j,k,m1))
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                k = k0 - (q-s);
+                i = i0 - (s-t);
+                j = j0 + (s-(s-t));
+                if (in_box(i,j,k,m1))
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                k = k0 - (q-s);
+                i = i0 + (s-t);
+                j = j0 - (s-(s-t));
+                if (in_box(i,j,k,m1))
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+
+                k = k0 - (q-s);
+                i = i0 - (s-t);
+                j = j0 - (s-(s-t));
+                if (in_box(i,j,k,m1))
+                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
 
-                    k = k0 - (q-s);
-                    i = i0 + (s-t);
-                    j = j0 + (s-(s-t));
-                    if (in_box(i,j,k,m1))
-                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-
-                    k = k0 - (q-s);
-                    i = i0 - (s-t);
-                    j = j0 + (s-(s-t));
-                    if (in_box(i,j,k,m1))
-                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-
-                    k = k0 - (q-s);
-                    i = i0 + (s-t);
-                    j = j0 - (s-(s-t));
-                    if (in_box(i,j,k,m1))
-                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-
-                    k = k0 - (q-s);
-                    i = i0 - (s-t);
-                    j = j0 - (s-(s-t));
-                    if (in_box(i,j,k,m1))
-                        evolve0D(i,j,k,i0,j0,k0,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-                }   
-            }
+                #endif
+            }   
         }
     }
+
+}
     
 void evolve0D(
     const int i,
@@ -114,6 +297,7 @@ void evolve0D(
     const int i0,
     const int j0,
     const int k0,
+    const double & strength,
     double* coldensh_out,
     const double sig,
     const double dr,
@@ -136,13 +320,15 @@ void evolve0D(
     //double phi_ion_p;                                  // Local photoionization rate of cell (to be computed)
     //stop_rad_transfer = false;
 
+    #if defined(RATES)
+    double xs, ys, zs;
+    double dist2;
+    double vol_ph;
+    #endif
+
     pos[0] = modulo(i,m1);
     pos[1] = modulo(j,m1);
     pos[2] = modulo(k,m1);
-
-    //srcpos_p[0] = srcpos[0][ns];
-    //srcpos_p[1] = srcpos[1][ns];
-    //srcpos_p[2] = srcpos[2][ns];
 
     //xh_av_p = 1e-3;
     //nHI_p = (1.0 - xh_av_p);
@@ -159,22 +345,33 @@ void evolve0D(
         {
             coldensh_in = 0.0;
             path = 0.5*dr;
-            // std::cout << path << std::endl;
-            //vol_ph = dr*dr*dr / (4*M_PI);
+            #if defined(RATES)
+            vol_ph = dr*dr*dr / (4*M_PI);
+            #endif
         }
         else
         {
-            //printf("%i %i %i %i %i %i %f %f %f %i\n",i,j,k,i0,j0,k0,coldensh_in,path,sig,m1);
-            //printf("mod=%f \n",weightf(mem_offst(i,j,k,m1),sig));
             cinterp(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
-            //printf("%f \n",path);
             path *= dr;
+
+            #if defined(RATES)
+            // Find the distance to the source
+            xs = dr*(i-i0);
+            ys = dr*(j-j0);
+            zs = dr*(k-k0);
+            dist2=xs*xs+ys*ys+zs*zs;
+            vol_ph = dist2 * path;
+            #endif
         }
-        // std::cout << coldensh_in << "    " << path << std::endl
         coldensh_out[mem_offst(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
-        //printf("%i ",mem_offst(pos[0],pos[1],pos[2],m1));
-        //coldensh_out[mem_offst(pos[0],pos[1],pos[2],m1)] = coldensh_in;
-        //phi_ion[0] = 1.0;
+
+        #if defined(RATES)
+        if (coldensh_in <= max_coldensh)
+        {
+            double phi = photoion_rate_test(strength,coldensh_in,coldensh_out[mem_offst(pos[0],pos[1],pos[2],m1)],vol_ph,nHI_p,sig);
+            phi_ion[mem_offst(pos[0],pos[1],pos[2],m1)] += phi;
+        }
+        #endif
     }
 }
 
@@ -417,4 +614,18 @@ void cinterp(
         }
         path=sqrt(1.0+(dj*dj+dk*dk)/(di*di));
     }
+}
+
+double photoion_rate_test(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & nHI,const double & sig)
+{
+    // Compute optical depth and ionization rate depending on whether the cell is optically thick or thin
+    double tau_in = coldens_in * sig;
+    double tau_out = coldens_out * sig;
+
+    // If cell is optically thick
+    if (fabs(tau_out - tau_in) > tau_photo_limit)
+        return strength * inv4pi / (Vfact * nHI) * (std::exp(-tau_in) - std::exp(-tau_out));
+    // If cell is optically thin
+    else
+        return strength * inv4pi * sig * (tau_out - tau_in) / (Vfact) * std::exp(-tau_in);
 }

@@ -15,7 +15,7 @@ srcx    = 150       # Source x-position (x=y=z)
 rad     = 149       # Radius of Raytracing
 numsrc  = 1         # Number of sources
 zslice  = 150       # z-coordinate of box to visualize
-plot    = False     # Whether or not to plot results
+plot    = True     # Whether or not to plot results
 
 # Numerical/Physical Setup
 dt = 1.0 * u.Myr.to('s')                # Timestep
@@ -92,7 +92,7 @@ t2 = time.time()
 
 print("Running OCTA...")
 t3 = time.time()
-RTC.octa(srcpos,0,rad,cdh1,sig,dxbox,ndens,xh_av,phi_ion,numsrc,N)
+RTC.octa(srcpos,srcflux,0,rad,cdh1,sig,dxbox,ndens,xh_av,phi_ion,numsrc,N)
 t4 = time.time()
 cdh1 = cdh1.reshape((N,N,N)) # Convert flatened array to 3D
 

@@ -11,6 +11,7 @@ extern "C"
     rtc_octa(PyObject *self, PyObject *args)
     {
         PyArrayObject * srcpos;
+        PyArrayObject * srcflux;
         int ns;
         double R;
         PyArrayObject * coldensh_out;
@@ -22,8 +23,9 @@ extern "C"
         int NumSrc;
         int m1;
 
-        if (!PyArg_ParseTuple(args,"OidOddOOOii",
+        if (!PyArg_ParseTuple(args,"OOidOddOOOii",
         &srcpos,
+        &srcflux,
         &ns,
         &R,
         &coldensh_out,
@@ -41,7 +43,7 @@ extern "C"
         {   
             printf("%i",PyArray_TYPE(coldensh_out));
             printf("%i",NPY_INT32);
-            PyErr_SetString(PyExc_TypeError,"Srcpos must be Array of type int");
+            PyErr_SetString(PyExc_TypeError,"Srcpos must be Array of type int32");
             return NULL;
         }
         if (!PyArray_Check(coldensh_out) || PyArray_TYPE(coldensh_out) != NPY_DOUBLE)
@@ -52,12 +54,69 @@ extern "C"
 
         // Get Array data
         int * srcpos_data = (int*)PyArray_DATA(srcpos);
+        double * srcflux_data = (double*)PyArray_DATA(srcflux);
         double * coldensh_out_data = (double*)PyArray_DATA(coldensh_out);
         double * ndens_data = (double*)PyArray_DATA(ndens);
         double * phi_ion_data = (double*)PyArray_DATA(phi_ion);
         double * xh_av_data = (double*)PyArray_DATA(xh_av);
 
-        do_source_octa(srcpos_data,ns,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1);
+        do_source_octa(srcpos_data,srcflux_data,ns,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1);
+
+        return PyFloat_FromDouble(1.0);
+    }
+
+    static PyObject *
+    rtc_octa_multiple(PyObject *self, PyObject *args)
+    {
+        PyArrayObject * srcpos;
+        PyArrayObject * srcflux;
+        double R;
+        PyArrayObject * coldensh_out;
+        double sig;
+        double dr;
+        PyArrayObject * ndens;
+        PyArrayObject * xh_av;
+        PyArrayObject * phi_ion;
+        int NumSrc;
+        int m1;
+
+        if (!PyArg_ParseTuple(args,"OOdOddOOOii",
+        &srcpos,
+        &srcflux,
+        &R,
+        &coldensh_out,
+        &sig,
+        &dr,
+        &ndens,
+        &xh_av,
+        &phi_ion,
+        &NumSrc,
+        &m1))
+            return NULL;
+        
+        // Error checking
+        if (!PyArray_Check(srcpos) || (PyArray_TYPE(srcpos) != NPY_INT32))
+        {   
+            printf("%i",PyArray_TYPE(coldensh_out));
+            printf("%i",NPY_INT32);
+            PyErr_SetString(PyExc_TypeError,"Srcpos must be Array of type int32");
+            return NULL;
+        }
+        if (!PyArray_Check(coldensh_out) || PyArray_TYPE(coldensh_out) != NPY_DOUBLE)
+        {
+            PyErr_SetString(PyExc_TypeError,"coldensh_out must be Array of type double");
+            return NULL;
+        }
+
+        // Get Array data
+        int * srcpos_data = (int*)PyArray_DATA(srcpos);
+        double * srcflux_data = (double*)PyArray_DATA(srcflux);
+        double * coldensh_out_data = (double*)PyArray_DATA(coldensh_out);
+        double * ndens_data = (double*)PyArray_DATA(ndens);
+        double * phi_ion_data = (double*)PyArray_DATA(phi_ion);
+        double * xh_av_data = (double*)PyArray_DATA(xh_av);
+
+        all_sources_octa(srcpos_data,srcflux_data,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1);
 
         return PyFloat_FromDouble(1.0);
     }
@@ -134,6 +193,7 @@ extern "C"
 
     static PyMethodDef RTCMethods[] = {
         {"octa",  rtc_octa, METH_VARARGS,"Do OCTA raytracing (CPU)"},
+        {"octa_multiple",  rtc_octa_multiple, METH_VARARGS,"Do OCTA raytracing for multiple sources (CPU)"},
         {"octa_gpu",  rtc_octa_gpu, METH_VARARGS,"Do OCTA raytracing (GPU)"},
         {"device_init",  rtc_device_init, METH_VARARGS,"Free GPU memory"},
         {"device_close",  rtc_device_close, METH_VARARGS,"Free GPU memory"},
