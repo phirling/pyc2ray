@@ -50,7 +50,7 @@ module raytracing
     !! grid, for one source. The global rates of all sources are then added and applied
     !! using other subroutines that remain to be translated.
     ! ===============================================================================================
-    subroutine do_source(srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
+    subroutine do_source(srcflux,srcpos,ns,r_box,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   !> Number of sources
         integer,intent(in)      :: ns                                   !> source number 
@@ -65,17 +65,29 @@ module raytracing
         integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
-        integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
-        integer,dimension(3), intent(in) :: last_r                      !> mesh position of right end point for RT        
+        integer, intent(in) :: r_box
+
+        integer,dimension(3) :: last_l                      !> mesh position of left end point for RT
+        integer,dimension(3) :: last_r                      !> mesh position of right end point for RT        
+        
+        ! If no OpenMP, traverse mesh plane by plane in the z direction up/down from the source
+        integer :: k  ! z-coord of plane
+
+        if (r_box < 0) then
+            last_l(:) = 0
+            last_r(1) = m1
+            last_r(2) = m2
+            last_r(3) = m3
+        else
+            last_l(:) = srcpos(:,ns) - r_box
+            last_r(:) = srcpos(:,ns) + r_box
+        endif
 
         ! TODO: add OpenMP parallelization at the Fortran level.
         ! This should work with f2py, see https://stackoverflow.com/questions/46505778/f2py-with-openmp-gives-import-error-in-python
 
         ! TODO: setup the subbox stuff from do_source line 128 in evolve_source.f90 of original c2ray !
 
-        ! If no OpenMP, traverse mesh plane by plane in the z direction up/down from the source
-        integer :: k  ! z-coord of plane
-        
         ! reset column densities for new source point
         ! coldensh_out is unique for each source point
         coldensh_out(:,:,:) = 0.0

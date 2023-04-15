@@ -13,6 +13,9 @@ inline __device__ bool in_box_gpu(const int & i,const int & j,const int & k,cons
     return (i >= 0 && i < N) && (j >= 0 && j < N) && (k >= 0 && k < N);
 }
 
+__device__ double photoion_rate_test_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & nHI,const double & sig);
+
+
 void device_init(const int &);
 
 void device_close();
@@ -42,6 +45,7 @@ __global__ void evolve0D_gpu(
     const int i0,
     const int j0,
     const int k0,
+    const double & strength,
     double* coldensh_out,
     const double sig,
     const double dr,
@@ -55,6 +59,7 @@ __global__ void evolve0D_gpu(
 
 void do_source_octa_gpu(
     int* srcpos,
+    double* srcstrength,
     const int & ns,
     const double & R,
     double* coldensh_out,

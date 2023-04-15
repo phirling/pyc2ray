@@ -125,6 +125,7 @@ extern "C"
     rtc_octa_gpu(PyObject *self, PyObject *args)
     {
         PyArrayObject * srcpos;
+        PyArrayObject * srcflux;
         int ns;
         double R;
         PyArrayObject * coldensh_out;
@@ -136,8 +137,9 @@ extern "C"
         int NumSrc;
         int m1;
 
-        if (!PyArg_ParseTuple(args,"OidOddOOOii",
+        if (!PyArg_ParseTuple(args,"OOidOddOOOii",
         &srcpos,
+        &srcflux,
         &ns,
         &R,
         &coldensh_out,
@@ -164,12 +166,13 @@ extern "C"
 
         // Get Array data
         int * srcpos_data = (int*)PyArray_DATA(srcpos);
+        double * srcflux_data = (double*)PyArray_DATA(srcflux);
         double * coldensh_out_data = (double*)PyArray_DATA(coldensh_out);
         double * ndens_data = (double*)PyArray_DATA(ndens);
         double * phi_ion_data = (double*)PyArray_DATA(phi_ion);
         double * xh_av_data = (double*)PyArray_DATA(xh_av);
 
-        do_source_octa_gpu(srcpos_data,ns,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1);
+        do_source_octa_gpu(srcpos_data,srcflux_data,ns,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1);
 
         return PyFloat_FromDouble(1.0);
     }

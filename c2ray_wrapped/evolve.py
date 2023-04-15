@@ -1,9 +1,9 @@
-import c2ray_core as c2r
+import c2ray as c2r
 import numpy as np
 
 import matplotlib.pyplot as plt
 
-def evolve3D(dt,dr,srcflux,srcpos,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c):
+def evolve3D(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c):
     """Evolves the ionization fraction over one timestep for the whole grid.
 
     For a given list of sources and hydrogen number density, computes the evolution of
@@ -21,6 +21,9 @@ def evolve3D(dt,dr,srcflux,srcpos,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu
         Array containing the normalization for the ionizing flux of each source. Shape: (NumSources)
     srcpos : 2D-array
         Array containing the position of each source. Shape: (NumSources,3)
+    r_RT : int
+        Size of cube to raytrace around source (half side length of the cube). Set to negative value to
+        RT whole box
     temp : 3D-array
         The initial temperature of each cell in K
     ndens : 3D-array
@@ -55,8 +58,8 @@ def evolve3D(dt,dr,srcflux,srcpos,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu
     NumSrc = srcpos.shape[1]    # Number of sources
     NumCells = m1*m1*m1         # Number of cells/points
     # TODO: In c2ray, evolution around a source happens in subboxes of increasing sizes. For now, here, always do the whole grid.
-    last_l = np.ones(3)         # mesh position of left end point for RT
-    last_r = m1 * np.ones(3)    # mesh position of right end point for RT
+    # last_l = np.ones(3)         # mesh position of left end point for RT
+    # last_r = m1 * np.ones(3)    # mesh position of right end point for RT
     conv_flag = NumCells        # Flag that counts the number of non-converged cells (initialized to non-convergence)
 
     # Convergence Criteria
@@ -86,7 +89,7 @@ def evolve3D(dt,dr,srcflux,srcpos,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu
 
         # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
         for ns in range(1,NumSrc+1): # (1-indexation in Fortran)
-            c2r.raytracing.do_source(srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion)
+            c2r.raytracing.do_source(srcflux,srcpos,ns,r_RT,coldensh_out,sig,dr,ndens,xh_av,phi_ion)
 
         # Apply these rates to compute the updated ionization fraction
         conv_flag = c2r.chemistry.global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c)

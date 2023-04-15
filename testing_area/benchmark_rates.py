@@ -14,7 +14,7 @@ N       = 128       # Grid Size
 srcx    = 64       # Source x-position (x=y=z)
 rad     = 64       # Radius of Raytracing
 numsrc  = 1         # Number of sources
-zslice  = 64       # z-coordinate of box to visualize
+zslice  = 70       # z-coordinate of box to visualize
 plot    = True     # Whether or not to plot results
 
 # Numerical/Physical Setup
@@ -54,9 +54,9 @@ def score(A,B):
 srcpos_f = np.empty((3,numsrc),dtype='int')
 srcflux = np.empty(numsrc)
 srcpos_f[:,0] = np.array([srcx+1,srcx+1,srcx+1])
-srcpos_f[:,1] = np.array([srcx+41,srcx+41,srcx+1])
+#srcpos_f[:,1] = np.array([srcx+41,srcx+41,srcx+1])
 srcflux[0] = 5.0e48 # Strength of source (not actually used here but required argument)
-srcflux[1] = 5.0e48 # Strength of source (not actually used here but required argument)
+#srcflux[1] = 5.0e48 # Strength of source (not actually used here but required argument)
 
 # Initialize Arrays
 ndens_f = avgdens * np.ones((N,N,N),order='F')
@@ -65,21 +65,18 @@ temp_f = temp0 * np.ones((N,N,N),order='F')
 phi_ion_f = np.zeros((N,N,N),order='F')
 coldensh_out_f = np.zeros((N,N,N),order='F')
 
-# Set Raytracing range
-last_l = srcx+1-rad*np.ones(3) # mesh position of left end point for RT
-last_r = srcx+1+rad*np.ones(3) # mesh position of right end point for RT
-
-
 """ ////////////////////////// C++ (OCTA) Version Setup /////////////////////////////// """
 
 # Source Setup
-srcpos = np.ravel(np.array([[srcx,srcx+40],[srcx,srcx+40],[srcx,srcx]],dtype='int32')) # C++ version uses flattened arrays
+#srcpos = np.ravel(np.array([[srcx,srcx+40],[srcx,srcx+40],[srcx,srcx]],dtype='int32')) # C++ version uses flattened arrays
+srcpos = np.ravel(np.array([[srcx],[srcx],[srcx]],dtype='int32')) # C++ version uses flattened arrays
 
 # Initialize Arrays
 cdh1 = np.ravel(np.zeros((N,N,N),dtype='float64'))
 cdh2 = np.ravel(np.zeros((N,N,N),dtype='float64'))
 ndens = 1e-3*np.ravel(np.ones((N,N,N),dtype='float64') )
-phi_ion = np.ravel(np.zeros((N,N,N),dtype='float64') )
+phi_ion1 = np.ravel(np.zeros((N,N,N),dtype='float64') )
+phi_ion2 = np.ravel(np.zeros((N,N,N),dtype='float64') )
 xh_av = 1.2e-3 * np.ravel(np.ones((N,N,N),dtype='float64') )
 
 # Initialize GPU and allocate memory
@@ -89,24 +86,23 @@ RTC.device_init(N)
 
 print("Running c2ray...")
 t1 = time.time()
-c2r.raytracing.do_source(srcflux,srcpos_f,1,last_l,last_r,coldensh_out_f,sig,dr,ndens_f,xh_f,phi_ion_f)
-last_l[0:2] += 40
-last_r[0:2] += 40
-c2r.raytracing.do_source(srcflux,srcpos_f,2,last_l,last_r,coldensh_out_f,sig,dr,ndens_f,xh_f,phi_ion_f)
+c2r.raytracing.do_source(srcflux,srcpos_f,1,rad,coldensh_out_f,sig,dr,ndens_f,xh_f,phi_ion_f)
+#c2r.raytracing.do_source(srcflux,srcpos_f,2,rad,coldensh_out_f,sig,dr,ndens_f,xh_f,phi_ion_f)
 t2 = time.time()
 
 print("Running OCTA...")
 t3 = time.time()
-RTC.octa_multiple(srcpos,srcflux,rad,cdh1,sig,dxbox,ndens,xh_av,phi_ion,numsrc,N)
+RTC.octa_multiple(srcpos,srcflux,rad,cdh1,sig,dxbox,ndens,xh_av,phi_ion1,numsrc,N)
 t4 = time.time()
 cdh1 = cdh1.reshape((N,N,N)) # Convert flatened array to 3D
-phi_ion = phi_ion.reshape((N,N,N))
+phi_ion1 = phi_ion1.reshape((N,N,N))
 
 print("Running OCTA GPU...")
 t5 = time.time()
-RTC.octa_gpu(srcpos,0,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion,numsrc,N)
+RTC.octa_gpu(srcpos,srcflux,0,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
 t6 = time.time()
 cdh2 = cdh2.reshape((N,N,N)) # Convert flatened array to 3D
+phi_ion2 = phi_ion2.reshape((N,N,N))
 
 RTC.device_close() # Deallocate GPU memory
 
@@ -139,23 +135,24 @@ if plot:
     c3 = plt.colorbar(im3,ax=ax[1,0])
 
     ax[0,1].set_title(f"OCTA, $t = {t4-t3:.3f}$ s",fontsize=12)
-    slice2 = np.log(phi_ion[:,:,zslice])
+    slice2 = np.log(phi_ion1[:,:,zslice])
     im2 = ax[0,1].imshow(slice2,origin='lower')
     c2 = plt.colorbar(im2,ax=ax[0,1])
     ax[0,1].add_patch(Circle([srcx,srcx],rad,fill=0,ls='--',ec='white'))
 
     ax[1,1].set_title("Residual",fontsize=12)
-    resid2 = residual(phi_ion, phi_ion_f)
+    resid2 = residual(phi_ion1, phi_ion_f)
     im4 = ax[1,1].imshow(resid2,cmap='bwr',origin='lower',vmin=-1,vmax=1)
     c4 = plt.colorbar(im4,ax=ax[1,1])
 
     ax[0,2].set_title(f"OCTA GPU, $t = {t6-t5:.3f}$ s",fontsize=12)
-    im5 = ax[0,2].imshow(cdh2[:,:,zslice],origin='lower')
+    slice3 = np.log(phi_ion2[:,:,zslice])
+    im5 = ax[0,2].imshow(slice3,origin='lower')
     c5 = plt.colorbar(im5,ax=ax[0,2])
     ax[0,2].add_patch(Circle([srcx,srcx],rad,fill=0,ls='--',ec='white'))
 
     ax[1,2].set_title("Residual",fontsize=12)
-    resid3 = residual(cdh2, coldensh_out_f)
+    resid3 = residual(phi_ion2, phi_ion_f)
     im6 = ax[1,2].imshow(resid3,cmap='bwr',origin='lower',vmin=-1,vmax=1)
     c6 = plt.colorbar(im6,ax=ax[1,2])
 

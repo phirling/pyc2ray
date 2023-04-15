@@ -43,59 +43,56 @@ void all_sources_octa(
         int max_q =  std::floor(sqrt3 * R); // std::ceil(1.5 * m1); //
         for (int q=1 ; q <= max_q; q++)
         {   
-            //printf("r = %i \n",r);
-            for (int s = 0; s <= q; s++)
-            {   
-                for (int t = 0; t <= s; t++)
-                {   
-                    // Depending on whether compiled as periodic, check if point in box before each cell
+            // Do top and bottom vertices
+            evolve0D(i0,j0,k0+q,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+            evolve0D(i0,j0,k0-q,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
 
+            // Do the faces of the octahedron
+            for (int s = 1; s <= q; s++)
+            {   
+                for (int t = 1; t <= s; t++)
+                {   
                     // ======================= Periodic Case =============================
                     #if defined(PERIODIC)
-
                     k = k0 + (q-s);
                     i = i0 + (s-t);
                     j = j0 + (s-(s-t));
                     evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-
                     k = k0 + (q-s);
-                    i = i0 - (s-t);
-                    j = j0 + (s-(s-t));
+                    i = i0 - (s-(s-t));
+                    j = j0 + (s-t);
                     evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-
-                    k = k0 + (q-s);
-                    i = i0 + (s-t);
-                    j = j0 - (s-(s-t));
-                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-
                     k = k0 + (q-s);
                     i = i0 - (s-t);
                     j = j0 - (s-(s-t));
                     evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-
-                    k = k0 - (q-s);
-                    i = i0 + (s-t);
-                    j = j0 + (s-(s-t));
+                    k = k0 + (q-s);
+                    i = i0 + (s-(s-t));
+                    j = j0 - (s-t);
                     evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-
-                    k = k0 - (q-s);
-                    i = i0 - (s-t);
-                    j = j0 + (s-(s-t));
-                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-
-                    k = k0 - (q-s);
-                    i = i0 + (s-t);
-                    j = j0 - (s-(s-t));
-                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-
-                    k = k0 - (q-s);
-                    i = i0 - (s-t);
-                    j = j0 - (s-(s-t));
-                    evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
-                    
+                    // Bottom of the octahedron. Exclude the 4 edges on source plane (was done above)
+                    if (s != q)
+                    {
+                        k = k0 - (q-s);
+                        i = i0 + (s-t);
+                        j = j0 + (s-(s-t));
+                        evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                        k = k0 - (q-s);
+                        i = i0 - (s-(s-t));
+                        j = j0 + (s-t);
+                        evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                        k = k0 - (q-s);
+                        i = i0 - (s-t);
+                        j = j0 - (s-(s-t));
+                        evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                        k = k0 - (q-s);
+                        i = i0 + (s-(s-t));
+                        j = j0 - (s-t);
+                        evolve0D(i,j,k,i0,j0,k0,strength,coldensh_out,sig,dr,ndens,xh_av,phi_ion,m1);
+                    }
                     // ======================= Nonperiodic Case =============================
                     #else
-
+                    // TODO!!!!! correct as above
                     k = k0 + (q-s);
                     i = i0 + (s-t);
                     j = j0 + (s-(s-t));

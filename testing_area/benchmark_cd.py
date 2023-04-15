@@ -63,11 +63,6 @@ temp_f = temp0 * np.ones((N,N,N),order='F')
 phi_ion_f = np.zeros((N,N,N),order='F')
 coldensh_out_f = np.zeros((N,N,N),order='F')
 
-# Set Raytracing range
-last_l = srcx+1-rad*np.ones(3) # mesh position of left end point for RT
-last_r = srcx+1+rad*np.ones(3) # mesh position of right end point for RT
-
-
 """ ////////////////////////// C++ (OCTA) Version Setup /////////////////////////////// """
 
 # Source Setup
@@ -87,7 +82,7 @@ RTC.device_init(N)
 
 print("Running c2ray...")
 t1 = time.time()
-c2r.raytracing.do_source(srcflux,srcpos_f,1,last_l,last_r,coldensh_out_f,sig,dr,ndens_f,xh_f,phi_ion_f)
+c2r.raytracing.do_source(srcflux,srcpos_f,1,rad,coldensh_out_f,sig,dr,ndens_f,xh_f,phi_ion_f)
 t2 = time.time()
 
 print("Running OCTA...")

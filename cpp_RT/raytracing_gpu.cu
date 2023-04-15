@@ -6,6 +6,10 @@
 #include <string>
 #include <iostream>
 
+#define INV4PI 0.079577471545947672804111050482
+#define TAU_PHOTO_LIMIT 1.0e-7
+#define MAX_COLDENSH 2e30
+
 inline __device__ int modulo_gpu(const int & a,const int & b) { return (a%b+b)%b; }
 
 inline __device__ int sign_gpu(const double & x) { if (x>=0) return 1; else return -1;}
@@ -30,6 +34,7 @@ double* phi_dev;
 
 void do_source_octa_gpu(
     int* srcpos,
+    double* srcstrength,
     const int & ns,
     const double & R,
     double* coldensh_out,
@@ -44,6 +49,7 @@ void do_source_octa_gpu(
         int i0 = srcpos[ns];            //srcpos[0][ns];
         int j0 = srcpos[NumSrc + ns];   //srcpos[1][ns];
         int k0 = srcpos[2*NumSrc + ns]; //srcpos[2][ns];
+        double strength = srcstrength[ns];
         // Source position
         //std::vector<int> srcpos_p = {srcpos[0][ns], srcpos[1][ns], srcpos[2][ns]};
 
@@ -69,13 +75,15 @@ void do_source_octa_gpu(
         // cudaMalloc(&phi_ion_dev,meshsize);
 
         thrust::device_ptr<double> cdh(cdh_dev);
+        thrust::device_ptr<double> ion(phi_dev);
         thrust::fill(cdh,cdh + m1*m1*m1,0.0);
+        thrust::fill(ion,ion + m1*m1*m1,0.0);
         thrust::fill(cdh + mem_offst(i0,j0,k0,m1), cdh + mem_offst(i0,j0,k0,m1) +1,src_cell_val);
 
         // cudaMemcpy(coldensh_out_dev,coldensh_out,meshsize,cudaMemcpyHostToDevice);
         cudaMemcpy(n_dev,ndens,meshsize,cudaMemcpyHostToDevice);
         cudaMemcpy(x_dev,xh_av,meshsize,cudaMemcpyHostToDevice);
-        //cudaMemcpy(phi_ion_dev,phi_ion.data(),meshsize,cudaMemcpyHostToDevice);
+        cudaMemcpy(phi_dev,phi_ion,meshsize,cudaMemcpyHostToDevice);
         cudaStream_t stream[8];
         for (int a = 0; a < 8 ; a++)
         {
@@ -83,14 +91,14 @@ void do_source_octa_gpu(
         }
         for (int q=1 ; q <= max_q; q++)
         {   
-            evolve0D_gpu<<<q+1,q+1,0,stream[0]>>>(q,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,1,1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[1]>>>(q,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,-1,1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[2]>>>(q,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,1,-1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[3]>>>(q,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,-1,-1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[4]>>>(q,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,1,1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[5]>>>(q,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,-1,1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[6]>>>(q,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,1,-1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[7]>>>(q,i0,j0,k0,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,-1,-1);
+            evolve0D_gpu<<<q+1,q+1,0,stream[0]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,1,1);
+            evolve0D_gpu<<<q+1,q+1,0,stream[1]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,-1,1);
+            evolve0D_gpu<<<q+1,q+1,0,stream[2]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,1,-1);
+            evolve0D_gpu<<<q+1,q+1,0,stream[3]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,-1,-1);
+            evolve0D_gpu<<<q+1,q+1,0,stream[4]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,1,1);
+            evolve0D_gpu<<<q+1,q+1,0,stream[5]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,-1,1);
+            evolve0D_gpu<<<q+1,q+1,0,stream[6]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,1,-1);
+            evolve0D_gpu<<<q+1,q+1,0,stream[7]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,-1,-1);
 
             cudaDeviceSynchronize();
 
@@ -109,6 +117,7 @@ void do_source_octa_gpu(
         }
 
         auto error = cudaMemcpy(coldensh_out,cdh_dev,meshsize,cudaMemcpyDeviceToHost);
+        error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
         
         // cudaFree(&coldensh_out_dev);
         // cudaFree(&ndens_dev);
@@ -121,12 +130,13 @@ __global__ void evolve0D_gpu(
     const int i0,
     const int j0,
     const int k0,
+    const double & strength,
     double* coldensh_out,
     const double sig,
     const double dr,
     const double* ndens,
     const double* xh_av,
-    double* phi_ion,
+    double* phi_dev,
     const int m1,
     const int d1,
     const int d2,
@@ -147,6 +157,11 @@ __global__ void evolve0D_gpu(
         double xh_av_p;                                    // Local ionization fraction of cell
         //double phi_ion_p;                                  // Local photoionization rate of cell (to be computed)
         //stop_rad_transfer = false;
+        #if defined(RATES)
+        double xs, ys, zs;
+        double dist2;
+        double vol_ph;
+        #endif
 
         int k = k0 + d1*(q-blockIdx.x);
         int i = i0 + d2*(blockIdx.x - threadIdx.x);
@@ -176,21 +191,32 @@ __global__ void evolve0D_gpu(
                 {
                     coldensh_in = 0.0;
                     path = 0.5*dr;
-                    // std::cout << path << std::endl;
-                    //vol_ph = dr*dr*dr / (4*M_PI);
+                    #if defined(RATES)
+                    vol_ph = dr*dr*dr / (4*M_PI);
+                    #endif
                 }
                 else
                 {
-                    //printf("%i %i %i %i %i %i %f %f %f %i\n",i,j,k,i0,j0,k0,coldensh_in,path,sig,m1);
                     cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
-                    //printf("%f \n",path);
                     path *= dr;
+                    #if defined(RATES)
+                    // Find the distance to the source
+                    xs = dr*(i-i0);
+                    ys = dr*(j-j0);
+                    zs = dr*(k-k0);
+                    dist2=xs*xs+ys*ys+zs*zs;
+                    vol_ph = dist2 * path;
+                    #endif
                 }
-                // std::cout << coldensh_in << "    " << path << std::endl
                 coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
-                //printf("%i ",mem_offst_gpu(pos[0],pos[1],pos[2],m1));
-                //coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in;
-                //phi_ion[0] = 1.0;
+                
+                #if defined(RATES)
+                if (coldensh_in <= MAX_COLDENSH)
+                {
+                    double phi = photoion_rate_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,nHI_p,sig);
+                    phi_dev[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += 1.0; //phi;
+                }
+                #endif
             }
         }
     }
@@ -464,7 +490,13 @@ void device_init(const int & N)
     cudaMalloc(&n_dev,N*N*N*sizeof(double));
     cudaMalloc(&x_dev,N*N*N*sizeof(double));
     cudaMalloc(&phi_dev,N*N*N*sizeof(double));
-    std::cout << "Succesfully allocated device memory for grid of size N = " << N << std::endl;
+    error = cudaGetLastError();
+    if (error != cudaSuccess) {
+        std::cout << "Couldn't allocate memory" << std::endl;
+    }
+    else {
+        std::cout << "Succesfully allocated device memory for grid of size N = " << N << std::endl;
+    }
 }
 
 void device_close()
@@ -474,4 +506,18 @@ void device_close()
     cudaFree(&n_dev);
     cudaFree(&x_dev);
     cudaFree(&phi_dev);
+}
+
+__device__ double photoion_rate_test_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & nHI,const double & sig)
+{
+    // Compute optical depth and ionization rate depending on whether the cell is optically thick or thin
+    double tau_in = coldens_in * sig;
+    double tau_out = coldens_out * sig;
+
+    // If cell is optically thick
+    if (fabs(tau_out - tau_in) > TAU_PHOTO_LIMIT)
+        return strength * INV4PI / (Vfact * nHI) * (std::exp(-tau_in) - std::exp(-tau_out));
+    // If cell is optically thin
+    else
+        return strength * INV4PI * sig * (tau_out - tau_in) / (Vfact) * std::exp(-tau_in);
 }
