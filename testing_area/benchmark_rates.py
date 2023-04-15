@@ -112,11 +112,14 @@ print("-- Timings --")
 print(f"Time (C2Ray):       {t2-t1:.3f} [s]")
 print(f"Time (OCTA):        {t4-t3:.3f} [s]")
 print(f"Time (OCTA GPU):    {t6-t5:.3f} [s]")
-print("\n-- Results --")
+print("\n-- Tests (Column Density) --")
 print(f"Global error score (C2Ray):       {score(coldensh_out_f,coldensh_out_f):.3e}")
 print(f"Global error score (OCTA):        {score(cdh1,coldensh_out_f):.3e}")
 print(f"Global error score (OCTA GPU):    {score(cdh2,coldensh_out_f):.3e}")
-
+print("\n-- Tests (Ionization Rates) --")
+print(f"Global error score (C2Ray):       {score(phi_ion_f,phi_ion_f):.3e}")
+print(f"Global error score (OCTA):        {score(phi_ion1,phi_ion_f):.3e}")
+print(f"Global error score (OCTA GPU):    {score(phi_ion2,phi_ion_f):.3e}")
 
 """ ///////////////////////////////// Visualization /////////////////////////////////// """
 

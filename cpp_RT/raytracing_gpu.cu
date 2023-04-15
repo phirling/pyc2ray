@@ -57,8 +57,8 @@ void do_source_octa_gpu(
         // First, do the source cell
         //std::vector<int> rtpos = {srcpos_p[0],srcpos_p[1],srcpos_p[2]};
         //evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
-        double path = 0.5*dr;
-        double src_cell_val = ndens[mem_offst(i0,j0,k0,m1)] * path * (1.0 - xh_av[mem_offst(i0,j0,k0,m1)]);
+        //double path = 0.5*dr;
+        //double src_cell_val = ndens[mem_offst(i0,j0,k0,m1)] * path * (1.0 - xh_av[mem_offst(i0,j0,k0,m1)]);
 
         //std::cout << coldensh_out[mem_offst(i0,j0,k0,m1)] << std::endl;
         // Sweep the grid by treating the faces of octahedra of increasing size.
@@ -77,24 +77,27 @@ void do_source_octa_gpu(
         thrust::device_ptr<double> cdh(cdh_dev);
         thrust::device_ptr<double> ion(phi_dev);
         thrust::fill(cdh,cdh + m1*m1*m1,0.0);
-        #if defined(RATES)
+
+        // "RATES": do ionization rate computation using separate kernel. "LOCALRATES": do it in evolve0D
+        #if defined(LOCALRATES) || defined(RATES)
         thrust::fill(ion,ion + m1*m1*m1,0.0);
         #endif
-        thrust::fill(cdh + mem_offst(i0,j0,k0,m1), cdh + mem_offst(i0,j0,k0,m1) +1,src_cell_val);
+        //thrust::fill(cdh + mem_offst(i0,j0,k0,m1), cdh + mem_offst(i0,j0,k0,m1) +1,src_cell_val);
 
         // cudaMemcpy(coldensh_out_dev,coldensh_out,meshsize,cudaMemcpyHostToDevice);
         cudaMemcpy(n_dev,ndens,meshsize,cudaMemcpyHostToDevice);
         cudaMemcpy(x_dev,xh_av,meshsize,cudaMemcpyHostToDevice);
         //cudaMemcpy(phi_dev,phi_ion,meshsize,cudaMemcpyHostToDevice);
-        cudaStream_t stream[8];
-        for (int a = 0; a < 8 ; a++)
-        {
-            cudaStreamCreate(&stream[a]);
-        }
-        int bl = 4;
+
+        // cudaStream_t stream[8];
+        // for (int a = 0; a < 8 ; a++)
+        // {
+        //     cudaStreamCreate(&stream[a]);
+        // }
+        int bl = 8;
         dim3 gs(1,1,2);
         dim3 bs(bl,bl);
-        for (int q=1 ; q <= max_q; q++)
+        for (int q=0 ; q <= max_q; q++)
         {   
             int grl = (2*q + 1) / bl + 1;
             gs.x = grl;
@@ -111,13 +114,13 @@ void do_source_octa_gpu(
             }
         }
 
-        for (int a = 0; a < 8 ; a++)
-        {
-            cudaStreamDestroy(stream[a]);
-        }
+        // for (int a = 0; a < 8 ; a++)
+        // {
+        //     cudaStreamDestroy(stream[a]);
+        // }
 
         auto error = cudaMemcpy(coldensh_out,cdh_dev,meshsize,cudaMemcpyDeviceToHost);
-        #if defined(RATES)
+        #if defined(LOCALRATES) || defined(RATES)
         error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
         #endif
     }
@@ -158,7 +161,7 @@ __global__ void evolve0D_gpu_new(
         double nHI_p;                                      // Local density of neutral hydrogen in the cell
         double xh_av_p;                                    // Local ionization fraction of cell
 
-        #if defined(RATES)
+        #if defined(LOCALRATES)
         double xs, ys, zs;
         double dist2;
         double vol_ph;
@@ -181,7 +184,7 @@ __global__ void evolve0D_gpu_new(
                 {
                     coldensh_in = 0.0;
                     path = 0.5*dr;
-                    #if defined(RATES)
+                    #if defined(LOCALRATES)
                     vol_ph = dr*dr*dr / (4*M_PI);
                     #endif
                 }
@@ -189,7 +192,7 @@ __global__ void evolve0D_gpu_new(
                 {
                     cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
                     path *= dr;
-                    #if defined(RATES)
+                    #if defined(LOCALRATES)
                     // Find the distance to the source
                     xs = dr*(i-i0);
                     ys = dr*(j-j0);
@@ -200,7 +203,7 @@ __global__ void evolve0D_gpu_new(
                 }
                 coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
                 
-                #if defined(RATES)
+                #if defined(LOCALRATES)
                 if (coldensh_in <= MAX_COLDENSH)
                 {
                     double phi = photoion_rate_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,nHI_p,sig);
@@ -244,7 +247,7 @@ __global__ void evolve0D_gpu(
         double xh_av_p;                                    // Local ionization fraction of cell
         //double phi_ion_p;                                  // Local photoionization rate of cell (to be computed)
         //stop_rad_transfer = false;
-        #if defined(RATES)
+        #if defined(LOCALRATES)
         double xs, ys, zs;
         double dist2;
         double vol_ph;
@@ -278,7 +281,7 @@ __global__ void evolve0D_gpu(
                 {
                     coldensh_in = 0.0;
                     path = 0.5*dr;
-                    #if defined(RATES)
+                    #if defined(LOCALRATES)
                     vol_ph = dr*dr*dr / (4*M_PI);
                     #endif
                 }
@@ -286,7 +289,7 @@ __global__ void evolve0D_gpu(
                 {
                     cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
                     path *= dr;
-                    #if defined(RATES)
+                    #if defined(LOCALRATES)
                     // Find the distance to the source
                     xs = dr*(i-i0);
                     ys = dr*(j-j0);
@@ -297,7 +300,7 @@ __global__ void evolve0D_gpu(
                 }
                 coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
                 
-                #if defined(RATES)
+                #if defined(LOCALRATES)
                 if (coldensh_in <= MAX_COLDENSH)
                 {
                     double phi = photoion_rate_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,nHI_p,sig);
@@ -309,6 +312,43 @@ __global__ void evolve0D_gpu(
     }
 }
 
+// WIP: compute rates in a separate step ?
+__global__ void do_rates(
+    const int rad,
+    const int i0,
+    const int j0,
+    const int k0,
+    const double strength,
+    double* coldensh_in,
+    double* coldensh_out,
+    double* ndens,
+    const double sig,
+    const double dr
+)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
+    int k = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (abs(i) + abs(j) + abs(k) <= rad)
+    {
+        double vol_ph;
+        if (i == i0 && j == j0 && k == k0)
+        {
+            vol_ph = dr*dr*dr / (4*M_PI);
+        }
+        else
+        {
+            double xs = dr*(i-i0);
+            double ys = dr*(j-j0);
+            double zs = dr*(k-k0);
+            double dist2=xs*xs+ys*ys+zs*zs;
+            // vol_ph = dist2 * path;
+        }
+        
+
+    }
+}
 
 __device__ void cinterp_gpu(
     const int i,

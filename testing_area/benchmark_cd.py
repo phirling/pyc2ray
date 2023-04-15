@@ -15,7 +15,7 @@ srcx    = 150       # Source x-position (x=y=z)
 rad     = 149       # Radius of Raytracing
 numsrc  = 1         # Number of sources
 zslice  = 150       # z-coordinate of box to visualize
-plot    = True     # Whether or not to plot results
+plot    = 0         # Whether or not to plot results
 
 # Numerical/Physical Setup
 dt = 1.0 * u.Myr.to('s')                # Timestep
@@ -72,7 +72,8 @@ srcpos = np.ravel(np.array([[srcx],[srcx],[srcx]],dtype='int32')) # C++ version 
 cdh1 = np.ravel(np.zeros((N,N,N),dtype='float64'))
 cdh2 = np.ravel(np.zeros((N,N,N),dtype='float64'))
 ndens = 1e-3*np.ravel(np.ones((N,N,N),dtype='float64') )
-phi_ion = np.ravel(np.zeros((N,N,N),dtype='float64') )
+phi_ion1 = np.ravel(np.zeros((N,N,N),dtype='float64') )
+phi_ion2 = np.ravel(np.zeros((N,N,N),dtype='float64') )
 xh_av = 1.2e-3 * np.ravel(np.ones((N,N,N),dtype='float64') )
 
 # Initialize GPU and allocate memory
@@ -87,15 +88,17 @@ t2 = time.time()
 
 print("Running OCTA...")
 t3 = time.time()
-RTC.octa(srcpos,srcflux,0,rad,cdh1,sig,dxbox,ndens,xh_av,phi_ion,numsrc,N)
+RTC.octa(srcpos,srcflux,0,rad,cdh1,sig,dxbox,ndens,xh_av,phi_ion1,numsrc,N)
 t4 = time.time()
 cdh1 = cdh1.reshape((N,N,N)) # Convert flatened array to 3D
+phi_ion1 = phi_ion1.reshape((N,N,N))
 
 print("Running OCTA GPU...")
 t5 = time.time()
-RTC.octa_gpu(srcpos,srcflux,0,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion,numsrc,N)
+RTC.octa_gpu(srcpos,srcflux,0,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
 t6 = time.time()
 cdh2 = cdh2.reshape((N,N,N)) # Convert flatened array to 3D
+phi_ion2 = phi_ion2.reshape((N,N,N))
 
 RTC.device_close() # Deallocate GPU memory
 
@@ -105,10 +108,14 @@ print("-- Timings --")
 print(f"Time (C2Ray):       {t2-t1:.3f} [s]")
 print(f"Time (OCTA):        {t4-t3:.3f} [s]")
 print(f"Time (OCTA GPU):    {t6-t5:.3f} [s]")
-print("\n-- Results --")
+print("\n-- Tests (Column Density) --")
 print(f"Global error score (C2Ray):       {score(coldensh_out_f,coldensh_out_f):.3e}")
 print(f"Global error score (OCTA):        {score(cdh1,coldensh_out_f):.3e}")
 print(f"Global error score (OCTA GPU):    {score(cdh2,coldensh_out_f):.3e}")
+print("\n-- Tests (Ionization Rates) --")
+print(f"Global error score (C2Ray):       {score(phi_ion_f,phi_ion_f):.3e}")
+print(f"Global error score (OCTA):        {score(phi_ion1,phi_ion_f):.3e}")
+print(f"Global error score (OCTA GPU):    {score(phi_ion2,phi_ion_f):.3e}")
 
 
 """ ///////////////////////////////// Visualization /////////////////////////////////// """
