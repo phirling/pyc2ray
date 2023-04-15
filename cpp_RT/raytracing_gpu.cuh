@@ -57,6 +57,21 @@ __global__ void evolve0D_gpu(
     const int d2,
     const int d3);
 
+__global__ void evolve0D_gpu_new(
+    const int q,
+    const int i0,
+    const int j0,
+    const int k0,
+    const double strength,
+    double* coldensh_out,
+    const double sig,
+    const double dr,
+    const double* ndens,
+    const double* xh_av,
+    double* phi_ion,
+    const int m1
+);
+
 void do_source_octa_gpu(
     int* srcpos,
     double* srcstrength,

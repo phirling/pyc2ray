@@ -77,7 +77,9 @@ void do_source_octa_gpu(
         thrust::device_ptr<double> cdh(cdh_dev);
         thrust::device_ptr<double> ion(phi_dev);
         thrust::fill(cdh,cdh + m1*m1*m1,0.0);
+        #if defined(RATES)
         thrust::fill(ion,ion + m1*m1*m1,0.0);
+        #endif
         thrust::fill(cdh + mem_offst(i0,j0,k0,m1), cdh + mem_offst(i0,j0,k0,m1) +1,src_cell_val);
 
         // cudaMemcpy(coldensh_out_dev,coldensh_out,meshsize,cudaMemcpyHostToDevice);
@@ -89,17 +91,15 @@ void do_source_octa_gpu(
         {
             cudaStreamCreate(&stream[a]);
         }
+        int bl = 4;
+        dim3 gs(1,1,2);
+        dim3 bs(bl,bl);
         for (int q=1 ; q <= max_q; q++)
         {   
-            evolve0D_gpu<<<q+1,q+1,0,stream[0]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,1,1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[1]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,-1,1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[2]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,1,-1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[3]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,1,-1,-1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[4]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,1,1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[5]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,-1,1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[6]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,1,-1);
-            evolve0D_gpu<<<q+1,q+1,0,stream[7]>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,-1,-1,-1);
-
+            int grl = (2*q + 1) / bl + 1;
+            gs.x = grl;
+            gs.y = grl;
+            evolve0D_gpu_new<<<gs,bs>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1);
             cudaDeviceSynchronize();
 
             auto error = cudaGetLastError();
@@ -117,13 +117,100 @@ void do_source_octa_gpu(
         }
 
         auto error = cudaMemcpy(coldensh_out,cdh_dev,meshsize,cudaMemcpyDeviceToHost);
+        #if defined(RATES)
         error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
-        
-        // cudaFree(&coldensh_out_dev);
-        // cudaFree(&ndens_dev);
-        // cudaFree(&xh_av_dev);
-        // cudaFree(&phi_ion_dev);
+        #endif
     }
+
+__global__ void evolve0D_gpu_new(
+    const int q,
+    const int i0,
+    const int j0,
+    const int k0,
+    const double strength,
+    double* coldensh_out,
+    const double sig,
+    const double dr,
+    const double* ndens,
+    const double* xh_av,
+    double* phi_ion,
+    const int m1
+)
+{
+    int i = - q + blockIdx.x * blockDim.x + threadIdx.x;
+    int j = - q + blockIdx.y * blockDim.y + threadIdx.y;
+
+    int sgn, mq;
+    if (blockIdx.z == 0)
+        {sgn = 1; mq = q;}
+    else
+        {sgn = -1; mq = q-1;}
+
+    if (abs(i) + abs(j) <= mq)
+    {
+        int k = k0 + sgn*q - sgn*(abs(i) + abs(j));
+        i += i0;
+        j += j0;
+
+        int pos[3];
+        double path;
+        double coldensh_in;                                // Column density to the cell
+        double nHI_p;                                      // Local density of neutral hydrogen in the cell
+        double xh_av_p;                                    // Local ionization fraction of cell
+
+        #if defined(RATES)
+        double xs, ys, zs;
+        double dist2;
+        double vol_ph;
+        #endif
+
+        if (in_box_gpu(i,j,k,m1))
+        {
+            pos[0] = modulo_gpu(i,m1);
+            pos[1] = modulo_gpu(j,m1);
+            pos[2] = modulo_gpu(k,m1);
+
+            xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
+            nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
+
+            if (coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
+            {
+                if (i == i0 &&
+                    j == j0 &&
+                    k == k0)
+                {
+                    coldensh_in = 0.0;
+                    path = 0.5*dr;
+                    #if defined(RATES)
+                    vol_ph = dr*dr*dr / (4*M_PI);
+                    #endif
+                }
+                else
+                {
+                    cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
+                    path *= dr;
+                    #if defined(RATES)
+                    // Find the distance to the source
+                    xs = dr*(i-i0);
+                    ys = dr*(j-j0);
+                    zs = dr*(k-k0);
+                    dist2=xs*xs+ys*ys+zs*zs;
+                    vol_ph = dist2 * path;
+                    #endif
+                }
+                coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
+                
+                #if defined(RATES)
+                if (coldensh_in <= MAX_COLDENSH)
+                {
+                    double phi = photoion_rate_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,nHI_p,sig);
+                    phi_ion[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
+                }
+                #endif
+            }
+        }
+    }
+}
 
 __global__ void evolve0D_gpu(
     const int q,
