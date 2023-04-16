@@ -71,6 +71,7 @@ module raytracing
 
         ! Pass all sources in order
         do ns=1, NumSrc
+            write(*,*) "doing source ", ns, "at", srcpos(:,ns)
             call do_source(srcflux,srcpos,ns,r_box,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         enddo
 

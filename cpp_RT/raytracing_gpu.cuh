@@ -85,3 +85,16 @@ void do_source_octa_gpu(
     double* phi_ion,
     const int & NumSrc,
     const int & m1);
+
+void do_all_sources_octa_gpu(
+    int* srcpos,
+    double* srcstrength,
+    const double & R,
+    double* coldensh_out,
+    const double & sig,
+    const double & dr,
+    double* ndens,
+    double* xh_av,
+    double* phi_ion,
+    const int & NumSrc,
+    const int & m1);

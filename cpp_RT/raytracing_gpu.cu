@@ -31,6 +31,73 @@ double* n_dev;
 double* x_dev;
 double* phi_dev;
 
+void do_all_sources_octa_gpu(
+    int* srcpos,
+    double* srcstrength,
+    const double & R,
+    double* coldensh_out,
+    const double & sig,
+    const double & dr,
+    double* ndens,
+    double* xh_av,
+    double* phi_ion,
+    const int & NumSrc,
+    const int & m1)
+    {   
+        auto meshsize = m1*m1*m1*sizeof(double);
+        int max_q = std::ceil(1.73205080757 * R); //std::ceil(1.5 * m1);
+        int bl = 8;
+        dim3 gs(1,1,2);
+        dim3 bs(bl,bl);
+
+        thrust::device_ptr<double> cdh(cdh_dev);
+        thrust::device_ptr<double> ion(phi_dev);
+        // "RATES": do ionization rate computation using separate kernel. "LOCALRATES": do it in evolve0D
+        #if defined(LOCALRATES) || defined(RATES)
+        thrust::fill(ion,ion + m1*m1*m1,0.0);
+        #endif
+
+        cudaMemcpy(n_dev,ndens,meshsize,cudaMemcpyHostToDevice);
+        cudaMemcpy(x_dev,xh_av,meshsize,cudaMemcpyHostToDevice);
+
+        int i0,j0,k0;
+        double strength;
+
+        for (int ns = 0; ns < NumSrc; ns++)
+        {   
+            // For compatibility with c2ray, source position is stored in Fortran ordering (dim0: coordinate, dim1: src number)
+            i0 = srcpos[3*ns + 0];
+            j0 = srcpos[3*ns + 1];
+            k0 = srcpos[3*ns + 2];
+            strength = srcstrength[ns];
+            std::cout << "Doing source at " << i0 << " " << j0 << " " << k0 << std::endl;
+            // Set column density to zero
+            thrust::fill(cdh,cdh + m1*m1*m1,0.0);
+            
+            for (int q=0 ; q <= max_q; q++)
+            {   
+                int grl = (2*q + 1) / bl + 1;
+                gs.x = grl;
+                gs.y = grl;
+                evolve0D_gpu_new<<<gs,bs>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1);
+                cudaDeviceSynchronize();
+
+                auto error = cudaGetLastError();
+                if(error != cudaSuccess) {
+                    std::cout << "error at q=" << q << std::endl;
+                    throw std::runtime_error("Error Launching Kernel: "
+                                            + std::string(cudaGetErrorName(error)) + " - "
+                                            + std::string(cudaGetErrorString(error)));
+                }
+            }
+        }
+
+        auto error = cudaMemcpy(coldensh_out,cdh_dev,meshsize,cudaMemcpyDeviceToHost);
+        #if defined(LOCALRATES) || defined(RATES)
+        error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
+        #endif
+    }
+
 
 void do_source_octa_gpu(
     int* srcpos,
@@ -46,9 +113,11 @@ void do_source_octa_gpu(
     const int & NumSrc,
     const int & m1)
     {   
-        int i0 = srcpos[ns];            //srcpos[0][ns];
-        int j0 = srcpos[NumSrc + ns];   //srcpos[1][ns];
-        int k0 = srcpos[2*NumSrc + ns]; //srcpos[2][ns];
+        // For compatibility with c2ray, source position is stored in Fortran ordering (dim0: coordinate, dim1: src number)
+        int i0 = srcpos[NumSrc*ns];      //srcpos[0][ns]
+        int j0 = srcpos[1 + NumSrc*ns];  //srcpos[1][ns]
+        int k0 = srcpos[2 + NumSrc*ns];  //srcpos[2][ns]
+        
         double strength = srcstrength[ns];
         // Source position
         //std::vector<int> srcpos_p = {srcpos[0][ns], srcpos[1][ns], srcpos[2][ns]};

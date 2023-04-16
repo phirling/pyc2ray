@@ -13,6 +13,8 @@ __pycache__/
 # Fortran Modules
 *.mod
 
+# Pickled results
+*.pkl
 # Distribution / packaging
 .Python
 build/
