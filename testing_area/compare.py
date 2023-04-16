@@ -3,8 +3,8 @@ import numpy as np
 from tomography import zTomography_3panels
 import matplotlib.pyplot as plt
 
-f1 = "c2ray_50_sources_r=150.pkl"
-f2 = "octa_50_sources_r=150.pkl"
+f1 = "./results/c2ray_50_sources_r=150.pkl"
+f2 = "./results/octa_50_sources_r=150_daint.pkl"
 
 with open(f1,'rb') as f:
     loggamma1 = pkl.load(f)

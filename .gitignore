@@ -15,6 +15,10 @@ __pycache__/
 
 # Pickled results
 *.pkl
+
+# Images
+*.png
+
 # Distribution / packaging
 .Python
 build/
