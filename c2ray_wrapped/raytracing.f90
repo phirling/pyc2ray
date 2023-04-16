@@ -45,6 +45,38 @@ module raytracing
 
     contains
 
+    subroutine do_all_sources(srcflux,srcpos,r_box,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
+    ! ===============================================================================================
+    !! This subroutine computes the column density and ionization rate on the whole
+    !! grid, for all sources. The global rates of all sources are then added up.
+    ! ===============================================================================================
+        ! subroutine arguments
+        integer, intent(in) :: NumSrc                                   !> Number of sources
+        real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
+        integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
+        real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
+        real(kind=real64), intent(in) :: dr               !> Cell size
+        real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
+        real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells (--> density of ionized H is xh_av * ndens)
+        real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
+        real(kind=real64),intent(in):: sig                              !> Hydrogen ionization cross section (sigma_HI_at_ion_freq)
+        integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
+        integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
+        integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
+        integer, intent(in) :: r_box
+        
+        integer :: ns ! Source counter
+        ! Set Rates to 0
+        phi_ion(:,:,:) = 0.0
+
+        ! Pass all sources in order
+        do ns=1, NumSrc
+            call do_source(srcflux,srcpos,ns,r_box,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
+        enddo
+
+    end subroutine do_all_sources
+
+
     ! ===============================================================================================
     !! This subroutine computes the column density and ionization rate on the whole
     !! grid, for one source. The global rates of all sources are then added and applied
@@ -79,8 +111,10 @@ module raytracing
             last_r(2) = m2
             last_r(3) = m3
         else
-            last_l(:) = srcpos(:,ns) - r_box
-            last_r(:) = srcpos(:,ns) + r_box
+            ! last_l(:) = srcpos(:,ns) - r_box
+            ! last_r(:) = srcpos(:,ns) + r_box
+            last_r(:)=srcpos(:,ns)+min(r_box,m1/2-1+mod(m1,2))
+            last_l(:)=srcpos(:,ns)-min(r_box,m1/2)
         endif
 
         ! TODO: add OpenMP parallelization at the Fortran level.

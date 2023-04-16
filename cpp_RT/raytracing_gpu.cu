@@ -167,7 +167,9 @@ __global__ void evolve0D_gpu_new(
         double vol_ph;
         #endif
 
+        #if !defined(PERIODIC)
         if (in_box_gpu(i,j,k,m1))
+        #endif
         {
             pos[0] = modulo_gpu(i,m1);
             pos[1] = modulo_gpu(j,m1);
@@ -257,7 +259,9 @@ __global__ void evolve0D_gpu(
         int i = i0 + d2*(blockIdx.x - threadIdx.x);
         int j = j0 + d3*(blockIdx.x - (blockIdx.x - threadIdx.x));
 
+        #if !defined(PERIODIC)
         if (in_box_gpu(i,j,k,m1))
+        #endif
         {
             pos[0] = modulo_gpu(i,m1);
             pos[1] = modulo_gpu(j,m1);

@@ -19,12 +19,12 @@ N       = 300       # Grid Size
 srcx    = 150       # Source x-position (x=y=z)
 numsrc  = 1         # Number of sources
 zslice  = 150       # z-coordinate of box to visualize
-plot_interm    = 0         # Whether or not to plot results
+plot_interm    = 1         # Whether or not to plot results
 plot_final    = 1         # Whether or not to plot results
 
 # Result Arrays
-N_rads = 10
-rads = np.linspace(5,150,N_rads)
+N_rads = 3
+rads = np.linspace(5,200,N_rads)
 timings_c2r = np.empty(N_rads)
 timings_octa = np.empty(N_rads)
 scores_cd_c2r = np.empty(N_rads)
@@ -117,7 +117,7 @@ for a, rad in enumerate(rads):
     scores_phi_octa[a] = score(phi_ion2, phi_ion_f, rad)
 
     if plot_interm:
-        plt.imshow(np.log(phi_ion2[zslice,:,:]),origin='lower')
+        plt.imshow(np.log(phi_ion_f[zslice,:,:]),origin='lower')
         plt.show()
 RTC.device_close() # Deallocate GPU memory
 
