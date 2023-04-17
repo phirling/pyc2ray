@@ -49,14 +49,13 @@ temp0 = 1e4
 """ ////////////////////////// C++ (OCTA) Version Setup /////////////////////////////// """
 
 # Source Setup
-# srcpos = np.random.randint(0,N,size=3*numsrc,dtype='int32')
-# print("Source positions: ")
-# print(srcpos)
-# srcflux = 5.0e48 * np.ones(numsrc)
-srcpos, srcflux, numsrc = read_sources(sourcefile,numsrc,"pyc2ray_octa")
+srcpos = np.random.randint(0,N,size=3*numsrc,dtype='int32')
 print("Source positions: ")
 print(srcpos)
-print(srcpos.dtype)
+srcflux = 5.0e48 * np.ones(numsrc)
+
+# TODO: replace by new method. doesn't work yet for some reason.
+# srcpos, srcflux, numsrc = read_sources(sourcefile,numsrc,"pyc2ray_octa")
 
 # Initialize Arrays
 cdh2 = np.ravel(np.zeros((N,N,N),dtype='float64'))

@@ -1,20 +1,16 @@
 import numpy as np
 from parameters import Params
 import astropy.units as u
+import astropy.constants as ac
 import time
 import matplotlib.pyplot as plt
-import argparse
 import evolve as evo
 import pickle as pkl
-
-parser = argparse.ArgumentParser()
-parser.add_argument("-N",type=int,default=128)
-args = parser.parse_args()
 
 # /////////////////////////////////////////////////////////////////////////////////
 
 # Number of cells in each dimension
-N = int(args.N)
+N = 128
 
 # Display options
 display = True                          # Display results at the end of run
@@ -25,23 +21,26 @@ res_basename = "./results/"             # Directory to store pickled results
 delta_results = 10                      # Number of timesteps between results
 
 # Run Parameters (sizes, etc.)
-tsim = 10                              # Simulation Time (in Myrs)
+tsim = 140                              # Simulation Time (in Myrs)
 t_evol = tsim * u.Myr.to('s')           # Simulation Time (in seconds)
-tsteps = 10                            # Number of timesteps
+tsteps = 140                            # Number of timesteps
 dt = t_evol / tsteps                    # Timestep
-boxsize = 14 * u.kpc.to('cm')           # Simulation box size
+boxsize = 20 * u.kpc.to('cm') #100 * u.Mpc.to('cm')           # Simulation box size
 dxbox = boxsize / N                     # Cell Size (1D)
 dr = dxbox * np.ones(3)                 # Cell Size (3D)
-avgdens = 1.0e-3                        # Constant Hydrogen number density
-xhav = 1.2e-3                           # Initial ionization fraction
+avgdens = 1e-3#1.982e-04                        # Constant Hydrogen number density
+xhav = 1.2e-3#2e-4                           # Initial ionization fraction
 
 # Source Parameters
-numsrc = 1                              # Number of sources
-srcpos = np.empty((3,numsrc),dtype='int')
-srcflux = np.empty(numsrc)
-srcpos[:,0] = np.array([64,64,64])      # Position of source
-srcflux[0] = 5.0e48                     # Strength of source
-r_RT = -1                               # Raytracing box size (-1 means whole box)
+numsrc = 30                              # Number of sources
+np.random.seed(100)
+srcpos = 1+np.random.randint(0,N,size=(3,numsrc))
+#srcpos = np.empty((3,numsrc),dtype='int')
+#srcpos[:,0] = np.array([64,64,64])      # Position of source
+#srcpos[:,1] = np.array([80,70,64])      # Position of source
+#srcpos[:,2] = np.array([53,70,55])      # Position of source
+srcflux = 5e48*np.ones(numsrc)                     # Strength of source
+r_RT = 50                               # Raytracing box size (-1 means whole box)
 
 # /////////////////////////////////////////////////////////////////////////////////
 
@@ -72,10 +71,14 @@ xh_new_f = xh_f
 # Count time
 tinit = time.time()
 
+print("\n ============================================================================================== \n")
+
 print(f"Running on {numsrc:n} source(s) on {N:n}^3 grid.")
 print(f"Constant density: {avgdens:.2e} cm^-3, Temperature: {temp0:.1e} K, initial ionized fraction: {xhav:.2e}")
 print(f"Simulation time is {tsim:.2f} Myr(s), using timestep {tsim/tsteps:.2f} Myr(s).")
 print("Starting main loop...")
+
+print("\n ============================================================================================== \n")
 
 # ===================================== Main loop =====================================
 outputn = 0
@@ -120,5 +123,4 @@ if display:
     c3 = plt.colorbar(im3,ax=ax3)
 
     fig.tight_layout()
-
     plt.show()

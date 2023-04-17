@@ -238,7 +238,6 @@ module raytracing
     ! This subroutine does the short characteristics for a whole plane at constant z
     ! (specified by argument k). This of course assumes that the previous plane has
     ! already been done.
-    ! ---> This was called "evolve2D" in original c2ray, renamed here to better describe what it does
     ! ===============================================================================================
     subroutine evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
         ! subroutine arguments

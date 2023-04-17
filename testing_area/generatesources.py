@@ -16,7 +16,7 @@ np.random.seed(100)
 N       = 300               # Grid Size
 numsrc  = 100               # Number of sources
 fname = "sourcelist.txt"    # File name
-flux = 5.0e48               # Flux of each source. TODO: maybe try with random flux too ?
+flux = 5.0e55               # Flux of each source. TODO: maybe try with random flux too ?
 
 # Source Setup
 srcpos = 1+np.random.randint(0,N,size=3*numsrc)

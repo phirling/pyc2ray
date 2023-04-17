@@ -87,3 +87,36 @@ class zTomography_3panels:
                 self.im3.set_data(self.data3[:,:,zz])
                 self.zz = zz
                 self.fig.canvas.draw()
+
+class zTomography_xfrac:
+    def __init__(self,datacube,zi,incr=10,xmin=None,cmap='jet',fs=6):
+        self.data = datacube
+        self.N = datacube.shape[0]
+        self.fig, self.ax = plt.subplots(figsize=(fs,fs))
+        self.zz = zi
+        self.incr = incr
+        self.ax.set_title(f"Neutral Hydrogen Fraction",fontsize=12)
+        self.cmap = mpl.colormaps[cmap]
+        self.cmap.set_bad('white')
+        if xmin is None:
+            vmin = np.min(1.0-datacube)
+        else: vmin = xmin
+        self.im = self.ax.imshow(1.0-self.data[:,:,zi],origin='lower',norm='log',cmap=self.cmap,vmax=1.0,vmin=vmin)
+        self.cb = plt.colorbar(self.im,ax=self.ax)
+        self.cb.set_label(label=r"$1-x_{HI}$",size=15)
+        self.fig.canvas.mpl_connect('key_press_event',self.switch)
+        self.fig.tight_layout()
+
+    def switch(self,event):
+        up = event.key == 'up'
+        down = event.key == 'down'
+        zz = self.zz
+        if up:
+            zz += self.incr
+        elif down:      
+            zz -= self.incr
+        if up or down:
+            if zz in range(self.N):
+                self.im.set_data(1.0-self.data[:,:,zz])
+                self.zz = zz
+                self.fig.canvas.draw()
