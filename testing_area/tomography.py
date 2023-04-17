@@ -64,8 +64,8 @@ class zTomography_3panels:
 
         # Panel 3
         self.ax3.set_title(f"Residual",fontsize=12)
-        self.im3 = self.ax3.imshow(self.data3[:,:,zi],origin='lower',cmap='bwr',vmax=1,vmin=-1)
-        #self.im3 = self.ax3.imshow(self.data3[:,:,zi],origin='lower',cmap='bwr',vmax=vmax_res,vmin=vmin_res,norm='log')
+        #self.im3 = self.ax3.imshow(self.data3[:,:,zi],origin='lower',cmap='bwr',vmax=1,vmin=-1)
+        self.im3 = self.ax3.imshow(self.data3[:,:,zi],origin='lower',cmap='bwr',vmax=vmax_res,vmin=vmin_res,norm='symlog')
         self.cb3 = plt.colorbar(self.im3,ax=self.ax3)
         self.cb3.set_label(label=r"$\Gamma_1 / \Gamma_2 - 1$",size=15)
 

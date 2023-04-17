@@ -19,6 +19,9 @@ __pycache__/
 # Images
 *.png
 
+# Mac OS files
+**/.DS_STORE
+
 # Distribution / packaging
 .Python
 build/
