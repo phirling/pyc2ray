@@ -35,13 +35,13 @@ def read_sources(file,n,case):
                 srcpos[0] = src_x
                 srcpos[1] = src_y
                 srcpos[2] = src_z
-                return srcpos, src_num
+                return srcpos, src_flux, src_num
             elif (case == "pyc2ray_octa"):
                 srcpos = np.empty((3,src_num),dtype='int32')
                 srcpos[0] = src_x - 1
                 srcpos[1] = src_y - 1
                 srcpos[2] = src_z - 1
                 srcpos = np.ravel(srcpos,order='F')
-                return srcpos, src_num
+                return srcpos, src_flux, src_num
             else:
                 raise ValueError("Unknown case: " + case)

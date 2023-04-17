@@ -7,33 +7,31 @@ import time
 import argparse
 from tomography import zTomography # Custom module to visualize datacube
 import pickle as pkl
+from readsources import read_sources
 
 np.random.seed(100)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("-N",type=int,default=300)
 parser.add_argument("-r",type=int,default=50)
-parser.add_argument("-srcx",type=int,default=150)
-parser.add_argument("-zslice",type=int,default=None)
+parser.add_argument("-numsrc",type=int,default=10)
 parser.add_argument("--pickle",action='store_true')
+parser.add_argument("--plot",action='store_true')
 args = parser.parse_args()
 
 """
 ABOUT
-Test the c2ray version of the RT
+Test the octa version of the RT
 
 """
 
 """ /////////////////////////////// Main Setup //////////////////////////////////////// """
 
 # Test Parameters
-N       = 300       # Grid Size
-srcx    = args.srcx       # Source x-position (x=y=z)
-numsrc  = 50         # Number of sources
-if args.zslice is None:
-    zslice = srcx
-else:
-    zslice = args.zslice
-plot_final    = 0         # Whether or not to plot results
+sourcefile = "sourcelist.txt"
+N       = args.N       # Grid Size
+numsrc  = args.numsrc         # Number of sources
+plot_final    = args.plot         # Whether or not to plot results
 rad = args.r
 
 # Numerical/Physical Setup
@@ -51,10 +49,11 @@ temp0 = 1e4
 """ ////////////////////////// C++ (OCTA) Version Setup /////////////////////////////// """
 
 # Source Setup
-srcpos = np.random.randint(0,N,size=3*numsrc,dtype='int32')
-print("Source positions: ")
-print(srcpos)
-srcflux = 5.0e48 * np.ones(numsrc)
+# srcpos = np.random.randint(0,N,size=3*numsrc,dtype='int32')
+# print("Source positions: ")
+# print(srcpos)
+# srcflux = 5.0e48 * np.ones(numsrc)
+srcpos, srcflux, numsrc = read_sources(sourcefile,numsrc,"pyc2ray_octa")
 
 # Initialize Arrays
 cdh2 = np.ravel(np.zeros((N,N,N),dtype='float64'))
@@ -79,11 +78,14 @@ RTC.device_close() # Deallocate GPU memory
 print(f"Done. took {t6-t5:.2f} second(s).")
 
 """ ///////////////////////////////// Visualization /////////////////////////////////// """
+print(f"Average ionization rate: {phi_ion2.mean():.5e}")
+
 loggamma = np.where(phi_ion2 != 0.0,np.log(phi_ion2),np.nan) #= np.log(phi_ion_f)
 
 if args.pickle:
     with open(f"octa_{numsrc:n}_sources_r={rad:n}.pkl","wb") as f:
         pkl.dump(loggamma, f)
 
-tomo = zTomography(loggamma, zslice)
-plt.show()
+if plot_final:
+    tomo = zTomography(loggamma, N // 2)
+    plt.show()
