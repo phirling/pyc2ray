@@ -2,9 +2,16 @@ import pickle as pkl
 import numpy as np
 from tomography import zTomography_3panels
 import matplotlib.pyplot as plt
+import argparse
 
-f1 = "./multisource_results/c2ray_100_sources_r=150.pkl"
-f2 = "./multisource_results/octa_100_sources_r=150.pkl"
+parser = argparse.ArgumentParser()
+
+parser.add_argument("files",nargs=2)
+
+args = parser.parse_args()
+
+f1 = args.files[0] #"./multisource_results/c2ray_100_sources_r=150.pkl"
+f2 = args.files[1] #"./multisource_results/octa_100_sources_r=150.pkl"
 
 with open(f1,'rb') as f:
     loggamma1 = pkl.load(f)

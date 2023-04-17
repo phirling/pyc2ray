@@ -54,6 +54,9 @@ temp0 = 1e4
 # print(srcpos)
 # srcflux = 5.0e48 * np.ones(numsrc)
 srcpos, srcflux, numsrc = read_sources(sourcefile,numsrc,"pyc2ray_octa")
+print("Source positions: ")
+print(srcpos)
+print(srcpos.dtype)
 
 # Initialize Arrays
 cdh2 = np.ravel(np.zeros((N,N,N),dtype='float64'))
