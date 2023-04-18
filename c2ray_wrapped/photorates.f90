@@ -9,7 +9,7 @@ module photorates
     !! Subroutine to compute the photoionization rate of a test source,
     !! that is, a source with a known number of ionizing photons per
     !! unit time and assuming a frequency-independent cross section (sig).
-    subroutine photoion_rates_test(strength,coldens_in,coldens_out,Vfact,nHI,sig,phi_photoion)
+    subroutine photoion_rates_test(strength,coldens_in,coldens_out,Vfact,nHI,sig,phi_photo_cell,phi_photo_out)
 
         ! Optical depth below which we should use the optically thin tables
         real(kind=real64),parameter :: tau_photo_limit = 1.0e-7 
@@ -21,21 +21,32 @@ module photorates
         real(kind=real64), intent(in) :: Vfact                  ! Volume factor (dilution, cell volume, etc) see evolve0D TODO: figure out correct form
         real(kind=real64), intent(in) :: nHI                    ! Density of neutral Hydrogen
         real(kind=real64), intent(in) :: sig                    ! Hydrogen photoionization cross section (constant here)
-        real(kind=real64), intent(out) :: phi_photoion          ! Photoionization rate Gamma, in s^-1
+        real(kind=real64), intent(out) :: phi_photo_cell        ! Photoionization rate of the cell Gamma, in s^-1
+        real(kind=real64), intent(out) :: phi_photo_out         ! Photoionization rate at the output of the cell (radiation that leaves the cell), in s^-1
 
         real(kind=real64) :: tau_in                             ! Optical Depth to cell
         real(kind=real64) :: tau_out                            ! Optical Depth at cell exit
+        real(kind=real64) :: phi_photo_in                       ! Photoionization rate at input of cell (radiation that enters the cell)
+        real(kind=real64) :: prefact
 
         ! Compute optical depth and ionization rate depending on whether the cell is optically thick or thin
         tau_in = coldens_in * sig
         tau_out = coldens_out * sig
 
+        ! Compute incoming photoionization rate
+        prefact = strength * inv4pi / (Vfact * nHI)
+        phi_photo_in = prefact * (exp(-tau_in))
+
         ! If cell is optically thick
         if (abs(tau_out - tau_in) > tau_photo_limit) then
-            phi_photoion = strength * inv4pi / (Vfact * nHI) * (exp(-tau_in) - exp(-tau_out))
+            phi_photo_out = prefact * (exp(-tau_out))
+            phi_photo_cell = phi_photo_in - phi_photo_out
+            ! phi_photo_cell = strength * inv4pi / (Vfact * nHI) * (exp(-tau_in) - exp(-tau_out))
+            
         ! If cell is optically thin
         else
-            phi_photoion = strength * inv4pi * sig * (tau_out - tau_in) / (Vfact) * exp(-tau_in)
+            phi_photo_cell = strength * inv4pi * sig * (tau_out - tau_in) / (Vfact) * exp(-tau_in)
+            phi_photo_out = phi_photo_in - phi_photo_cell
         endif
 
     end subroutine photoion_rates_test

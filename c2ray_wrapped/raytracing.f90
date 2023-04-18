@@ -101,7 +101,8 @@ module raytracing
         integer, intent(in) :: r_box
 
         integer,dimension(3) :: last_l                      !> mesh position of left end point for RT
-        integer,dimension(3) :: last_r                      !> mesh position of right end point for RT        
+        integer,dimension(3) :: last_r                      !> mesh position of right end point for RT 
+        real(kind=real64) :: photon_loss_src                !> Photons leaving the subbox delimited by last_l and last_r
         
         ! If no OpenMP, traverse mesh plane by plane in the z direction up/down from the source
         integer :: k  ! z-coord of plane
@@ -129,117 +130,28 @@ module raytracing
 
         ! 1. transfer in the upper part of the grid (above srcpos(3))
         do k=srcpos(3,ns),last_r(3)
-            call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
+            call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                photon_loss_src,NumSrc,m1,m2,m3)
         end do
 
         ! 2. transfer in the lower part of the grid (below srcpos(3))
         do k=srcpos(3,ns)-1,last_l(3),-1
-            call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
+            call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                photon_loss_src,NumSrc,m1,m2,m3)
         end do
 
+        write(*,*) photon_loss_src
         ! TODO: add photon loss statistics
     end subroutine do_source
 
-    ! ===============================================================================================
-    !! Alternative version of do_source that sweeps the grid in growing octahedral faces. Its
-    !! intended use is as a reference for future parallelization on GPU. Using it as it is
-    !! on the CPU will result in a factor ~2 performance decrease.
-    ! ===============================================================================================
-    subroutine do_source_octa(srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
-        ! subroutine arguments
-        integer, intent(in) :: NumSrc                                   !> Number of sources
-        integer,intent(in)      :: ns                                   !> source number 
-        real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
-        integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
-        real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
-        real(kind=real64), intent(in) :: dr               !> Cell size
-        real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
-        real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells (--> density of ionized H is xh_av * ndens)
-        real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
-        real(kind=real64),intent(in):: sig                              !> Hydrogen ionization cross section (sigma_HI_at_ion_freq)
-        integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
-        integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
-        integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
-        ! integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
-        ! integer,dimension(3), intent(in) :: last_r                      !> mesh position of right end point for RT  
-
-        integer,dimension(3) :: rtpos
-        integer :: r,k,j
-        integer :: max_r
-        coldensh_out(:,:,:) = 0.0
-
-        ! Conservative estimate for max_r
-        max_r = ceiling(1.5 * m1)
-
-        ! First, do the source point
-        rtpos(:) = srcpos(:,ns)
-        call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
-
-        ! Sweep the grid by treating the faces of octahedra of increasing size.
-        do r=1,max_r
-            do k=0,r
-                do j=0,k
-                    ! -- Top of the octahedron --
-                    ! Face QI
-                    rtpos(3) = srcpos(3,ns) + (r-k)
-                    rtpos(1) = srcpos(1,ns) + (k-j)
-                    rtpos(2) = srcpos(2,ns) + (k-(k-j))
-                    call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
-                    
-                    ! Face QII
-                    rtpos(3) = srcpos(3,ns) + (r-k)
-                    rtpos(1) = srcpos(1,ns) - (k-j)
-                    rtpos(2) = srcpos(2,ns) + (k-(k-j))
-                    call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
-                    
-                    ! Face QIII
-                    rtpos(3) = srcpos(3,ns) + (r-k)
-                    rtpos(1) = srcpos(1,ns) + (k-j)
-                    rtpos(2) = srcpos(2,ns) - (k-(k-j))
-                    call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
-                    
-                    ! Face QIV
-                    rtpos(3) = srcpos(3,ns) + (r-k)
-                    rtpos(1) = srcpos(1,ns) - (k-j)
-                    rtpos(2) = srcpos(2,ns) - (k-(k-j))
-                    call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
-
-                    ! -- Bottom of the octahedron --
-                    ! Face QI
-                    rtpos(3) = srcpos(3,ns) - (r-k)
-                    rtpos(1) = srcpos(1,ns) + (k-j)
-                    rtpos(2) = srcpos(2,ns) + (k-(k-j))
-                    call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
-                    
-                    ! Face QII
-                    rtpos(3) = srcpos(3,ns) - (r-k)
-                    rtpos(1) = srcpos(1,ns) - (k-j)
-                    rtpos(2) = srcpos(2,ns) + (k-(k-j))
-                    call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
-                    
-                    ! Face QIII
-                    rtpos(3) = srcpos(3,ns) - (r-k)
-                    rtpos(1) = srcpos(1,ns) + (k-j)
-                    rtpos(2) = srcpos(2,ns) - (k-(k-j))
-                    call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
-                    
-                    ! Face QIV
-                    rtpos(3) = srcpos(3,ns) - (r-k)
-                    rtpos(1) = srcpos(1,ns) - (k-j)
-                    rtpos(2) = srcpos(2,ns) - (k-(k-j))
-                    call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
-                enddo
-            enddo
-        enddo
-        
-    end subroutine do_source_octa
+    
 
     ! ===============================================================================================
     ! This subroutine does the short characteristics for a whole plane at constant z
     ! (specified by argument k). This of course assumes that the previous plane has
     ! already been done.
     ! ===============================================================================================
-    subroutine evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
+    subroutine evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,photon_loss_src,NumSrc,m1,m2,m3)
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   !> Number of sources
         integer,intent(in)      :: ns                                   !> source number 
@@ -255,6 +167,7 @@ module raytracing
         integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
+        real(kind=real64),intent(inout):: photon_loss_src               !> Photons leaving the subbox delimited by last_l and last_r
         integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
         integer,dimension(3), intent(in) :: last_r                      !> mesh position of right end point for RT
 
@@ -268,11 +181,14 @@ module raytracing
             rtpos(2)=j
             do i=srcpos(1,ns),last_r(1)
                 rtpos(1)=i
-                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3) ! `positive' i
+                 ! `positive' i
+                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                    last_l, last_r, photon_loss_src,NumSrc,m1,m2,m3)
             end do
             do i=srcpos(1,ns)-1,last_l(1),-1
                 rtpos(1)=i
-                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3) ! `positive' i
+                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                    last_l, last_r, photon_loss_src,NumSrc,m1,m2,m3) ! `positive' i
             end do
         end do
 
@@ -281,11 +197,13 @@ module raytracing
             rtpos(2)=j
             do i=srcpos(1,ns),last_r(1)
                 rtpos(1)=i
-                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3) ! `positive' i
+                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                    last_l, last_r, photon_loss_src,NumSrc,m1,m2,m3) ! `positive' i
             end do
             do i=srcpos(1,ns)-1,last_l(1),-1
                 rtpos(1)=i
-                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3) ! `positive' i
+                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                    last_l, last_r, photon_loss_src,NumSrc,m1,m2,m3) ! `positive' i
             end do
         end do
     end subroutine evolve2D
@@ -295,7 +213,8 @@ module raytracing
     !! Does the short characteristics for one cell and a single source. Has to be called in the correct
     !! order by the parent routines evolve2D and evolve3D.
     ! ===============================================================================================
-    subroutine evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
+    subroutine evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,last_l,last_r, &
+            photon_loss_src,NumSrc,m1,m2,m3)
     
         ! This version (2023) modified for use with f2py (P. Hirling)
 
@@ -326,6 +245,9 @@ module raytracing
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells
         real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
         real(kind=real64),intent(in):: sig                              !> Hydrogen ionization cross section (sigma_HI_at_ion_freq)
+        real(kind=real64),intent(inout):: photon_loss_src               !> Photons leaving the subbox delimited by last_l and last_r
+        integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
+        integer,dimension(3), intent(in) :: last_r                      !> mesh position of right end point for RT
         integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
@@ -339,6 +261,7 @@ module raytracing
         real(kind=real64) :: nHI_p                                      !> Local density of neutral hydrogen in the cell
         real(kind=real64) :: xh_av_p                                    !> Local ionization fraction of cell
         real(kind=real64) :: phi_ion_p                                  !> Local photoionization rate of cell (to be computed)
+        real(kind=real64) :: phi_ion_out                                  !> Local photoionization rate of cell (to be computed)
 
         ! Reset check on radiative transfer
         stop_rad_transfer=.false.
@@ -421,7 +344,8 @@ module raytracing
 
             ! Limit the calculation to a certain maximum column density (hydrogen)
             if (.not.stop_rad_transfer) then 
-                call photoion_rates_test(srcflux(NumSrc),coldensh_in,coldensh_out(pos(1),pos(2),pos(3)),vol_ph,nHI_p,sig,phi_ion_p)
+                call photoion_rates_test(srcflux(NumSrc),coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
+                    vol_ph,nHI_p,sig,phi_ion_p,phi_ion_out)
             ! -->     phi=photoion_rates(coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
             ! -->         vol_ph,ns,ion%h_av(1))
             ! -->     ! Divide the photo-ionization rates by the appropriate neutral density
@@ -445,6 +369,12 @@ module raytracing
             ! Add photo-ionization rate to the global array 
             ! (this array is applied in evolve0D_global)
             phi_ion(pos(1),pos(2),pos(3)) = phi_ion(pos(1),pos(2),pos(3)) + phi_ion_p
+            
+            ! Compute photon loss to use subbox optimization
+            if ( (any(rtpos(:) == last_l(:))) .or. &
+                 (any(rtpos(:) == last_r(:))) ) then
+                photon_loss_src = photon_loss_src + phi_ion_out * (dr*dr*dr)/vol_ph
+            endif
             ! --> phih_grid(pos(1),pos(2),pos(3))= &
             ! -->     phih_grid(pos(1),pos(2),pos(3))+phi%photo_cell_HI
             ! --> if (.not. isothermal) &
