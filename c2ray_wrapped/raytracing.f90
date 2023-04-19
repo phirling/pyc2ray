@@ -26,6 +26,10 @@
 ! Here, we'll simply use x, the ionized fraction, and compute y = 1-x whenever necessary
 !
 ! 29.3.23: Replaced cell size by float since we are always using cubic cells
+! 19.4.23: Added subbox algorithm
+!
+! Convention: Lines commented with "! -->" are unused sections of the original c2ray code and
+! may be useful as reference for future development.
 ! ========================================================================================
 
 module raytracing
@@ -45,7 +49,8 @@ module raytracing
 
     contains
 
-    subroutine do_all_sources(srcflux,srcpos,r_box,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
+    subroutine do_all_sources(srcflux,srcpos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
+        phi_ion,loss_fraction,NumSrc,m1,m2,m3)
     ! ===============================================================================================
     !! This subroutine computes the column density and ionization rate on the whole
     !! grid, for all sources. The global rates of all sources are then added up.
@@ -55,25 +60,37 @@ module raytracing
         real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
         integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
-        real(kind=real64), intent(in) :: dr               !> Cell size
+        real(kind=real64), intent(in) :: dr                             !> Cell size
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells (--> density of ionized H is xh_av * ndens)
         real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
         real(kind=real64),intent(in):: sig                              !> Hydrogen ionization cross section (sigma_HI_at_ion_freq)
+        integer, intent(in) :: max_subbox                               !> Maximum range for RT
+        integer, intent(in) :: subboxsize                               !> Size of subbox increment when loss fraction is too high
+        real, intent(in) :: loss_fraction                               !> Fraction of remaining photons below we stop ray-tracing
         integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
-        integer, intent(in) :: r_box
         
-        integer :: ns ! Source counter
+        integer :: ns                                                   !> Source counter
+        integer :: sum_nbox                                             !> Number of subboxes used by all sources for statistics
+        real(kind=real64) :: photon_loss                                !> Total photon loss of all sources for statistics
+
         ! Set Rates to 0
         phi_ion(:,:,:) = 0.0
 
+        ! Set statistics to 0
+        sum_nbox = 0
+        photon_loss = 0.0
+
         ! Pass all sources in order
         do ns=1, NumSrc
-            write(*,*) "doing source ", ns, "at", srcpos(:,ns)
-            call do_source(srcflux,srcpos,ns,r_box,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
+            ! write(*,*) "doing source ", ns, "at", srcpos(:,ns)
+            call do_source(srcflux,srcpos,ns,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
+                phi_ion,loss_fraction,sum_nbox,photon_loss,NumSrc,m1,m2,m3)
         enddo
+
+        write(*,"(A,I3,A,ES11.4)") "Average number of subboxes:", sum_nbox/NumSrc, " Total photon loss: ",photon_loss
 
     end subroutine do_all_sources
 
@@ -83,65 +100,100 @@ module raytracing
     !! grid, for one source. The global rates of all sources are then added and applied
     !! using other subroutines that remain to be translated.
     ! ===============================================================================================
-    subroutine do_source(srcflux,srcpos,ns,r_box,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1,m2,m3)
+    subroutine do_source(srcflux,srcpos,ns,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
+        phi_ion,loss_fraction,sum_nbox,photon_loss,NumSrc,m1,m2,m3)
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   !> Number of sources
         integer,intent(in)      :: ns                                   !> source number 
         real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
         integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
-        real(kind=real64), intent(in) :: dr               !> Cell size
+        real(kind=real64), intent(in) :: dr                             !> Cell size
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells (--> density of ionized H is xh_av * ndens)
         real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
         real(kind=real64),intent(in):: sig                              !> Hydrogen ionization cross section (sigma_HI_at_ion_freq)
+        integer, intent(in) :: max_subbox                               !> Maximum range for RT
+        integer, intent(in) :: subboxsize                               !> Size of subbox increment when loss fraction is too high
+        real, intent(in) :: loss_fraction                               !> Fraction of remaining photons below we stop ray-tracing
+        integer, intent(inout) :: sum_nbox                              !> Number of subboxes used by all sources. Passed back for stats
+        real(kind=real64),intent(inout) :: photon_loss                  !> Photon loss of all sources. Passed back for stats
         integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
-        integer, intent(in) :: r_box
 
-        integer,dimension(3) :: last_l                      !> mesh position of left end point for RT
-        integer,dimension(3) :: last_r                      !> mesh position of right end point for RT 
-        real(kind=real64) :: photon_loss_src                !> Photons leaving the subbox delimited by last_l and last_r
+        integer,dimension(3) :: lastpos_l                               !> mesh position of left max RT range
+        integer,dimension(3) :: lastpos_r                               !> mesh position of right max RT range 
+        integer,dimension(3) :: last_l                                  !> mesh position of left end point of current subbox
+        integer,dimension(3) :: last_r                                  !> mesh position of right end point of current subbox
+        integer :: nbox                                                 !> Subbox counter
+        real(kind=real64) :: photon_loss_src                            !> Photons leaving the subbox delimited by last_l and last_r
         
         ! If no OpenMP, traverse mesh plane by plane in the z direction up/down from the source
         integer :: k  ! z-coord of plane
 
-        if (r_box < 0) then
-            last_l(:) = 0
-            last_r(1) = m1
-            last_r(2) = m2
-            last_r(3) = m3
-        else
-            ! last_l(:) = srcpos(:,ns) - r_box
-            ! last_r(:) = srcpos(:,ns) + r_box
-            last_r(:)=srcpos(:,ns)+min(r_box,m1/2-1+mod(m1,2))
-            last_l(:)=srcpos(:,ns)-min(r_box,m1/2)
-        endif
+        ! "Lastpos" sets the range of RT. When using the subbox technique, this is used as a maximum. When not using
+        ! subboxes, it is used as a fixed value.
+        lastpos_r(:)=srcpos(:,ns)+min(max_subbox,m1/2-1+mod(m1,2))
+        lastpos_l(:)=srcpos(:,ns)-min(max_subbox,m1/2)
 
         ! TODO: add OpenMP parallelization at the Fortran level.
         ! This should work with f2py, see https://stackoverflow.com/questions/46505778/f2py-with-openmp-gives-import-error-in-python
 
-        ! TODO: setup the subbox stuff from do_source line 128 in evolve_source.f90 of original c2ray !
-
-        ! reset column densities for new source point
-        ! coldensh_out is unique for each source point
+        ! reset column densities for new source point. coldensh_out is unique for each source point
         coldensh_out(:,:,:) = 0.0
 
+#ifdef USE_SUBBOX
+        ! With subboxing: raytrace in subboxes of increasing size until the photon loss is sufficiently low or "lastpos" is reached.
+        ! --------------------------------------------------------------------------------------------------------------------------
+        nbox = 0
+        photon_loss_src = srcflux(ns)
+        last_r(:)=srcpos(:,ns) ! to pass the first while test
+        last_l(:)=srcpos(:,ns) ! to pass the first while test
+        
+        do while(photon_loss_src > loss_fraction*srcflux(ns) &
+            .and. last_r(3) < lastpos_r(3) & 
+            .and. last_l(3) > lastpos_l(3))
+
+            ! Reset photon loss and increase subbox size
+            photon_loss_src = 0.0
+            nbox = nbox + 1
+            last_r(:)=min(srcpos(:,ns)+subboxsize*nbox,lastpos_r(:))
+            last_l(:)=max(srcpos(:,ns)-subboxsize*nbox,lastpos_l(:))
+            
+            ! 1. transfer in the upper part of the grid (above srcpos(3))
+            do k=srcpos(3,ns),last_r(3)
+                call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                    photon_loss_src,NumSrc,m1,m2,m3)
+            end do
+    
+            ! 2. transfer in the lower part of the grid (below srcpos(3))
+            do k=srcpos(3,ns)-1,last_l(3),-1
+                call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                    photon_loss_src,NumSrc,m1,m2,m3)
+            end do
+        enddo
+
+        ! Report final photon loss and number of subboxes used by this source for statistics
+        sum_nbox = sum_nbox + nbox
+        photon_loss = photon_loss + photon_loss_src
+#else
+        ! No subboxing: raytrace until "lastpos" (whole range) everytime (do not check photon loss). This is mainly for testing
+        ! --------------------------------------------------------------------------------------------------------------------------
+
         ! 1. transfer in the upper part of the grid (above srcpos(3))
-        do k=srcpos(3,ns),last_r(3)
-            call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+        do k=srcpos(3,ns),lastpos_r(3)
+            call evolve2D(k,srcflux,srcpos,ns,lastpos_l,lastpos_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
                 photon_loss_src,NumSrc,m1,m2,m3)
         end do
 
         ! 2. transfer in the lower part of the grid (below srcpos(3))
-        do k=srcpos(3,ns)-1,last_l(3),-1
-            call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+        do k=srcpos(3,ns)-1,lastpos_l(3),-1
+            call evolve2D(k,srcflux,srcpos,ns,lastpos_l,lastpos_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
                 photon_loss_src,NumSrc,m1,m2,m3)
         end do
+#endif
 
-        write(*,*) photon_loss_src
-        ! TODO: add photon loss statistics
     end subroutine do_source
 
     
@@ -371,10 +423,14 @@ module raytracing
             phi_ion(pos(1),pos(2),pos(3)) = phi_ion(pos(1),pos(2),pos(3)) + phi_ion_p
             
             ! Compute photon loss to use subbox optimization
+#ifdef USE_SUBBOX
             if ( (any(rtpos(:) == last_l(:))) .or. &
                  (any(rtpos(:) == last_r(:))) ) then
-                photon_loss_src = photon_loss_src + phi_ion_out * (dr*dr*dr)/vol_ph
+                photon_loss_src = photon_loss_src + phi_ion_out * (dr*dr*dr)
+                ! ^^^ In original c2ray there is a vol_ph^ factor here because its not added in the
+                ! photoionization_rates routine for some reason
             endif
+#endif
             ! --> phih_grid(pos(1),pos(2),pos(3))= &
             ! -->     phih_grid(pos(1),pos(2),pos(3))+phi%photo_cell_HI
             ! --> if (.not. isothermal) &
