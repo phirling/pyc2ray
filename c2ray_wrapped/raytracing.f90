@@ -90,7 +90,9 @@ module raytracing
                 phi_ion,loss_fraction,sum_nbox,photon_loss,NumSrc,m1,m2,m3)
         enddo
 
+#ifdef USE_SUBBOX
         write(*,"(A,I3,A,ES11.4)") "Average number of subboxes:", sum_nbox/NumSrc, " Total photon loss: ",photon_loss
+#endif
 
     end subroutine do_all_sources
 
