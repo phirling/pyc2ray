@@ -13,8 +13,8 @@ parser.add_argument("-cmap",type=str,default="jet")
 args = parser.parse_args()
 
 zz = int(args.z)
-xHI = t2c.XfracFile(args.file[0]).xi
+xHII = 1.0 - t2c.XfracFile(args.file[0]).xi
 
-tomo = zTomography_xfrac(xHI,zz,incr=1,xmin=1e-4,cmap=args.cmap)
+tomo = zTomography_xfrac(xHII,zz,incr=1,xmin=1e-4,cmap=args.cmap)
 
 plt.show()

@@ -14,8 +14,8 @@ args = parser.parse_args()
 
 zz = int(args.z)
 with open(args.file[0],"rb") as f:
-    xHI = pkl.load(f)
+    xHII = 1.0 - pkl.load(f)
 
-tomo = zTomography_xfrac(xHI,zz,incr=1,xmin=1e-4,cmap=args.cmap)
+tomo = zTomography_xfrac(xHII,zz,incr=1,xmin=1e-4,cmap=args.cmap)
 
 plt.show()

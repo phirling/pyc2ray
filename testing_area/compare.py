@@ -1,6 +1,6 @@
 import pickle as pkl
 import numpy as np
-from tomography import zTomography_3panels
+from tomography import zTomography_3panels_rates
 import matplotlib.pyplot as plt
 import argparse
 
@@ -23,6 +23,6 @@ gamma2 = np.exp(loggamma2)
 
 resid = gamma1 / gamma2 - 1
 
-tomo = zTomography_3panels(loggamma1, loggamma2, resid, 150)
+tomo = zTomography_3panels_rates(loggamma1, loggamma2, resid, 150)
 
 plt.show()

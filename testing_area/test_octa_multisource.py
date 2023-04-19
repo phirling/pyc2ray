@@ -5,7 +5,7 @@ from matplotlib.patches import Circle
 import astropy.units as u
 import time
 import argparse
-from tomography import zTomography # Custom module to visualize datacube
+from tomography import zTomography_rates # Custom module to visualize datacube
 import pickle as pkl
 from readsources import read_sources
 
@@ -89,5 +89,5 @@ if args.pickle:
         pkl.dump(loggamma, f)
 
 if plot_final:
-    tomo = zTomography(loggamma, N // 2)
+    tomo = zTomography_rates(loggamma, N // 2)
     plt.show()

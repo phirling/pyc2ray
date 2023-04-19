@@ -16,7 +16,7 @@ from readsources import read_sources
 N = 128
 
 # Display options
-display = True                          # Display results at the end of run
+display = False                          # Display results at the end of run
 zslice = 64                             # z-slice of the box to visualize
 
 # Output settings
@@ -42,20 +42,10 @@ dr = dxbox * np.ones(3)                 # Cell Size (3D)
 sourcefile = "100_src_5e49_N300.txt"
 numsrc = 1                              # Number of sources
 srcpos, srcflux, numsrc = read_sources(sourcefile,numsrc,"pyc2ray")
-
-# np.random.seed(100)
-# srcpos = 1+np.random.randint(0,N,size=(3,numsrc))
-#srcpos = np.empty((3,numsrc),dtype='int')
-#srcpos[:,0] = np.array([64,64,64])      # Position of source
-#srcpos[:,1] = np.array([80,70,64])      # Position of source
-#srcpos[:,2] = np.array([53,70,55])      # Position of source
-# srcflux = 5e49*np.ones(numsrc)                     # Strength of source
-r_RT = 1000                               # Raytracing box size (-1 means whole box)
+r_RT = 1000                               # Raytracing box size
 subboxsize = 5
 
 # /////////////////////////////////////////////////////////////////////////////////
-
-
 
 # C2Ray parameters. These can also be imported from
 # the yaml file but for now its simpler like this

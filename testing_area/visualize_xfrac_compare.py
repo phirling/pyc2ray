@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import argparse
 import numpy as np
 import astropy.units as u
-from tomography import zTomography_xfrac_3panels
+from tomography import zTomography_3panels_xfrac
 import pickle as pkl
 
 parser = argparse.ArgumentParser()
@@ -14,11 +14,11 @@ parser.add_argument("-cmap",type=str,default="jet")
 args = parser.parse_args()
 
 zz = int(args.z)
-xHI_c2ray = t2c.XfracFile(args.files[1]).xi
+xHII_c2ray = 1.0 - t2c.XfracFile(args.files[1]).xi
 with open(args.files[0],"rb") as f:
-    xHI_pyc2ray = pkl.load(f)
+    xHII_pyc2ray = 1.0 - pkl.load(f)
 
-resid = (1.0-xHI_pyc2ray) / (1.0 - xHI_c2ray) - 1.0
-tomo = zTomography_xfrac_3panels(xHI_c2ray,xHI_pyc2ray,resid,zz,incr=1,xmin=1e-4,cmap=args.cmap)
+resid = (xHII_pyc2ray) / (xHII_c2ray) - 1.0
+tomo = zTomography_3panels_xfrac(xHII_c2ray,xHII_pyc2ray,resid,zz,incr=1,xmin=1e-4,cmap=args.cmap)
 
 plt.show()
