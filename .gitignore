@@ -23,6 +23,9 @@ __pycache__/
 # Mac OS files
 **/.DS_STORE
 
+# Local test scripts
+test_package.py
+
 # Distribution / packaging
 .Python
 build/

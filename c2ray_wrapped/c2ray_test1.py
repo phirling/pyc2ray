@@ -4,7 +4,8 @@ import astropy.units as u
 import astropy.constants as ac
 import time
 import matplotlib.pyplot as plt
-import evolve as evo
+sys.path.append("../")
+import pyc2ray as pc2r
 import pickle as pkl
 
 # /////////////////////////////////////////////////////////////////////////////////
@@ -92,7 +93,7 @@ for t in range(tsteps):
             pkl.dump(xh_new_f,f)
     tnow = time.time()
     print(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
-    xh_new_f, phi_ion_f, coldens_out_f = evo.evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp_f,ndens_f,
+    xh_new_f, phi_ion_f, coldens_out_f = pc2r.evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp_f,ndens_f,
                 xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c)
 # =====================================================================================
 
