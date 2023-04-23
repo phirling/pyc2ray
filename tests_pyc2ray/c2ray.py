@@ -1,52 +1,55 @@
+import sys
+sys.path.append("../")
+
 import numpy as np
-from parameters import Params
 import astropy.units as u
 import astropy.constants as ac
 import time
 import matplotlib.pyplot as plt
-sys.path.append("../")
-import pyc2ray as pc2r
 import pickle as pkl
+import pyc2ray as pc2r
 
+def printlog(s,fileobj):
+      fileobj.write(s + "\n")
+      
 # /////////////////////////////////////////////////////////////////////////////////
 
 # Number of cells in each dimension
 N = 128
 
 # Display options
-display = True                          # Display results at the end of run
+display = False                          # Display results at the end of run
 zslice = 64                             # z-slice of the box to visualize
 
 # Output settings
 res_basename = "./results/"             # Directory to store pickled results
 delta_results = 10                      # Number of timesteps between results
+logfile = "pyC2Ray.log"
 
 # Run Parameters (sizes, etc.)
-tsim = 140                              # Simulation Time (in Myrs)
+tsim = 20                              # Simulation Time (in Myrs)
 t_evol = tsim * u.Myr.to('s')           # Simulation Time (in seconds)
-tsteps = 140                            # Number of timesteps
+tsteps = 20                            # Number of timesteps
 dt = t_evol / tsteps                    # Timestep
-boxsize = 20 * u.kpc.to('cm') #100 * u.Mpc.to('cm')           # Simulation box size
-dxbox = boxsize / N                     # Cell Size (1D)
-dr = dxbox * np.ones(3)                 # Cell Size (3D)
+boxsize_kpc = 50                    # Simulation box size in kpc
 avgdens = 1e-3#1.982e-04                        # Constant Hydrogen number density
 xhav = 1.2e-3#2e-4                           # Initial ionization fraction
 
+# Conversion
+boxsize = boxsize_kpc * u.kpc.to('cm') #100 * u.Mpc.to('cm')           
+dxbox = boxsize / N                     # Cell Size (1D)
+dr = dxbox * np.ones(3)                 # Cell Size (3D)
+
+
 # Source Parameters
-numsrc = 30                              # Number of sources
-np.random.seed(100)
-srcpos = 1+np.random.randint(0,N,size=(3,numsrc))
-#srcpos = np.empty((3,numsrc),dtype='int')
-#srcpos[:,0] = np.array([64,64,64])      # Position of source
-#srcpos[:,1] = np.array([80,70,64])      # Position of source
-#srcpos[:,2] = np.array([53,70,55])      # Position of source
-srcflux = 5e48*np.ones(numsrc)                     # Strength of source
-r_RT = 1000                               # Raytracing box size (-1 means whole box)
+sourcefile = "100_src_5e49_N300.txt"
+numsrc = 100                              # Number of sources
+print(f"Reading {numsrc:n} sources from file: {sourcefile}...")
+srcpos, srcflux, numsrc = pc2r.read_sources(sourcefile,numsrc,"pyc2ray")
+r_RT = 1000                               # Raytracing box size
 subboxsize = 5
 
 # /////////////////////////////////////////////////////////////////////////////////
-
-
 
 # C2Ray parameters. These can also be imported from
 # the yaml file but for now its simpler like this
@@ -75,7 +78,8 @@ tinit = time.time()
 
 print("\n ============================================================================================== \n")
 
-print(f"Running on {numsrc:n} source(s) on {N:n}^3 grid.")
+print(f"Box size is {boxsize_kpc:.2f} kpc, on a grid of size {N:n}^3")
+print(f"Running on {numsrc:n} source(s), total ionizing flux: {srcflux.sum():.2e} s^-1")
 print(f"Constant density: {avgdens:.2e} cm^-3, Temperature: {temp0:.1e} K, initial ionized fraction: {xhav:.2e}")
 print(f"Simulation time is {tsim:.2f} Myr(s), using timestep {tsim/tsteps:.2f} Myr(s).")
 print("Starting main loop...")

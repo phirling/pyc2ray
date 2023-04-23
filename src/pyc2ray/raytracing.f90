@@ -50,7 +50,7 @@ module raytracing
     contains
 
     subroutine do_all_sources(srcflux,srcpos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
-        phi_ion,loss_fraction,NumSrc,m1,m2,m3)
+        phi_ion,sum_nbox,photon_loss,loss_fraction,NumSrc,m1,m2,m3)
     ! ===============================================================================================
     !! This subroutine computes the column density and ionization rate on the whole
     !! grid, for all sources. The global rates of all sources are then added up.
@@ -67,14 +67,14 @@ module raytracing
         real(kind=real64),intent(in):: sig                              !> Hydrogen ionization cross section (sigma_HI_at_ion_freq)
         integer, intent(in) :: max_subbox                               !> Maximum range for RT
         integer, intent(in) :: subboxsize                               !> Size of subbox increment when loss fraction is too high
+        integer, intent(out) :: sum_nbox                                             !> Number of subboxes used by all sources for statistics
+        real(kind=real64), intent(out) :: photon_loss                                !> Total photon loss of all sources for statistics
         real, intent(in) :: loss_fraction                               !> Fraction of remaining photons below we stop ray-tracing
         integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
         
         integer :: ns                                                   !> Source counter
-        integer :: sum_nbox                                             !> Number of subboxes used by all sources for statistics
-        real(kind=real64) :: photon_loss                                !> Total photon loss of all sources for statistics
 
         ! Set Rates to 0
         phi_ion(:,:,:) = 0.0
@@ -90,9 +90,10 @@ module raytracing
                 phi_ion,loss_fraction,sum_nbox,photon_loss,NumSrc,m1,m2,m3)
         enddo
 
-#ifdef USE_SUBBOX
-        write(*,"(A,I3,A,ES11.4)") "Average number of subboxes:", sum_nbox/NumSrc, " Total photon loss: ",photon_loss
-#endif
+! This is done outside from python directly
+! #ifdef USE_SUBBOX
+!         write(*,"(A,I3,A,ES11.4)") "Average number of subboxes:", sum_nbox/NumSrc, " Total photon loss: ",photon_loss
+! #endif
 
     end subroutine do_all_sources
 

@@ -1,7 +1,6 @@
 import yaml
 import re
 import numpy as np
-import os
 from astropy import units as u
 from astropy import constants as ac
 try:

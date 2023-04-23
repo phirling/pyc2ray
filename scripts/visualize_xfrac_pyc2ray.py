@@ -1,8 +1,8 @@
+import sys
+sys.path.append("../")
+from pyc2ray.visualization import zTomography_xfrac
 import matplotlib.pyplot as plt
 import argparse
-import numpy as np
-import astropy.units as u
-from tomography import zTomography_xfrac
 import pickle as pkl
 
 parser = argparse.ArgumentParser()

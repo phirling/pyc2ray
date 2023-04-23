@@ -1,9 +1,9 @@
+import sys
+sys.path.append("../")
+from pyc2ray.visualization import zTomography_xfrac
 import tools21cm as t2c
 import matplotlib.pyplot as plt
 import argparse
-import numpy as np
-import astropy.units as u
-from tomography import zTomography_xfrac
 
 parser = argparse.ArgumentParser()
 parser.add_argument("file",nargs=1,help="snapshot file to be imaged")

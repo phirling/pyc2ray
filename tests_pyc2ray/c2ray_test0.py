@@ -1,5 +1,4 @@
 import numpy as np
-from parameters import Params
 import astropy.units as u
 import time
 import matplotlib.pyplot as plt

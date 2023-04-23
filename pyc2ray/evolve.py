@@ -1,4 +1,4 @@
-import c2ray as c2r
+from . import c2ray as c2r
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -92,8 +92,9 @@ def evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp,ndens,xh,sig,bh00,albpow,
         coldensh_out = np.zeros((m1,m1,m1),order='F')
 
         # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
-        c2r.raytracing.do_all_sources(srcflux,srcpos,r_RT,subboxsize,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction)
+        nsubbox, photonloss = c2r.raytracing.do_all_sources(srcflux,srcpos,r_RT,subboxsize,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction)
 
+        print(f"Average number of subboxes: {nsubbox/NumSrc:n}, Total photon loss: {photonloss:.3e}")
         # Apply these rates to compute the updated ionization fraction
         conv_flag = c2r.chemistry.global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c)
         

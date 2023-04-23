@@ -1,6 +1,4 @@
-import sys
-sys.path.append("../")
-import c2ray as c2r
+from .. import c2ray as c2r
 
 def global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c):
     """ Apply ionization rates to the whole grid
@@ -41,6 +39,5 @@ def global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,tem
         Number of non-converged cells
     """
 
-    conv_flag = 0
-    c2r.chemistry.global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c,conv_flag)
+    conv_flag = c2r.chemistry.global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c)
     return conv_flag
