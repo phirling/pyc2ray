@@ -34,7 +34,9 @@ module photorates
         tau_out = coldens_out * sig
 
         ! Compute incoming photoionization rate
-        prefact = strength * inv4pi / (Vfact * nHI)
+        !prefact = strength * inv4pi / (Vfact * nHI)
+        !prefact = strength / (Vfact * nHI)
+        prefact = strength / (Vfact)
         phi_photo_in = prefact * (exp(-tau_in))
 
         ! If cell is optically thick
@@ -45,7 +47,9 @@ module photorates
             
         ! If cell is optically thin
         else
-            phi_photo_cell = strength * inv4pi * sig * (tau_out - tau_in) / (Vfact) * exp(-tau_in)
+            !phi_photo_cell = strength * inv4pi * sig * (tau_out - tau_in) / (Vfact) * exp(-tau_in)
+            !phi_photo_cell = strength * sig * (tau_out - tau_in) / (Vfact) * exp(-tau_in)
+            phi_photo_cell = prefact * (tau_out - tau_in) * exp(-tau_in)
             phi_photo_out = phi_photo_in - phi_photo_cell
         endif
 

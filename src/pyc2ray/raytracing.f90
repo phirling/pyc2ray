@@ -76,8 +76,14 @@ module raytracing
         
         integer :: ns                                                   !> Source counter
 
+        real(kind=real64) :: phitest
+        real(kind=real64) :: phitest_out
         ! Set Rates to 0
         phi_ion(:,:,:) = 0.0
+        
+        ! Testing
+        ! call photoion_rates_test(srcflux(1),1.0e18_real64,2e18_real64,1.0_real64,1.0_real64,sig,phitest,phitest_out)
+        ! write(*,*) "photest = ",phitest, phitest_out
 
         ! Set statistics to 0
         sum_nbox = 0
@@ -175,11 +181,16 @@ module raytracing
                 call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
                     photon_loss_src,NumSrc,m1,m2,m3)
             end do
+            
+            ! write(*,*) "nbox=",nbox,"last_l=",last_l(1), "loss=",photon_loss_src
+
         enddo
 
         ! Report final photon loss and number of subboxes used by this source for statistics
         sum_nbox = sum_nbox + nbox
         photon_loss = photon_loss + photon_loss_src
+
+
 #else
         ! No subboxing: raytrace until "lastpos" (whole range) everytime (do not check photon loss). This is mainly for testing
         ! --------------------------------------------------------------------------------------------------------------------------
@@ -345,7 +356,8 @@ module raytracing
                 ! Find the distance to the source (average?)
                 !dist2=0.5*dr(1) !NOT NEEDED         ! this makes vol=dx*dy*dz
                 !vol_ph=4.0/3.0*pi*dist2**3
-                vol_ph = dr*dr*dr / (4*pi) !dr(1)*dr(2)*dr(3)
+                ! vol_ph = dr*dr*dr / (4*pi) !dr(1)*dr(2)*dr(3)
+                vol_ph = dr*dr*dr !dr(1)*dr(2)*dr(3)
                 
             else
                 ! For all other points call cinterp to find the column density
@@ -362,7 +374,8 @@ module raytracing
                 ! Find the volume of the shell this cell is part of 
                 ! (dilution factor).
                 ! vol_ph=4.0*pi*dist2*path
-                vol_ph = dist2 * path
+                ! vol_ph = dist2 * path
+                vol_ph = dist2 * path * (4.0*pi)
 
                 ! Add LLS opacity TODO
                 ! Initialize local LLS (if type of LLS is appropriate)
@@ -425,11 +438,21 @@ module raytracing
             ! (this array is applied in evolve0D_global)
             phi_ion(pos(1),pos(2),pos(3)) = phi_ion(pos(1),pos(2),pos(3)) + phi_ion_p
             
+            ! Divide the photo-ionization rates by the appropriate neutral density
+            ! (part of the photon-conserving rate prescription)
+            phi_ion(pos(1),pos(2),pos(3)) = phi_ion(pos(1),pos(2),pos(3)) / nHI_p
+
+
             ! Compute photon loss to use subbox optimization
 #ifdef USE_SUBBOX
             if ( (any(rtpos(:) == last_l(:))) .or. &
                  (any(rtpos(:) == last_r(:))) ) then
                 photon_loss_src = photon_loss_src + phi_ion_out * (dr*dr*dr)
+
+                ! if (pos(1) == 64 .and. pos(2) == 64) write(*,*) "vol=",(dr*dr*dr),"vol_ph=",vol_ph,"phiout=", &
+                !     phi_ion_out* (dr*dr*dr)
+
+                
                 ! ^^^ In original c2ray there is a vol_ph^ factor here because its not added in the
                 ! photoionization_rates routine for some reason
             endif

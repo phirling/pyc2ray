@@ -9,9 +9,11 @@ import matplotlib.pyplot as plt
 import pickle as pkl
 import pyc2ray as pc2r
 
-def printlog(s,fileobj):
-      fileobj.write(s + "\n")
-      
+def printlog(s,filename,quiet=False):
+    with open(filename,"a") as f:
+        f.write(s + "\n")
+    if not quiet: print(s)
+
 # /////////////////////////////////////////////////////////////////////////////////
 
 # Number of cells in each dimension
@@ -24,13 +26,15 @@ zslice = 64                             # z-slice of the box to visualize
 # Output settings
 res_basename = "./results/"             # Directory to store pickled results
 delta_results = 10                      # Number of timesteps between results
-logfile = "pyC2Ray.log"
+logfile = res_basename + "pyC2Ray.log"
+quiet = True
+with open(logfile,"w") as f: f.write("Log file for pyC2Ray. \n\n")
 
 # Run Parameters (sizes, etc.)
 tsim = 20                              # Simulation Time (in Myrs)
 t_evol = tsim * u.Myr.to('s')           # Simulation Time (in seconds)
 tsteps = 20                            # Number of timesteps
-dt = t_evol / tsteps                    # Timestep
+dt = 31557600952243.961 # C2Ray value  t_evol / tsteps                    # Timestep
 boxsize_kpc = 50                    # Simulation box size in kpc
 avgdens = 1e-3#1.982e-04                        # Constant Hydrogen number density
 xhav = 1.2e-3#2e-4                           # Initial ionization fraction
@@ -44,7 +48,8 @@ dr = dxbox * np.ones(3)                 # Cell Size (3D)
 # Source Parameters
 sourcefile = "100_src_5e49_N300.txt"
 numsrc = 100                              # Number of sources
-print(f"Reading {numsrc:n} sources from file: {sourcefile}...")
+#print(f"Reading {numsrc:n} sources from file: {sourcefile}...")
+printlog(f"Reading {numsrc:n} sources from file: {sourcefile}...",logfile,quiet)
 srcpos, srcflux, numsrc = pc2r.read_sources(sourcefile,numsrc,"pyc2ray")
 r_RT = 1000                               # Raytracing box size
 subboxsize = 5
@@ -76,15 +81,25 @@ xh_new_f = xh_f
 # Count time
 tinit = time.time()
 
-print("\n ============================================================================================== \n")
+# print("\n ============================================================================================== \n")
+# 
+# print(f"Box size is {boxsize_kpc:.2f} kpc, on a grid of size {N:n}^3")
+# print(f"Running on {numsrc:n} source(s), total ionizing flux: {srcflux.sum():.2e} s^-1")
+# print(f"Constant density: {avgdens:.2e} cm^-3, Temperature: {temp0:.1e} K, initial ionized fraction: {xhav:.2e}")
+# print(f"Simulation time is {tsim:.2f} Myr(s), using timestep {tsim/tsteps:.2f} Myr(s).")
+# print("Starting main loop...")
+# 
+# print("\n ============================================================================================== \n")
 
-print(f"Box size is {boxsize_kpc:.2f} kpc, on a grid of size {N:n}^3")
-print(f"Running on {numsrc:n} source(s), total ionizing flux: {srcflux.sum():.2e} s^-1")
-print(f"Constant density: {avgdens:.2e} cm^-3, Temperature: {temp0:.1e} K, initial ionized fraction: {xhav:.2e}")
-print(f"Simulation time is {tsim:.2f} Myr(s), using timestep {tsim/tsteps:.2f} Myr(s).")
-print("Starting main loop...")
+printlog("\n ============================================================================================== \n",logfile,quiet)
 
-print("\n ============================================================================================== \n")
+printlog(f"Box size is {boxsize_kpc:.2f} kpc, on a grid of size {N:n}^3",logfile,quiet)
+printlog(f"Running on {numsrc:n} source(s), total ionizing flux: {srcflux.sum():.2e} s^-1",logfile,quiet)
+printlog(f"Constant density: {avgdens:.2e} cm^-3, Temperature: {temp0:.1e} K, initial ionized fraction: {xhav:.2e}",logfile,quiet)
+printlog(f"Simulation time is {tsim:.2f} Myr(s), using timestep {tsim/tsteps:.2f} Myr(s).",logfile,quiet)
+printlog("Starting main loop...",logfile,quiet)
+
+printlog("\n ============================================================================================== \n",logfile,quiet)
 
 # ===================================== Main loop =====================================
 outputn = 0
@@ -96,9 +111,10 @@ for t in range(tsteps):
         with open(out,'wb') as f:
             pkl.dump(xh_new_f,f)
     tnow = time.time()
-    print(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
+    #print(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
+    printlog(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n",logfile,quiet)
     xh_new_f, phi_ion_f, coldens_out_f = pc2r.evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp_f,ndens_f,
-                xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c)
+                xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c,logfile=logfile,quiet=quiet)
 # =====================================================================================
 
 # Final output

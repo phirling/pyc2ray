@@ -35,7 +35,6 @@ module chemistry
         integer,dimension(3) :: pos
 
         conv_flag = 0
-
         do k=1,m3
             do j=1,m2
                 do i=1,m1

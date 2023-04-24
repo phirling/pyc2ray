@@ -118,8 +118,8 @@ class zTomography_3panels_rates(zTomography_3panels):
         vmax = max(np.nanmax(datacube1),np.nanmax(datacube2))
         vmin = max(np.nanmin(datacube1),np.nanmin(datacube2))
 
-        vmax_res = np.nanmax(datacube3)
-        vmin_res = np.nanmin(datacube3)
+        vmax_res = 1# np.nanmax(datacube3)
+        vmin_res = -1# np.nanmin(datacube3)
 
         # Panel 1
         self.ax1.set_title(f"Ionization Rate, C2Ray",fontsize=12)
@@ -135,7 +135,7 @@ class zTomography_3panels_rates(zTomography_3panels):
 
         # Panel 3
         self.ax3.set_title(f"Residual",fontsize=12)
-        self.im3 = self.ax3.imshow(self.data3[:,:,zi],origin='lower',cmap='bwr',vmax=vmax_res,vmin=vmin_res,norm='symlog')
+        self.im3 = self.ax3.imshow(self.data3[:,:,zi],origin='lower',cmap='bwr',vmax=vmax_res,vmin=vmin_res,norm='linear')
         self.cb3 = plt.colorbar(self.im3,ax=self.ax3)
         self.cb3.set_label(label=r"$\Gamma_1 / \Gamma_2 - 1$",size=15)
 

@@ -22,15 +22,15 @@ display = False                          # Display results at the end of run
 zslice = 64                             # z-slice of the box to visualize
 
 # Output settings
-res_basename = "./results/"             # Directory to store pickled results
+res_basename = "./results_debug/"             # Directory to store pickled results
 delta_results = 10                      # Number of timesteps between results
 
 # Run Parameters (sizes, etc.)
-tsim = 60                              # Simulation Time (in Myrs)
+tsim = 10                              # Simulation Time (in Myrs)
 t_evol = tsim * u.Myr.to('s')           # Simulation Time (in seconds)
-tsteps = 60                            # Number of timesteps
+tsteps = 1                            # Number of timesteps
 #dt = t_evol / tsteps                    # Timestep
-dt = 31557600952243.961 # C2Ray value  t_evol / tsteps                    # Timestep
+dt = 315576009522439.61 # 10 Myr # C2Ray value  t_evol / tsteps                    # Timestep
 boxsize = 14 * u.kpc.to('cm')           # Simulation box size
 dxbox = 3.3753127248391602E+020 #boxsize / N                     # Cell Size (1D)
 dr = dxbox * np.ones(3)                 # Cell Size (3D)

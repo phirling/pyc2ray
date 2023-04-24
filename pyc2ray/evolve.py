@@ -1,9 +1,15 @@
 from . import c2ray as c2r
 import numpy as np
-
 import matplotlib.pyplot as plt
 
-def evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,loss_fraction=1e-2):
+def printlog(s,filename,quiet=False):
+    with open(filename,"a") as f:
+        f.write(s + "\n")
+    if not quiet: print(s)
+
+def evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
+             loss_fraction=1e-2,logfile="pyC2Ray.log",quiet=False):
+    
     """Evolves the ionization fraction over one timestep for the whole grid.
 
     For a given list of sources and hydrogen number density, computes the evolution of
@@ -22,8 +28,7 @@ def evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp,ndens,xh,sig,bh00,albpow,
     srcpos : 2D-array
         Array containing the position of each source. Shape: (NumSources,3)
     r_RT : int
-        Size of cube to raytrace around source (half side length of the cube). Set to negative value to
-        RT whole box
+        Size of maximum subbox to raytrace. When compiled without subbox, sets the constant subbox size
     subboxsize : int
         Increment for subbox technique
     temp : 3D-array
@@ -47,6 +52,10 @@ def evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp,ndens,xh,sig,bh00,albpow,
         Carbon abundance
     loss_fraction : float (default: 1e-2)
         Fraction of remaining photons below we stop ray-tracing (subbox technique)
+    logfile : str
+        Name of the file to append logs to. Default: pyC2Ray.log
+    quiet : bool
+        Don't write logs to stdout. Default is false
 
     Returns
     -------
@@ -80,7 +89,8 @@ def evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp,ndens,xh,sig,bh00,albpow,
     xh_av = np.copy(xh)
     xh_intermed = np.copy(xh)
 
-    print(f"Convergence Criterion (Number of points): {conv_criterion : n}")
+    #print(f"Convergence Criterion (Number of points): {conv_criterion : n}")
+    printlog(f"Convergence Criterion (Number of points): {conv_criterion : n}",logfile,quiet)
 
     # Iterate until convergence in <x> and <y>
     while not converged:
@@ -94,7 +104,9 @@ def evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp,ndens,xh,sig,bh00,albpow,
         # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
         nsubbox, photonloss = c2r.raytracing.do_all_sources(srcflux,srcpos,r_RT,subboxsize,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction)
 
-        print(f"Average number of subboxes: {nsubbox/NumSrc:n}, Total photon loss: {photonloss:.3e}")
+        #print(f"Average number of subboxes: {nsubbox/NumSrc:n}, Total photon loss: {photonloss:.3e}")
+        printlog(f"Average number of subboxes: {nsubbox/NumSrc:n}, Total photon loss: {photonloss:.3e}",logfile,quiet)
+
         # Apply these rates to compute the updated ionization fraction
         conv_flag = c2r.chemistry.global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c)
         
@@ -113,7 +125,8 @@ def evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp,ndens,xh,sig,bh00,albpow,
             rel_change_xh0 = 1.0
 
         # Display convergence
-        print(f"Number of non-converged points: {conv_flag} of {NumCells} ({conv_flag / NumCells * 100 : .3f} % ), Relative change in ionfrac: {rel_change_xh1 : .2e}")
+        #print(f"Number of non-converged points: {conv_flag} of {NumCells} ({conv_flag / NumCells * 100 : .3f} % ), Relative change in ionfrac: {rel_change_xh1 : .2e}")
+        printlog(f"Number of non-converged points: {conv_flag} of {NumCells} ({conv_flag / NumCells * 100 : .3f} % ), Relative change in ionfrac: {rel_change_xh1 : .2e}",logfile,quiet)
 
         converged = (conv_flag < conv_criterion) or ( (rel_change_xh1 < convergence_fraction) and (rel_change_xh0 < convergence_fraction))
 
