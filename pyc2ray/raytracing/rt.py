@@ -1,5 +1,5 @@
-from .. import c2ray as c2r
 import numpy as np
+from .. import c2ray as c2r
 
 def do_all_sources(srcflux,srcpos,r_RT,subboxsize,sig,dr,ndens,xh_av,loss_fraction=1e-2):
     """Raytrace all sources and compute photoionization rates

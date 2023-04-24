@@ -7,8 +7,10 @@ CUDAFLAGS+=-std=c++14 -O2  -Xcompiler -fPIC -D PERIODIC -D LOCALRATES #-Wall -We
 
 all: octa.so
 
-octa.so: raytracing_gpu.o rtmodule.o
-	$(NVCC) $(CUDAFLAGS) $(INC) -shared -o octa.so raytracing_gpu.o rtmodule.o
+octa.so: raytracing.o raytracing_gpu.o rtmodule.o
+	$(NVCC) $(CUDAFLAGS) $(INC) -shared -o octa.so raytracing.o raytracing_gpu.o rtmodule.o
+raytracing.o: raytracing.cpp
+	$(CXX) $(CXXFLAGS) $(INC) -c raytracing.cpp
 
 raytracing_gpu.o: raytracing_gpu.cu
 	$(NVCC) $(CUDAFLAGS) $(INC) -dc raytracing_gpu.cu

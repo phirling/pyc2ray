@@ -70,7 +70,7 @@ void do_all_sources_octa_gpu(
             j0 = srcpos[3*ns + 1];
             k0 = srcpos[3*ns + 2];
             strength = srcstrength[ns];
-            // std::cout << "Doing source at " << i0 << " " << j0 << " " << k0 << ", strength = " << strength << std::endl;
+            std::cout << "Doing source at " << i0 << " " << j0 << " " << k0 << std::endl;
             // Set column density to zero
             thrust::fill(cdh,cdh + m1*m1*m1,0.0);
             
@@ -92,9 +92,9 @@ void do_all_sources_octa_gpu(
             }
         }
 
-        // auto error = cudaMemcpy(coldensh_out,cdh_dev,meshsize,cudaMemcpyDeviceToHost);
+        auto error = cudaMemcpy(coldensh_out,cdh_dev,meshsize,cudaMemcpyDeviceToHost);
         #if defined(LOCALRATES) || defined(RATES)
-        auto error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
+        error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
         #endif
     }
 

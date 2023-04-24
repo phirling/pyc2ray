@@ -1,5 +1,5 @@
 import c2ray as c2r                     # Fortran Module (c2ray)
-import RTC                              # C++ Module (CUDA, CUDA GPU)
+import octa                              # C++ Module (CUDA, CUDA GPU)
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
@@ -88,13 +88,13 @@ phi_ion2 = np.ravel(np.zeros((N,N,N),dtype='float64') )
 xh_av = 1.2e-3 * np.ravel(np.ones((N,N,N),dtype='float64') )
 
 # Initialize GPU and allocate memory
-RTC.device_init(N)
+octa.device_init(N)
 
 """ ////////////////////////////////// Run Tests ////////////////////////////////////// """
 
 # Do an empty call of each function because somehow this improves performance ?
 c2r.raytracing.do_source(srcflux,srcpos_f,1,1,coldensh_out_f,sig,dr,ndens_f,xh_f,phi_ion_f)
-RTC.octa_gpu(srcpos,srcflux,0,1,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
+octa.do_source(srcpos,srcflux,0,1,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
     
 for a, rad in enumerate(rads):
     print(f"Doing radius r = {rad:.2f}")
@@ -106,7 +106,7 @@ for a, rad in enumerate(rads):
 
     print("Running OCTA GPU...")
     t5 = time.time()
-    RTC.octa_gpu(srcpos,srcflux,0,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
+    octa.do_source(srcpos,srcflux,0,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
     t6 = time.time()
     cdh2 = cdh2.reshape((N,N,N))
     phi_ion2 = phi_ion2.reshape((N,N,N))
@@ -134,7 +134,7 @@ for a, rad in enumerate(rads):
         ax_i2.set_title("OCTA GPU")
         fig_i.savefig(fname,bbox_inches='tight')
         plt.close(fig_i)
-RTC.device_close() # Deallocate GPU memory
+octa.device_close() # Deallocate GPU memory
 
 """ /////////////////////////////////// Analysis ////////////////////////////////////// """
 

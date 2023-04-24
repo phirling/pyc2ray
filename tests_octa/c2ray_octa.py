@@ -1,56 +1,61 @@
-import numpy as np
-import astropy.units as u
-import time
-import matplotlib.pyplot as plt
-import argparse
 import sys
 sys.path.append("../")
-import pyc2ray as pc2r
-import pickle as pkl
 
-parser = argparse.ArgumentParser()
-parser.add_argument("-N",type=int,default=128)
-args = parser.parse_args()
+import numpy as np
+import astropy.units as u
+import astropy.constants as ac
+import time
+import matplotlib.pyplot as plt
+import pickle as pkl
+import pyc2ray as pc2r
+
+def printlog(s,filename,quiet=False):
+    with open(filename,"a") as f:
+        f.write(s + "\n")
+    if not quiet: print(s)
 
 # /////////////////////////////////////////////////////////////////////////////////
 
 # Number of cells in each dimension
-N = int(args.N)
+N = 128
 
 # Display options
 display = True                          # Display results at the end of run
 zslice = 64                             # z-slice of the box to visualize
 
 # Output settings
-res_basename = "./results_test/"             # Directory to store pickled results
+res_basename = "./results/"             # Directory to store pickled results
 delta_results = 10                      # Number of timesteps between results
+logfile = res_basename + "pyC2Ray.log"
+quiet = False
+with open(logfile,"w") as f: f.write("Log file for pyC2Ray. \n\n")
 
 # Run Parameters (sizes, etc.)
-tsim = 10                              # Simulation Time (in Myrs)
+tsim = 20                              # Simulation Time (in Myrs)
 t_evol = tsim * u.Myr.to('s')           # Simulation Time (in seconds)
-tsteps = 10                            # Number of timesteps
-#dt = t_evol / tsteps                    # Timestep
-dt = 31557600952243.961 # C2Ray value  t_evol / tsteps                    # Timestep
-boxsize = 14 * u.kpc.to('cm')           # Simulation box size
-dxbox = 3.3753127248391602E+020 #boxsize / N                     # Cell Size (1D)
+tsteps = 20                            # Number of timesteps
+dt = t_evol / tsteps                    # Timestep
+boxsize_kpc = 50                    # Simulation box size in kpc
+avgdens = 1e-3#1.982e-04                        # Constant Hydrogen number density
+xhav = 1.2e-3#2e-4                           # Initial ionization fraction
+
+# Conversion
+boxsize = boxsize_kpc * u.kpc.to('cm') #100 * u.Mpc.to('cm')           
+dxbox = boxsize / N                     # Cell Size (1D)
 dr = dxbox * np.ones(3)                 # Cell Size (3D)
-print("dr = ",dr)
-# 3.3753127248391602E+020
-# 3.37495985e+20
-avgdens = 1.0e-3                        # Constant Hydrogen number density
-xhav = 1.2e-3                           # Initial ionization fraction
+
 
 # Source Parameters
-numsrc = 1                              # Number of sources
-srcpos = np.empty((3,numsrc),dtype='int')
-srcflux = np.empty(numsrc)
-srcpos[:,0] = np.array([64,64,64])      # Position of source
-srcflux[0] = 5.0e48                     # Strength of source
-r_RT = 1000                               # Raytracing box size
-subboxsize = 5
+sourcefile = "100_src_5e49_N300.txt"
+numsrc = 100                              # Number of sources
+#print(f"Reading {numsrc:n} sources from file: {sourcefile}...")
+printlog(f"Reading {numsrc:n} sources from file: {sourcefile}...",logfile,quiet)
+srcpos, srcflux, numsrc = pc2r.read_sources(sourcefile,numsrc,"pyc2ray_octa")
+r_RT = 100                               # Raytracing box size
+
+pc2r.device_init(N)
+
 # /////////////////////////////////////////////////////////////////////////////////
-
-
 
 # C2Ray parameters. These can also be imported from
 # the yaml file but for now its simpler like this
@@ -71,16 +76,22 @@ ndens_f = avgdens * np.ones((N,N,N),order='F')
 xh_f = xhav*np.ones((N,N,N),order='F')
 temp_f = temp0 * np.ones((N,N,N),order='F')
 phi_ion_f = np.zeros((N,N,N),order='F')
+
 # Initialize next step
 xh_new_f = xh_f
 
 # Count time
 tinit = time.time()
 
-print(f"Running on {numsrc:n} source(s) on {N:n}^3 grid.")
-print(f"Constant density: {avgdens:.2e} cm^-3, Temperature: {temp0:.1e} K, initial ionized fraction: {xhav:.2e}")
-print(f"Simulation time is {tsim:.2f} Myr(s), using timestep {tsim/tsteps:.2f} Myr(s).")
-print("Starting main loop...")
+printlog("\n ============================================================================================== \n",logfile,quiet)
+
+printlog(f"Box size is {boxsize_kpc:.2f} kpc, on a grid of size {N:n}^3",logfile,quiet)
+printlog(f"Running on {numsrc:n} source(s), total ionizing flux: {srcflux.sum():.2e} s^-1",logfile,quiet)
+printlog(f"Constant density: {avgdens:.2e} cm^-3, Temperature: {temp0:.1e} K, initial ionized fraction: {xhav:.2e}",logfile,quiet)
+printlog(f"Simulation time is {tsim:.2f} Myr(s), using timestep {tsim/tsteps:.2f} Myr(s).",logfile,quiet)
+printlog("Starting main loop...",logfile,quiet)
+
+printlog("\n ============================================================================================== \n",logfile,quiet)
 
 # ===================================== Main loop =====================================
 outputn = 0
@@ -95,10 +106,13 @@ for t in range(tsteps):
         with open(out_rates,'wb') as f:
             pkl.dump(phi_ion_f,f)
     tnow = time.time()
-    print(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
-    xh_new_f, phi_ion_f, coldens_out_f = pc2r.evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp_f,ndens_f,
-                xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c)
+    #print(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
+    printlog(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n",logfile,quiet)
+    xh_new_f, phi_ion_f = pc2r.evolve3D_octa(dt,dxbox,srcflux,srcpos,r_RT,temp_f,ndens_f,
+                xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c,N,logfile=logfile)
 # =====================================================================================
+
+pc2r.device_close()
 
 # Final output
 with open(res_basename + f"xfrac_{tsteps:04n}.pkl",'wb') as f:
@@ -106,15 +120,16 @@ with open(res_basename + f"xfrac_{tsteps:04n}.pkl",'wb') as f:
 with open(res_basename + f"irate_{tsteps:04n}.pkl",'wb') as f:
             pkl.dump(phi_ion_f,f)
 
+
+
+
+
+
+
 # Display Results
 if display:
     print("Making Figure...")
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3,figsize=(12.5,3.7))
-
-    # Left: column density
-    ax1.set_title(f"Column Density, N={N}",fontsize=12)
-    im1 = ax1.imshow(coldens_out_f[:,:,zslice],origin='lower')
-    c1 = plt.colorbar(im1,ax=ax1)
 
     # Middle: ionization rate
     ax2.set_title(f"Ionization Rate",fontsize=12)
@@ -130,5 +145,4 @@ if display:
     c3 = plt.colorbar(im3,ax=ax3)
 
     fig.tight_layout()
-
     plt.show()

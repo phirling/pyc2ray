@@ -1,5 +1,5 @@
 import numpy as np
-import RTC
+import octa
 import matplotlib.pyplot as plt
 import time
 
@@ -14,11 +14,11 @@ xh_av = 1e-3 * np.ravel(np.ones((N,N,N),dtype='float64') )
 NumSrc = 1
 
 t1 = time.time()
-RTC.octa(srcpos,0,cdh,1.0,1.0,ndens,xh_av,phi_ion,1,N)
+octa.octa(srcpos,0,cdh,1.0,1.0,ndens,xh_av,phi_ion,1,N)
 t2 = time.time()
 cdh[:] = 0.0
 t3 = time.time()
-RTC.octa_gpu(srcpos,0,cdh,1.0,1.0,ndens,xh_av,phi_ion,1,N)
+octa.octa_gpu(srcpos,0,cdh,1.0,1.0,ndens,xh_av,phi_ion,1,N)
 t4 =time.time()
 
 print(f"Time (CPU): {t2-t1 : .3f} [s]")

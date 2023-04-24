@@ -45,7 +45,7 @@ def read_sources(file,n,mode):
                 srcpos[1] = src_y - 1
                 srcpos[2] = src_z - 1
                 srcpos = np.ravel(srcpos,order='F')
-                return srcpos, src_flux, src_num
+                return srcpos, src_flux.astype('float64'), src_num
             else:
                 raise ValueError("Unknown mode: " + mode)
             

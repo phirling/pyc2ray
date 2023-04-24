@@ -1,5 +1,5 @@
 import c2ray as c2r                     # Fortran Module (c2ray)
-import RTC                              # C++ Module (CUDA, CUDA GPU)
+import octa                              # C++ Module (CUDA, CUDA GPU)
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
@@ -77,7 +77,7 @@ phi_ion2 = np.ravel(np.zeros((N,N,N),dtype='float64') )
 xh_av = 1.2e-3 * np.ravel(np.ones((N,N,N),dtype='float64') )
 
 # Initialize GPU and allocate memory
-RTC.device_init(N)
+octa.device_init(N)
 
 """ ////////////////////////////////// Run Tests ////////////////////////////////////// """
 
@@ -88,19 +88,19 @@ t2 = time.time()
 
 print("Running OCTA...")
 t3 = time.time()
-RTC.octa(srcpos,srcflux,0,rad,cdh1,sig,dxbox,ndens,xh_av,phi_ion1,numsrc,N)
+octa.octa(srcpos,srcflux,0,rad,cdh1,sig,dxbox,ndens,xh_av,phi_ion1,numsrc,N)
 t4 = time.time()
 cdh1 = cdh1.reshape((N,N,N)) # Convert flatened array to 3D
 phi_ion1 = phi_ion1.reshape((N,N,N))
 
 print("Running OCTA GPU...")
 t5 = time.time()
-RTC.octa_gpu(srcpos,srcflux,0,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
+octa.do_source(srcpos,srcflux,0,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
 t6 = time.time()
 cdh2 = cdh2.reshape((N,N,N)) # Convert flatened array to 3D
 phi_ion2 = phi_ion2.reshape((N,N,N))
 
-RTC.device_close() # Deallocate GPU memory
+octa.device_close() # Deallocate GPU memory
 
 """ /////////////////////////////////// Analysis ////////////////////////////////////// """
 

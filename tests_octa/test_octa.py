@@ -1,10 +1,12 @@
-import RTC                              # C++ Module (CUDA, CUDA GPU)
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 import astropy.units as u
 import time
 import argparse
+import sys
+sys.path.append("../")
+import pyc2ray as pc2r
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-r",type=int,default=50)
@@ -58,19 +60,20 @@ phi_ion2 = np.ravel(np.zeros((N,N,N),dtype='float64') )
 xh_av = 1.2e-3 * np.ravel(np.ones((N,N,N),dtype='float64') )
 
 # Initialize GPU and allocate memory
-RTC.device_init(N)
+pc2r.device_init(N)
 
 """ ////////////////////////////////// Run Tests ////////////////////////////////////// """
 
 print(f"Doing radius r = {rad:.2f}")
 print("Running OCTA GPU...")
 t5 = time.time()
-RTC.octa_gpu(srcpos,srcflux,0,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
+# pc2r.do_source(srcpos,srcflux,0,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
+pc2r.do_source_octa(srcflux,srcpos,0,rad,sig,dxbox,ndens,xh_av,phi_ion2,N)
 t6 = time.time()
 cdh2 = cdh2.reshape((N,N,N))
 phi_ion2 = phi_ion2.reshape((N,N,N))
 
-RTC.device_close() # Deallocate GPU memory
+pc2r.device_close() # Deallocate GPU memory
 
 """ ///////////////////////////////// Visualization /////////////////////////////////// """
 

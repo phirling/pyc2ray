@@ -1,4 +1,4 @@
-import RTC                              # C++ Module (CUDA, CUDA GPU)
+import octa                              # C++ Module (CUDA, CUDA GPU)
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
@@ -64,19 +64,19 @@ phi_ion2 = np.ravel(np.zeros((N,N,N),dtype='float64') )
 xh_av = 1.2e-3 * np.ravel(np.ones((N,N,N),dtype='float64') )
 
 # Initialize GPU and allocate memory
-RTC.device_init(N)
+octa.device_init(N)
 
 """ ////////////////////////////////// Run Tests ////////////////////////////////////// """
 
 print(f"Doing radius r = {rad:.2f}")
 print("Running OCTA GPU...")
 t5 = time.time()
-RTC.octa_gpu_allsources(srcpos,srcflux,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
+octa.do_all_sources(srcpos,srcflux,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
 t6 = time.time()
 cdh2 = cdh2.reshape((N,N,N))
 phi_ion2 = phi_ion2.reshape((N,N,N))
 
-RTC.device_close() # Deallocate GPU memory
+octa.device_close() # Deallocate GPU memory
 print(f"Done. took {t6-t5:.2f} second(s).")
 
 """ ///////////////////////////////// Visualization /////////////////////////////////// """

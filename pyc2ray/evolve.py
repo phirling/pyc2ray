@@ -1,6 +1,5 @@
 from . import c2ray as c2r
 import numpy as np
-import matplotlib.pyplot as plt
 
 def printlog(s,filename,quiet=False):
     with open(filename,"a") as f:
