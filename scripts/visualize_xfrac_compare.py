@@ -23,7 +23,7 @@ if not args.rates:
     if args.z is None:
         zz = N // 2
     else:
-        zz = args.z
+        zz = int(args.z)
 
     resid = (xHII_pyc2ray) / (xHII_c2ray) - 1.0
 
