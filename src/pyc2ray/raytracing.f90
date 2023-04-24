@@ -433,15 +433,14 @@ module raytracing
             ! -->     phi%photo_in = 0.0_real64
             ! -->     phi%photo_out = 0.0_real64
             endif
+            
+            ! Divide the photo-ionization rates by the appropriate neutral density
+            ! (part of the photon-conserving rate prescription)
+            phi_ion_p = phi_ion_p / nHI_p
 
             ! Add photo-ionization rate to the global array 
             ! (this array is applied in evolve0D_global)
             phi_ion(pos(1),pos(2),pos(3)) = phi_ion(pos(1),pos(2),pos(3)) + phi_ion_p
-            
-            ! Divide the photo-ionization rates by the appropriate neutral density
-            ! (part of the photon-conserving rate prescription)
-            phi_ion(pos(1),pos(2),pos(3)) = phi_ion(pos(1),pos(2),pos(3)) / nHI_p
-
 
             ! Compute photon loss to use subbox optimization
 #ifdef USE_SUBBOX
@@ -452,7 +451,7 @@ module raytracing
                 ! if (pos(1) == 64 .and. pos(2) == 64) write(*,*) "vol=",(dr*dr*dr),"vol_ph=",vol_ph,"phiout=", &
                 !     phi_ion_out* (dr*dr*dr)
 
-                
+
                 ! ^^^ In original c2ray there is a vol_ph^ factor here because its not added in the
                 ! photoionization_rates routine for some reason
             endif

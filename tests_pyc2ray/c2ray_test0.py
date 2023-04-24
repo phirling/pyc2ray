@@ -22,7 +22,7 @@ display = False                          # Display results at the end of run
 zslice = 64                             # z-slice of the box to visualize
 
 # Output settings
-res_basename = "./results/"             # Directory to store pickled results
+res_basename = "./results_test/"             # Directory to store pickled results
 delta_results = 10                      # Number of timesteps between results
 
 # Run Parameters (sizes, etc.)
