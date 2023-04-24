@@ -24,7 +24,7 @@ display = False                          # Display results at the end of run
 zslice = 64                             # z-slice of the box to visualize
 
 # Output settings
-res_basename = "/scratch/snx3000/phirling/pyc2ray_results/128_100src/"             # Directory to store pickled results
+res_basename = "/scratch/snx3000/phirling/pyc2ray_results/128_75src/"             # Directory to store pickled results
 delta_results = 10                      # Number of timesteps between results
 logfile = res_basename + "pyC2Ray.log"
 quiet = True
@@ -47,7 +47,7 @@ dr = dxbox * np.ones(3)                 # Cell Size (3D)
 
 # Source Parameters
 sourcefile = "100_src_5e49_N300.txt"
-numsrc = 100                              # Number of sources
+numsrc = 75                              # Number of sources
 #print(f"Reading {numsrc:n} sources from file: {sourcefile}...")
 printlog(f"Reading {numsrc:n} sources from file: {sourcefile}...",logfile,quiet)
 srcpos, srcflux, numsrc = pc2r.read_sources(sourcefile,numsrc,"pyc2ray")

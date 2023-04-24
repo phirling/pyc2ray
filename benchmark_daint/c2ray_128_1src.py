@@ -111,6 +111,10 @@ for t in range(tsteps):
                 xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c,logfile=logfile,quiet=quiet,loss_fraction=loss_fraction)
 # =====================================================================================
 
+printlog("\n ============================================================================================== \n",logfile,quiet)
+tnow = time.time()
+printlog(f"done. Final Time: {tnow - tinit : .3f} seconds",logfile,quiet)
+
 # Final output
 with open(res_basename + f"xfrac_{tsteps:04n}.pkl",'wb') as f:
             pkl.dump(xh_new_f,f)
