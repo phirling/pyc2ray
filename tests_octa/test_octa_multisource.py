@@ -1,13 +1,16 @@
-import octa                              # C++ Module (CUDA, CUDA GPU)
+import sys
+sys.path.append("../")
+
+import octa
+import pyc2ray as pc2r
+from pyc2ray.visualization import zTomography_rates
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 import astropy.units as u
 import time
 import argparse
-from tomography import zTomography_rates # Custom module to visualize datacube
 import pickle as pkl
-from readsources import read_sources
 
 np.random.seed(100)
 
@@ -58,22 +61,27 @@ srcflux = 5.0e48 * np.ones(numsrc)
 # srcpos, srcflux, numsrc = read_sources(sourcefile,numsrc,"pyc2ray_octa")
 
 # Initialize Arrays
-cdh2 = np.ravel(np.zeros((N,N,N),dtype='float64'))
-ndens = 1e-3*np.ravel(np.ones((N,N,N),dtype='float64') )
-phi_ion2 = np.ravel(np.zeros((N,N,N),dtype='float64') )
-xh_av = 1.2e-3 * np.ravel(np.ones((N,N,N),dtype='float64') )
+# cdh2 = np.ravel(np.zeros((N,N,N),dtype='float64'))
+# ndens = 1e-3*np.ravel(np.ones((N,N,N),dtype='float64') )
+# phi_ion2 = np.ravel(np.zeros((N,N,N),dtype='float64') )
+# xh_av = 1.2e-3 * np.ravel(np.ones((N,N,N),dtype='float64') )
+
+ndens = 1e-3*np.ones((N,N,N),dtype='float64')
+phi_ion2 = np.zeros((N,N,N),dtype='float64')
+xh_av = 1.2e-3 * np.ones((N,N,N),dtype='float64')
 
 # Initialize GPU and allocate memory
-octa.device_init(N)
-
+#octa.device_init(N)
+pc2r.device_init(N)
 """ ////////////////////////////////// Run Tests ////////////////////////////////////// """
 
 print(f"Doing radius r = {rad:.2f}")
 print("Running OCTA GPU...")
 t5 = time.time()
-octa.do_all_sources(srcpos,srcflux,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
+#octa.do_all_sources(srcpos,srcflux,rad,cdh2,sig,dxbox,ndens,xh_av,phi_ion2,numsrc,N)
+phi_ion_2 = pc2r.do_all_sources_octa(srcflux,srcpos,rad,sig,dxbox,ndens,xh_av,phi_ion2,N)
 t6 = time.time()
-cdh2 = cdh2.reshape((N,N,N))
+#cdh2 = cdh2.reshape((N,N,N))
 phi_ion2 = phi_ion2.reshape((N,N,N))
 
 octa.device_close() # Deallocate GPU memory
