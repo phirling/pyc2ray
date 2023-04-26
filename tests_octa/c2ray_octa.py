@@ -9,11 +9,6 @@ import matplotlib.pyplot as plt
 import pickle as pkl
 import pyc2ray as pc2r
 
-def printlog(s,filename,quiet=False):
-    with open(filename,"a") as f:
-        f.write(s + "\n")
-    if not quiet: print(s)
-
 # /////////////////////////////////////////////////////////////////////////////////
 
 # Number of cells in each dimension
@@ -49,7 +44,7 @@ dr = dxbox * np.ones(3)                 # Cell Size (3D)
 sourcefile = "100_src_5e49_N300.txt"
 numsrc = 100                              # Number of sources
 #print(f"Reading {numsrc:n} sources from file: {sourcefile}...")
-printlog(f"Reading {numsrc:n} sources from file: {sourcefile}...",logfile,quiet)
+pc2r.printlog(f"Reading {numsrc:n} sources from file: {sourcefile}...",logfile,quiet)
 srcpos, srcflux, numsrc = pc2r.read_sources(sourcefile,numsrc,"pyc2ray_octa")
 r_RT = 100                               # Raytracing box size
 
@@ -83,15 +78,15 @@ xh_new_f = xh_f
 # Count time
 tinit = time.time()
 
-printlog("\n ============================================================================================== \n",logfile,quiet)
+pc2r.printlog("\n ============================================================================================== \n",logfile,quiet)
 
-printlog(f"Box size is {boxsize_kpc:.2f} kpc, on a grid of size {N:n}^3",logfile,quiet)
-printlog(f"Running on {numsrc:n} source(s), total ionizing flux: {srcflux.sum():.2e} s^-1",logfile,quiet)
-printlog(f"Constant density: {avgdens:.2e} cm^-3, Temperature: {temp0:.1e} K, initial ionized fraction: {xhav:.2e}",logfile,quiet)
-printlog(f"Simulation time is {tsim:.2f} Myr(s), using timestep {tsim/tsteps:.2f} Myr(s).",logfile,quiet)
-printlog("Starting main loop...",logfile,quiet)
-
-printlog("\n ============================================================================================== \n",logfile,quiet)
+pc2r.printlog(f"Box size is {boxsize_kpc:.2f} kpc, on a grid of size {N:n}^3",logfile,quiet)
+pc2r.printlog(f"Running on {numsrc:n} source(s), total ionizing flux: {srcflux.sum():.2e} s^-1",logfile,quiet)
+pc2r.printlog(f"Constant density: {avgdens:.2e} cm^-3, Temperature: {temp0:.1e} K, initial ionized fraction: {xhav:.2e}",logfile,quiet)
+pc2r.printlog(f"Simulation time is {tsim:.2f} Myr(s), using timestep {tsim/tsteps:.2f} Myr(s).",logfile,quiet)
+pc2r.printlog("Using OCTA Raytracing.", logfile,quiet)
+pc2r.printlog("Starting main loop...",logfile,quiet)
+pc2r.printlog("\n ============================================================================================== \n",logfile,quiet)
 
 # ===================================== Main loop =====================================
 outputn = 0
@@ -107,7 +102,7 @@ for t in range(tsteps):
             pkl.dump(phi_ion_f,f)
     tnow = time.time()
     #print(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
-    printlog(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n",logfile,quiet)
+    pc2r.printlog(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n",logfile,quiet)
     xh_new_f, phi_ion_f = pc2r.evolve3D_octa(dt,dxbox,srcflux,srcpos,r_RT,temp_f,ndens_f,
                 xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c,N,logfile=logfile)
 # =====================================================================================

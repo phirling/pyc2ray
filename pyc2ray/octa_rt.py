@@ -1,6 +1,6 @@
 from . import c2ray as c2r
 import numpy as np
-from .evolve import printlog
+from .common import printlog
 try:
     from . import octa
     gpu = True

@@ -1,10 +1,6 @@
 from . import c2ray as c2r
 import numpy as np
-
-def printlog(s,filename,quiet=False):
-    with open(filename,"a") as f:
-        f.write(s + "\n")
-    if not quiet: print(s)
+from .common import printlog
 
 def evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
              loss_fraction=1e-2,logfile="pyC2Ray.log",quiet=False):
