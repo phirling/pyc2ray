@@ -12,17 +12,17 @@ import pyc2ray as pc2r
 # /////////////////////////////////////////////////////////////////////////////////
 
 # Number of cells in each dimension
-N = 128
+N = 300
 
 # Display options
 display = False                          # Display results at the end of run
 zslice = 64                             # z-slice of the box to visualize
 
 # Output settings
-res_basename = "./results/"             # Directory to store pickled results
+res_basename = "/scratch/snx3000/phirling/pyc2ray_results/300_1src/"             # Directory to store pickled results
 delta_results = 10                      # Number of timesteps between results
 logfile = res_basename + "pyC2Ray.log"
-quiet = False
+quiet = True
 with open(logfile,"w") as f: f.write("Log file for pyC2Ray. \n\n")
 
 # Run Parameters (sizes, etc.)
@@ -101,47 +101,18 @@ for t in range(tsteps):
         with open(out_rates,'wb') as f:
             pkl.dump(phi_ion_f,f)
     tnow = time.time()
-    
     #print(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
     pc2r.printlog(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n",logfile,quiet)
     xh_new_f, phi_ion_f, coldens_out_f = pc2r.evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp_f,ndens_f,
                 xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c,logfile=logfile,quiet=quiet,loss_fraction=loss_fraction)
 # =====================================================================================
 
+pc2r.printlog("\n ============================================================================================== \n",logfile,quiet)
+tnow = time.time()
+pc2r.printlog(f"done. Final Time: {tnow - tinit : .3f} seconds",logfile,quiet)
+
 # Final output
 with open(res_basename + f"xfrac_{tsteps:04n}.pkl",'wb') as f:
             pkl.dump(xh_new_f,f)
 with open(res_basename + f"irate_{tsteps:04n}.pkl",'wb') as f:
             pkl.dump(phi_ion_f,f)
-
-
-
-
-
-
-
-# Display Results
-if display:
-    print("Making Figure...")
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3,figsize=(12.5,3.7))
-
-    # Left: column density
-    ax1.set_title(f"Column Density, N={N}",fontsize=12)
-    im1 = ax1.imshow(coldens_out_f[:,:,zslice],origin='lower')
-    c1 = plt.colorbar(im1,ax=ax1)
-
-    # Middle: ionization rate
-    ax2.set_title(f"Ionization Rate",fontsize=12)
-    # For some reason this gets mapped wrong with log, do manually:
-    loggamma = np.log(phi_ion_f[:,:,zslice])
-    im2 = ax2.imshow(loggamma,origin='lower',cmap='inferno')
-    c2 = plt.colorbar(im2,ax=ax2)
-    c2.set_label(label=r"$\log \Gamma$ [s$^{-1}$]",size=15)
-
-    # Right: ionization fraction
-    ax3.set_title(f"Neutral Hydrogen Fraction",fontsize=12)
-    im3 = ax3.imshow(1.0 - xh_new_f[:,:,zslice],origin='lower',cmap='jet',norm='log',vmin=1e-3,vmax=1.0) #cmap='YlGnBu_r'
-    c3 = plt.colorbar(im3,ax=ax3)
-
-    fig.tight_layout()
-    plt.show()

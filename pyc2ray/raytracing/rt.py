@@ -39,4 +39,4 @@ def do_all_sources(srcflux,srcpos,r_RT,subboxsize,sig,dr,ndens,xh_av,loss_fracti
 
 
     nsubbox, photonloss = c2r.raytracing.do_all_sources(srcflux,srcpos,r_RT,subboxsize,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction)
-    return nsubbox, photonloss
+    return phi_ion, nsubbox, photonloss
