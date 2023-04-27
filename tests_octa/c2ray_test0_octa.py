@@ -18,7 +18,7 @@ args = parser.parse_args()
 N = int(args.N)
 
 # Display options
-display = True                          # Display results at the end of run
+display = False                          # Display results at the end of run
 zslice = 64                             # z-slice of the box to visualize
 
 # Output settings

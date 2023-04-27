@@ -140,4 +140,5 @@ if display:
     c3 = plt.colorbar(im3,ax=ax3)
 
     fig.tight_layout()
-    plt.show()
+    #plt.show()
+    fig.savefig("octa_test0.png")

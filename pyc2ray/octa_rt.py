@@ -1,12 +1,18 @@
 from . import c2ray as c2r
 import numpy as np
 from .common import printlog
+
+# Allow for systems that don't support CUDA to still import pyc2ray, but limit
+# its use to the CPU version
 try:
-    from . import octa
+    from . import octa # < -- Source code of the library is in ../src/octa/
     gpu = True
 except ImportError:
     gpu = False
 
+# This flag indicates whether GPU memory has been correctly allocated before calling any methods.
+# NOTE: there is no check if the allocated memory has the correct mesh size when calling a function,
+# so the user is responsible for that.
 cuda_init = False
 
 def device_init(N):
@@ -29,16 +35,6 @@ def device_close():
     """
     if cuda_init:
         octa.device_close()
-    else:
-        raise RuntimeError("GPU not initialized. Please initialize it by calling octa.device_init(N)")
-
-def do_source_octa(srcflux,srcpos,ns,r_RT,sig,dr,ndens,xh_av,phi_ion,N):
-    """Do raytracing for a single source [Deprecated]
-    """
-    if cuda_init:
-        numsrc = srcflux.shape[0]
-        cdh = np.ravel(np.zeros((N,N,N),dtype='float64'))
-        octa.do_source(srcpos,srcflux,ns,r_RT,cdh,sig,dr,ndens,xh_av,phi_ion,numsrc,N)
     else:
         raise RuntimeError("GPU not initialized. Please initialize it by calling octa.device_init(N)")
 
@@ -83,13 +79,13 @@ def do_all_sources_octa(srcflux,srcpos,r_RT,sig,dr,ndens,xh_av,phi_ion,N):
         raise RuntimeError("GPU not initialized. Please initialize it by calling octa.device_init(N)")
 
 
-def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,N,logfile="pyC2Ray.log",quiet=False):
+def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,N,
+                  logfile="pyC2Ray.log",quiet=False):
+    
+    # Allow a call only if 1. the octa library is present and 2. the GPU memory has been allocated using device_init()
     if cuda_init:
         NumSrc = srcflux.shape[0]    # Number of sources
         NumCells = N*N*N         # Number of cells/points
-        # TODO: In c2ray, evolution around a source happens in subboxes of increasing sizes. For now, here, always do the whole grid.
-        # last_l = np.ones(3)         # mesh position of left end point for RT
-        # last_r = m1 * np.ones(3)    # mesh position of right end point for RT
         conv_flag = NumCells        # Flag that counts the number of non-converged cells (initialized to non-convergence)
 
         # Convergence Criteria
@@ -106,9 +102,14 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
         xh_av = np.copy(xh)
         xh_intermed = np.copy(xh)
 
-        # Create flattened copies of arrays
+        # Create flattened copies of arrays for CUDA
         xh_av_flat = np.ravel(xh).astype('float64',copy=True)
         ndens_flat = np.ravel(ndens).astype('float64',copy=True)
+
+        # Initialize Flat Column density & ionization rate arrays. These are used to store the
+        # output of OCTA. TODO: python column density array is actually not needed ?
+        coldensh_out_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
+        phi_ion_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
 
         printlog(f"Convergence Criterion (Number of points): {conv_criterion : n}",logfile,quiet)
 
@@ -116,15 +117,12 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
         while not converged:
             niter += 1
 
-            # Set rates to 0
-            # phi_ion[:,:,:] = 0.0
-            coldensh_out_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
-            phi_ion_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
+            # Rates are set to zero on the GPU in the octa code
 
             # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
             octa.do_all_sources(srcpos,srcflux,r_RT,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N)
 
-            # Reshape for Fortran Chemistry
+            # Reshape for C2Ray Fortran Chemistry
             phi_ion = np.reshape(phi_ion_flat, (N,N,N))
             
             # Apply these rates to compute the updated ionization fraction
@@ -145,19 +143,35 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
                 rel_change_xh0 = 1.0
 
             # Display convergence
-            #print(f"Number of non-converged points: {conv_flag} of {NumCells} ({conv_flag / NumCells * 100 : .3f} % ), Relative change in ionfrac: {rel_change_xh1 : .2e}")
             printlog(f"Number of non-converged points: {conv_flag} of {NumCells} ({conv_flag / NumCells * 100 : .3f} % ), Relative change in ionfrac: {rel_change_xh1 : .2e}",logfile,quiet)
 
+            # Set convergence criterion
             converged = (conv_flag < conv_criterion) or ( (rel_change_xh1 < convergence_fraction) and (rel_change_xh0 < convergence_fraction))
 
             # Set previous metrics to current ones and repeat if not converged
             prev_sum_xh1_int = sum_xh1_int
             prev_sum_xh0_int = sum_xh0_int
 
-            # Reshape back
+            # Flatten the updated time-average fraction for the next OCTA iteration
             xh_av_flat = np.ravel(xh_av)
 
         # When converged, return the updated ionization fractions at the end of the timestep
         return xh_intermed, phi_ion
+    
+
+    else:
+        raise RuntimeError("GPU not initialized. Please initialize it by calling octa.device_init(N)")
+    
+
+
+# ==================================================================================================
+
+def do_source_octa(srcflux,srcpos,ns,r_RT,sig,dr,ndens,xh_av,phi_ion,N):
+    """Do raytracing for a single source [Deprecated]
+    """
+    if cuda_init:
+        numsrc = srcflux.shape[0]
+        cdh = np.ravel(np.zeros((N,N,N),dtype='float64'))
+        octa.do_source(srcpos,srcflux,ns,r_RT,cdh,sig,dr,ndens,xh_av,phi_ion,numsrc,N)
     else:
         raise RuntimeError("GPU not initialized. Please initialize it by calling octa.device_init(N)")
