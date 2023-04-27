@@ -12,17 +12,17 @@ import pyc2ray as pc2r
 # /////////////////////////////////////////////////////////////////////////////////
 
 # Number of cells in each dimension
-N = 128
+N = 300
 
 # Display options
-display = True                          # Display results at the end of run
+display = False                          # Display results at the end of run
 zslice = 64                             # z-slice of the box to visualize
 
 # Output settings
-res_basename = "./results/"             # Directory to store pickled results
-delta_results = 10                      # Number of timesteps between results
+res_basename = "/scratch/snx3000/phirling/octa_debug/300_1src_center/"             # Directory to store pickled results
+delta_results = 5                      # Number of timesteps between results
 logfile = res_basename + "pyC2Ray.log"
-quiet = False
+quiet = True
 with open(logfile,"w") as f: f.write("Log file for pyC2Ray. \n\n")
 
 # Run Parameters (sizes, etc.)
@@ -31,8 +31,10 @@ t_evol = tsim * u.Myr.to('s')           # Simulation Time (in seconds)
 tsteps = 20                            # Number of timesteps
 dt = t_evol / tsteps                    # Timestep
 boxsize_kpc = 50                    # Simulation box size in kpc
-avgdens = 1e-3#1.982e-04                        # Constant Hydrogen number density
-xhav = 1.2e-3#2e-4                           # Initial ionization fraction
+avgdens = 1e-3
+xhav = 1.2e-3
+numsrc = 1                              # Number of sources
+r_RT = 200                               # Raytracing radius
 
 # Conversion
 boxsize = boxsize_kpc * u.kpc.to('cm') #100 * u.Mpc.to('cm')           
@@ -41,13 +43,11 @@ dr = dxbox * np.ones(3)                 # Cell Size (3D)
 
 
 # Source Parameters
-sourcefile = "100_src_5e49_N300.txt"
-numsrc = 100                              # Number of sources
-#print(f"Reading {numsrc:n} sources from file: {sourcefile}...")
-pc2r.printlog(f"Reading {numsrc:n} sources from file: {sourcefile}...",logfile,quiet)
-srcpos, srcflux, numsrc = pc2r.read_sources(sourcefile,numsrc,"pyc2ray_octa")
-r_RT = 100                               # Raytracing box size
+srcpos = np.ravel(np.array([[149],[149],[149]],dtype='int32')) # C++ version uses flattened arrays
+srcflux = np.empty(numsrc)
+srcflux[0] = 5.0e49
 
+# Allocate GPU memory
 pc2r.device_init(N)
 
 # /////////////////////////////////////////////////////////////////////////////////
@@ -66,7 +66,7 @@ albpow=-0.7
 colh0=1.3e-8*fh0*xih0/(eth0*eth0)
 abu_c=7.1e-7
 
-# Initialize Arrays
+# Initialize Arrays (will be flattened internally for OCTA)
 ndens_f = avgdens * np.ones((N,N,N),order='F')
 xh_f = xhav*np.ones((N,N,N),order='F')
 temp_f = temp0 * np.ones((N,N,N),order='F')
@@ -84,7 +84,7 @@ pc2r.printlog(f"Box size is {boxsize_kpc:.2f} kpc, on a grid of size {N:n}^3",lo
 pc2r.printlog(f"Running on {numsrc:n} source(s), total ionizing flux: {srcflux.sum():.2e} s^-1",logfile,quiet)
 pc2r.printlog(f"Constant density: {avgdens:.2e} cm^-3, Temperature: {temp0:.1e} K, initial ionized fraction: {xhav:.2e}",logfile,quiet)
 pc2r.printlog(f"Simulation time is {tsim:.2f} Myr(s), using timestep {tsim/tsteps:.2f} Myr(s).",logfile,quiet)
-pc2r.printlog("Using OCTA Raytracing.", logfile,quiet)
+pc2r.printlog(f"Using OCTA Raytracing with r = {r_RT:n} ( --> octahedron height = {np.ceil(np.sqrt(3)*r_RT):n} ).", logfile,quiet)
 pc2r.printlog("Starting main loop...",logfile,quiet)
 pc2r.printlog("\n ============================================================================================== \n",logfile,quiet)
 
@@ -107,38 +107,16 @@ for t in range(tsteps):
                 xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c,N,logfile=logfile)
 # =====================================================================================
 
+# Deallocate GPU memory
 pc2r.device_close()
+
+# Print final wall time
+pc2r.printlog("\n ============================================================================================== \n",logfile,quiet)
+tnow = time.time()
+pc2r.printlog(f"done. Final Time: {tnow - tinit : .3f} seconds",logfile,quiet)
 
 # Final output
 with open(res_basename + f"xfrac_{tsteps:04n}.pkl",'wb') as f:
             pkl.dump(xh_new_f,f)
 with open(res_basename + f"irate_{tsteps:04n}.pkl",'wb') as f:
             pkl.dump(phi_ion_f,f)
-
-
-
-
-
-
-
-# Display Results
-if display:
-    print("Making Figure...")
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3,figsize=(12.5,3.7))
-
-    # Middle: ionization rate
-    ax2.set_title(f"Ionization Rate",fontsize=12)
-    # For some reason this gets mapped wrong with log, do manually:
-    loggamma = np.log(phi_ion_f[:,:,zslice])
-    im2 = ax2.imshow(loggamma,origin='lower',cmap='inferno')
-    c2 = plt.colorbar(im2,ax=ax2)
-    c2.set_label(label=r"$\log \Gamma$ [s$^{-1}$]",size=15)
-
-    # Right: ionization fraction
-    ax3.set_title(f"Neutral Hydrogen Fraction",fontsize=12)
-    im3 = ax3.imshow(1.0 - xh_new_f[:,:,zslice],origin='lower',cmap='jet',norm='log',vmin=1e-3,vmax=1.0) #cmap='YlGnBu_r'
-    c3 = plt.colorbar(im3,ax=ax3)
-
-    fig.tight_layout()
-    #plt.show()
-    fig.savefig("octa_test.png")

@@ -9,9 +9,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument("file",nargs=1,help="snapshot file to be imaged")
 parser.add_argument("-z",default=101)
 parser.add_argument("-cmap",type=str,default="jet")
+parser.add_argument("-interp",type=str,default=None)
 parser.add_argument("-boxsize",type=float,default=None)
 parser.add_argument("-t",type=float,default=None)
 parser.add_argument("--zavg",action='store_true')
+parser.add_argument("-o",type=str,default=None)
 
 args = parser.parse_args()
 
@@ -26,7 +28,10 @@ if not args.zavg:
 else:
     x_zavg = xHII.mean(axis=2)
     fig, ax = plt.subplots(figsize=(6,6))
-    im, cb = xfrac_plot(x_zavg,ax,3e-4,cmap=args.cmap,boxsize=args.boxsize,time=args.t)
+    im, cb = xfrac_plot(x_zavg,ax,3e-4,cmap=args.cmap,interp=args.interp,boxsize=args.boxsize,time=args.t)
     ax.set_title(f"z-Averaged Neutral H Fraction, $N_{{mesh}}={Nmesh:n}$")
 
-plt.show()
+if args.o is None:
+    plt.show()
+else:
+    fig.savefig(args.o)
