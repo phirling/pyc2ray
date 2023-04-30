@@ -10,6 +10,12 @@ __pycache__/
 *.gch
 *.o
 
+# debug folder
+debug/
+
+# Benchmark Scripts folder
+benchmark_daint
+
 # Fortran Modules
 *.mod
 

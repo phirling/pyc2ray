@@ -16,8 +16,8 @@ parser.add_argument("--rates",action='store_true')
 args = parser.parse_args()
 
 if not args.rates:
-    xHII_c2ray = 1.0 - t2c.XfracFile(args.files[1]).xi
-    with open(args.files[0],"rb") as f:
+    xHII_c2ray = 1.0 - t2c.XfracFile(args.files[0]).xi
+    with open(args.files[1],"rb") as f:
         xHII_pyc2ray = 1.0 - pkl.load(f)
     N = xHII_c2ray.shape[0]
     if args.z is None:
