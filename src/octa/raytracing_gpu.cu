@@ -80,7 +80,7 @@ void device_init(const int & N)
         std::cout << "Couldn't allocate memory" << std::endl;
     }
     else {
-        std::cout << "Succesfully allocated " << bytesize/1e6 << " Mb of device memory for grid of size N = " << N << std::endl;
+        std::cout << "Succesfully allocated " << 4*bytesize/1e6 << " Mb of device memory for grid of size N = " << N << std::endl;
     }
 }
 
@@ -221,15 +221,15 @@ __global__ void evolve0D_gpu_new(
 
     int sgn, mq;
 
+    // Determine whether we are in the upper or lower pyramid of the octahedron
+    if (blockIdx.z == 0)
+        {sgn = 1; mq = q;}
+    else
+        {sgn = -1; mq = q-1;}
+
     // Only proceed if the point is on the octahedron (see Fig. ?? in paper (TODO))
     if (abs(i) + abs(j) <= mq)
     {
-        // Determine whether we are in the upper or lower pyramid of the octahedron
-        if (blockIdx.z == 0)
-            {sgn = 1; mq = q;}
-        else
-            {sgn = -1; mq = q-1;}
-
         int k = k0 + sgn*q - sgn*(abs(i) + abs(j));
 
         // Center to source

@@ -2,6 +2,8 @@ from . import c2ray as c2r
 import numpy as np
 from .common import printlog
 
+import pickle as pkl
+
 def evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
              loss_fraction=1e-2,logfile="pyC2Ray.log",quiet=False):
     
@@ -128,6 +130,12 @@ def evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp,ndens,xh,sig,bh00,albpow,
         # Set previous metrics to current ones and repeat if not converged
         prev_sum_xh1_int = sum_xh1_int
         prev_sum_xh0_int = sum_xh0_int
+
+        # ===== DEBUG
+        # with open(f"pc2r_results/cdh_{niter:n}.pkl","wb") as f:
+        #     pkl.dump(coldensh_out,f)
+        # with open(f"pc2r_results/phi_{niter:n}.pkl","wb") as f:
+        #     pkl.dump(phi_ion,f)
 
     # When converged, return the updated ionization fractions at the end of the timestep
     return xh_intermed, phi_ion, coldensh_out

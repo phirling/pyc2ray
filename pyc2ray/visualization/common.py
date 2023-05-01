@@ -33,7 +33,7 @@ def resid_plot(data,ax,clim=None,cmap='bwr',interp=None,fs=10,boxsize=None,time=
         vlim = max(abs(data.min()),data.max())
     else:
         vlim = clim
-    im = ax.imshow(data,origin='lower',cmap=cmap,vmin=-vlim,vmax=vlim,extent=ext)
+    im = ax.imshow(data,origin='lower',cmap=cmap,vmin=-vlim,vmax=vlim,extent=ext,interpolation='none')
     cb = plt.colorbar(im,ax=ax)
     cb.set_label(label=r"$\langle x_{HI}\rangle/\langle x_{HI}^{ref}\rangle - 1$",size=1.5*fs)
     ax.set_xlabel("$x$ " + unitstr,fontsize=fs)

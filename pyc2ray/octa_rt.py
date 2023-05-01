@@ -2,6 +2,8 @@ from . import c2ray as c2r
 import numpy as np
 from .common import printlog
 
+import pickle as pkl
+
 # Allow for systems that don't support CUDA to still import pyc2ray, but limit
 # its use to the CPU version
 try:
@@ -154,6 +156,12 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
 
             # Flatten the updated time-average fraction for the next OCTA iteration
             xh_av_flat = np.ravel(xh_av)
+
+            # ===== DEBUG
+            # with open(f"octa_results/cdh_{niter:n}.pkl","wb") as f:
+            #     pkl.dump(coldensh_out,f)
+            # with open(f"octa_results/phi_{niter:n}.pkl","wb") as f:
+            #     pkl.dump(phi_ion,f)
 
         # When converged, return the updated ionization fractions at the end of the timestep
         return xh_intermed, phi_ion
