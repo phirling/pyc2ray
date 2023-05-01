@@ -9,6 +9,7 @@
 // Define macros. Could be passed as parameters but are kept as
 // compile-time constants for now
 // ========================================================================
+#define FOURPI 12.566370614359172463991853874177    // 4π
 #define INV4PI 0.079577471545947672804111050482     // 1/4π
 #define TAU_PHOTO_LIMIT 1.0e-7                      // Limit to consider a cell "optically thin/thick"
 #define MAX_COLDENSH 2e30                           // Column density limit (rates are set to zero above this)
@@ -65,16 +66,21 @@ void device_init(const int & N)
                 << device_prop.minor << std::endl;
     }
 
-    cudaMalloc(&cdh_dev,N*N*N*sizeof(double));
-    cudaMalloc(&n_dev,N*N*N*sizeof(double));
-    cudaMalloc(&x_dev,N*N*N*sizeof(double));
-    cudaMalloc(&phi_dev,N*N*N*sizeof(double));
+    // Byte-size of grid data
+    int bytesize = N*N*N*sizeof(double);
+
+    // Allocate memory
+    cudaMalloc(&cdh_dev,bytesize);
+    cudaMalloc(&n_dev,bytesize);
+    cudaMalloc(&x_dev,bytesize);
+    cudaMalloc(&phi_dev,bytesize);
+
     error = cudaGetLastError();
     if (error != cudaSuccess) {
         std::cout << "Couldn't allocate memory" << std::endl;
     }
     else {
-        std::cout << "Succesfully allocated device memory for grid of size N = " << N << std::endl;
+        std::cout << "Succesfully allocated " << bytesize/1e6 << " Mb of device memory for grid of size N = " << N << std::endl;
     }
 }
 
@@ -209,18 +215,24 @@ __global__ void evolve0D_gpu_new(
     const int m1
 )
 {
+    // x and y coordinates are cartesian
     int i = - q + blockIdx.x * blockDim.x + threadIdx.x;
     int j = - q + blockIdx.y * blockDim.y + threadIdx.y;
 
     int sgn, mq;
-    if (blockIdx.z == 0)
-        {sgn = 1; mq = q;}
-    else
-        {sgn = -1; mq = q-1;}
 
+    // Only proceed if the point is on the octahedron (see Fig. ?? in paper (TODO))
     if (abs(i) + abs(j) <= mq)
     {
+        // Determine whether we are in the upper or lower pyramid of the octahedron
+        if (blockIdx.z == 0)
+            {sgn = 1; mq = q;}
+        else
+            {sgn = -1; mq = q-1;}
+
         int k = k0 + sgn*q - sgn*(abs(i) + abs(j));
+
+        // Center to source
         i += i0;
         j += j0;
 
@@ -236,19 +248,24 @@ __global__ void evolve0D_gpu_new(
         double vol_ph;
         #endif
 
+        // When not in periodic mode, only treat cell if its in the grid
         #if !defined(PERIODIC)
         if (in_box_gpu(i,j,k,m1))
         #endif
-        {
+        {   
+            // Map to periodic grid
             pos[0] = modulo_gpu(i,m1);
             pos[1] = modulo_gpu(j,m1);
             pos[2] = modulo_gpu(k,m1);
 
+            // Get local ionization fraction & Hydrogen density
             xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
             nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
 
+            // Only treat cell if it hasn't been done before
             if (coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
-            {
+            {   
+                // If its the source cell, just find path (no incoming column density)
                 if (i == i0 &&
                     j == j0 &&
                     k == k0)
@@ -256,9 +273,12 @@ __global__ void evolve0D_gpu_new(
                     coldensh_in = 0.0;
                     path = 0.5*dr;
                     #if defined(LOCALRATES)
-                    vol_ph = dr*dr*dr / (4*M_PI);
+                    // vol_ph = dr*dr*dr / (4*M_PI);
+                    vol_ph = dr*dr*dr;
                     #endif
                 }
+
+                // If its another cell, do interpolation to find incoming column density
                 else
                 {
                     cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
@@ -269,21 +289,50 @@ __global__ void evolve0D_gpu_new(
                     ys = dr*(j-j0);
                     zs = dr*(k-k0);
                     dist2=xs*xs+ys*ys+zs*zs;
-                    vol_ph = dist2 * path;
+                    // vol_ph = dist2 * path;
+                    vol_ph = dist2 * path * FOURPI;
                     #endif
                 }
+
+                // Add to column density array. TODO: is this really necessary ?
                 coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
                 
+                // Compute photoionization rates from column density. WARNING: for now this is limited to the grey-opacity test case source
                 #if defined(LOCALRATES)
                 if (coldensh_in <= MAX_COLDENSH)
                 {
                     double phi = photoion_rate_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,nHI_p,sig);
+
                     phi_ion[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
                 }
                 #endif
             }
         }
     }
+}
+
+// ========================================================================
+// Compute photoionization rate from in/out column density and other
+// physical values of the cell. For now, this contains only the grey-
+// opacity test case
+// ========================================================================
+__device__ double photoion_rate_test_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & nHI,const double & sig)
+{
+    // Compute optical depth and ionization rate depending on whether the cell is optically thick or thin
+    double tau_in = coldens_in * sig;
+    double tau_out = coldens_out * sig;
+
+    // Divide the photo-ionization rates by the appropriate neutral density
+    // (part of the photon-conserving rate prescription)
+
+    // If cell is optically thick
+    if (fabs(tau_out - tau_in) > TAU_PHOTO_LIMIT)
+        // return strength * INV4PI / (Vfact * nHI) * (exp(-tau_in) - exp(-tau_out));
+        return (strength / (Vfact * nHI)) * (exp(-tau_in) - exp(-tau_out));
+    // If cell is optically thin
+    else
+        // return strength * INV4PI * sig * (tau_out - tau_in) / (Vfact) * exp(-tau_in);
+        return (strength / (Vfact * nHI)) * (tau_out - tau_in) * exp(-tau_in);
 }
 
 
@@ -482,24 +531,23 @@ __device__ void cinterp_gpu(
     }
 }
 
-// ========================================================================
-// Compute photoionization rate from in/out column density and other
-// physical values of the cell. For now, this contains only the grey-
-// opacity test case
-// ========================================================================
-__device__ double photoion_rate_test_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & nHI,const double & sig)
-{
-    // Compute optical depth and ionization rate depending on whether the cell is optically thick or thin
-    double tau_in = coldens_in * sig;
-    double tau_out = coldens_out * sig;
 
-    // If cell is optically thick
-    if (fabs(tau_out - tau_in) > TAU_PHOTO_LIMIT)
-        return strength * INV4PI / (Vfact * nHI) * (exp(-tau_in) - exp(-tau_out));
-    // If cell is optically thin
-    else
-        return strength * INV4PI * sig * (tau_out - tau_in) / (Vfact) * exp(-tau_in);
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
