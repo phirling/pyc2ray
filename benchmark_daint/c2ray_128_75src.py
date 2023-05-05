@@ -51,7 +51,7 @@ numsrc = 75                              # Number of sources
 #print(f"Reading {numsrc:n} sources from file: {sourcefile}...")
 printlog(f"Reading {numsrc:n} sources from file: {sourcefile}...",logfile,quiet)
 srcpos, srcflux, numsrc = pc2r.read_sources(sourcefile,numsrc,"pyc2ray")
-r_RT = 1000                               # Raytracing box size
+max_subbox = 1000                               # Raytracing box size
 subboxsize = 5
 loss_fraction = 1e-2
 
@@ -108,7 +108,7 @@ for t in range(tsteps):
     tnow = time.time()
     #print(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
     printlog(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n",logfile,quiet)
-    xh_new_f, phi_ion_f, coldens_out_f = pc2r.evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp_f,ndens_f,
+    xh_new_f, phi_ion_f, coldens_out_f = pc2r.evolve3D(dt,dr,srcflux,srcpos,max_subbox,subboxsize,temp_f,ndens_f,
                 xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c,logfile=logfile,quiet=quiet,loss_fraction=loss_fraction)
 # =====================================================================================
 

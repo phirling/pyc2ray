@@ -39,7 +39,7 @@ srcpos = 1+np.random.randint(0,N,size=(3,numsrc))
 #srcpos[:,1] = np.array([80,70,64])      # Position of source
 #srcpos[:,2] = np.array([53,70,55])      # Position of source
 srcflux = 5e48*np.ones(numsrc)                     # Strength of source
-r_RT = 1000                               # Raytracing box size (-1 means whole box)
+max_subbox = 1000                               # Raytracing box size (-1 means whole box)
 subboxsize = 5
 
 # /////////////////////////////////////////////////////////////////////////////////
@@ -91,7 +91,7 @@ for t in range(tsteps):
             pkl.dump(xh_new_f,f)
     tnow = time.time()
     print(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
-    xh_new_f, phi_ion_f, coldens_out_f = pc2r.evolve3D(dt,dr,srcflux,srcpos,r_RT,subboxsize,temp_f,ndens_f,
+    xh_new_f, phi_ion_f, coldens_out_f = pc2r.evolve3D(dt,dr,srcflux,srcpos,max_subbox,subboxsize,temp_f,ndens_f,
                 xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c)
 # =====================================================================================
 

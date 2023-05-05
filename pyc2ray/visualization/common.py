@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-def xfrac_plot(data,ax,xmin=None,xmax=1.0,cmap='jet',interp=None,fs=10,boxsize=None,time=None):
+def xfrac_plot(data,ax,xmin=None,xmax=1.0,cmap='jet',interp=None,fs=10,boxsize=None,time=None,label=r"$x_{HI}$"):
     if boxsize is None:
         unitstr = "[Grid Coordinates]"
         ext = None
@@ -9,7 +9,7 @@ def xfrac_plot(data,ax,xmin=None,xmax=1.0,cmap='jet',interp=None,fs=10,boxsize=N
         ext = (0,boxsize,0,boxsize)
     im = ax.imshow(data,origin='lower',norm='log',cmap=cmap,interpolation=interp,vmin=xmin,vmax=xmax,extent=ext)
     cb = plt.colorbar(im,ax=ax)
-    cb.set_label(label=r"$x_{HI}$",size=1.5*fs)
+    cb.set_label(label=label,size=1.5*fs)
     ax.set_xlabel("$x$ " + unitstr,fontsize=fs)
     ax.set_ylabel("$y$ " + unitstr,fontsize=fs)
     if time is not None:
