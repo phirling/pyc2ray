@@ -3,6 +3,7 @@ The pyc2ray package is structured as follows.
 It relies on 2 compiled extension modules:
 - libc2ray: Fortran subroutines from C2Ray, adapted and interfaced with python using f2py. ../src/pyc2ray/
 - libocta: CUDA C++ implementation of the OCTA raytracing method, compiled with nvcc. ../src/octa/
+The package expects the compiled shared libraries to be in the lib/ directory.
 
 Rather than giving access to these modules directly to the user, they are managed internally and the user
 only interacts with the following python modules:

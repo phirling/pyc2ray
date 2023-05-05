@@ -1,8 +1,8 @@
 # ===================================================================================================
-# This module manages the initialization of the OCTA extension library. It ensures
-# that the library is compiled and present in the directory and that GPU memory has been allocated
-# when subroutines are called from other submodules.
+# This module manages the initialization of the OCTA extension library. It ensures that GPU memory
+# has been allocated when GPU-accelerated functions are called.
 # ===================================================================================================
+
 from .load_extensions import load_octa
 libocta = load_octa()
 
@@ -12,6 +12,7 @@ libocta = load_octa()
 cuda_init = False
 
 def cuda_is_init():
+    global cuda_init
     return cuda_init
 
 def device_init(N):

@@ -3,10 +3,9 @@ from .utils import printlog
 from .load_extensions import load_c2ray, load_octa
 from .octa_core import cuda_is_init
 
+# Load extension modules
 libc2ray = load_c2ray()
 libocta = load_octa()
-
-libc2ray = load_c2ray()
 
 __all__ = ['do_all_sources','do_all_sources_octa']
 
