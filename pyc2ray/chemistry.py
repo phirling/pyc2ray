@@ -1,4 +1,3 @@
-from . import libc2ray
 import numpy as np
 
 # TODO: Add chemistry wrapper function

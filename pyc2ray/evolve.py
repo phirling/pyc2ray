@@ -1,9 +1,12 @@
-from . import libc2ray
-from .octa_core import gpu, cuda_init
-if gpu:
-    from octa_core import libocta
 import numpy as np
 from .utils import printlog
+from .load_extensions import load_c2ray, load_octa
+from .octa_core import cuda_is_init
+
+libc2ray = load_c2ray()
+libocta = load_octa()
+
+__all__ = ['evolve3D', 'evolve3D_octa']
 
 # ===================================================================================================
 # evolve3D routine: iterate between raytracing <-> chemistry to solve for the ionization fraction
@@ -197,7 +200,7 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
         Outgoing column density of each cell due to the last source (for debugging, will be removed later on)
     """
     # Allow a call only if 1. the octa library is present and 2. the GPU memory has been allocated using device_init()
-    if cuda_init:
+    if cuda_is_init():
         NumSrc = srcflux.shape[0]    # Number of sources
         NumCells = N*N*N         # Number of cells/points
         conv_flag = NumCells        # Flag that counts the number of non-converged cells (initialized to non-convergence)

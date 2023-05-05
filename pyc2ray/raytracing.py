@@ -1,9 +1,14 @@
 import numpy as np
-from . import libc2ray
-from .octa_core import gpu, cuda_init
-if gpu:
-    from octa_core import libocta
 from .utils import printlog
+from .load_extensions import load_c2ray, load_octa
+from .octa_core import cuda_is_init
+
+libc2ray = load_c2ray()
+libocta = load_octa()
+
+libc2ray = load_c2ray()
+
+__all__ = ['do_all_sources','do_all_sources_octa']
 
 # ===================================================================================================
 # Raytrace all sources: find column density -> find photoionization rates
@@ -46,7 +51,7 @@ def do_all_sources(srcflux,srcpos,r_RT,subboxsize,sig,dr,ndens,xh_av,loss_fracti
     phi_ion = np.zeros((m1,m1,m1),order='F')
 
 
-    nsubbox, photonloss = c2r.raytracing.do_all_sources(srcflux,srcpos,r_RT,subboxsize,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction)
+    nsubbox, photonloss = libc2ray.raytracing.do_all_sources(srcflux,srcpos,r_RT,subboxsize,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction)
     return phi_ion, nsubbox, photonloss
 
 # ===================================================================================================
@@ -78,7 +83,7 @@ def do_all_sources_octa(srcflux,srcpos,r_RT,sig,dr,ndens,xh_av,phi_ion,N):
     N : int
         Mesh size
     """
-    if cuda_init:
+    if cuda_is_init():
         numsrc = srcflux.shape[0]
         phi_ion_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
         cdh_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))

@@ -143,7 +143,7 @@ extern "C"
 
     static struct PyModuleDef octamodule = {
         PyModuleDef_HEAD_INIT,
-        "octa",   /* name of module */
+        "libocta",   /* name of module */
         "CUDA C++ implementation of the short-characteristics RT", /* module documentation, may be NULL */
         -1,       /* size of per-interpreter state of the module,
                     or -1 if the module keeps state in global variables. */
@@ -151,7 +151,7 @@ extern "C"
     };
 
     PyMODINIT_FUNC
-    PyInit_octa(void)
+    PyInit_libocta(void)
     {   
         PyObject* module = PyModule_Create(&octamodule);
         import_array();
