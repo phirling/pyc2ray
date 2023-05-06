@@ -90,6 +90,9 @@ def do_all_sources_octa(srcflux,srcpos,r_RT,sig,dr,ndens,xh_av,phi_ion,N):
         xh_av_flat = np.ravel(xh_av).astype('float64',copy=True)
         ndens_flat = np.ravel(ndens).astype('float64',copy=True)
 
+        # Copy density field to GPU (!! do_all_sources does not touch the density field !!)
+        libocta.density_to_device(ndens_flat,N)
+
         libocta.do_all_sources(srcpos,srcflux,r_RT,cdh_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,numsrc,N)
 
         phi_ion = np.reshape(phi_ion_flat, (N,N,N))

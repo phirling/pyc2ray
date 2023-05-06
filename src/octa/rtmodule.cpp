@@ -57,7 +57,7 @@ extern "C"
 
         do_all_sources_octa_gpu(srcpos_data,srcflux_data,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1);
 
-        return PyFloat_FromDouble(1.0);
+        return Py_None;
     }
 
     static PyObject *
@@ -113,7 +113,7 @@ extern "C"
 
         do_source_octa_gpu(srcpos_data,srcflux_data,ns,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1);
 
-        return PyFloat_FromDouble(1.0);
+        return Py_None;
     }
 
     static PyObject *
@@ -123,14 +123,28 @@ extern "C"
         if (!PyArg_ParseTuple(args,"i",&N))
             return NULL;
         device_init(N);
-        return PyFloat_FromDouble(1.0);
+        return Py_None;
     }
 
     static PyObject *
     octa_device_close(PyObject *self, PyObject *args)
     {
         device_close();
-        return PyFloat_FromDouble(1.0);
+        return Py_None;
+    }
+
+    static PyObject *
+    octa_density_to_device(PyObject *self, PyObject *args)
+    {
+        int N;
+        PyArrayObject * ndens;
+        if (!PyArg_ParseTuple(args,"Oi",&ndens,&N))
+            return NULL;
+
+        double * ndens_data = (double*)PyArray_DATA(ndens);
+        density_to_device(ndens_data,N);
+
+        return Py_None;
     }
 
     static PyMethodDef octaMethods[] = {
@@ -138,6 +152,7 @@ extern "C"
         {"do_all_sources",  octa_do_all_sources, METH_VARARGS,"Do OCTA raytracing (GPU)"},
         {"device_init",  octa_device_init, METH_VARARGS,"Free GPU memory"},
         {"device_close",  octa_device_close, METH_VARARGS,"Free GPU memory"},
+        {"density_to_device",  octa_density_to_device, METH_VARARGS,"Copy density field to GPU"},
         {NULL, NULL, 0, NULL}        /* Sentinel */
     };
 

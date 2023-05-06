@@ -17,28 +17,39 @@
 // ========================================================================
 // Utility Device Functions
 // ========================================================================
+
+// Fortran-type modulo function (C modulo is signed)
 inline __device__ int modulo_gpu(const int & a,const int & b) { return (a%b+b)%b; }
 
+// Sign function on the device
 inline __device__ int sign_gpu(const double & x) { if (x>=0) return 1; else return -1;}
 
-inline __device__ int mem_offst_gpu(const int & i,const int & j,const int & k,const int & N)
-{   
-    return N*N*i + N*j + k;
-}
+// Flat-array index from 3D (i,j,k) indices
+inline __device__ int mem_offst_gpu(const int & i,const int & j,const int & k,const int & N) { return N*N*i + N*j + k;}
 
-__device__ inline double weightf_gpu(const double & cd, const double & sig)
-{
-    return 1.0/fmax(0.6,cd*sig);
-}
+// Weight function for C2Ray interpolation function (see cinterp_gpu below)
+__device__ inline double weightf_gpu(const double & cd, const double & sig) { return 1.0/fmax(0.6,cd*sig);}
 
 // ========================================================================
 // Global variables. Pointers to GPU memory to store grid data
+//
+// To avoid uneccessary memory movement between host and device, we
+// allocate dedicated memory on the device via a call to device_init at the
+// beginning of the program. Data is copied to and from the host memory
+// (typically numpy arrays) only when it changes and is required. For example:
+//
+// * The density field is copied to the device only when it
+// actually changes, i.e. at the beginning of a timestep.
+// * The photoionization rates for each source are computed and summed
+// directly on the device and are copied to the host only when all sources
+// have been passed.
+// * The column density is NEVER copied back to the host, since it is only
+// accessed on the device when computing ionization rates.
 // ========================================================================
-unsigned long meshsizze;
-double* cdh_dev;
-double* n_dev;
-double* x_dev;
-double* phi_dev;
+double* cdh_dev;        // Outgoing column density of the cells
+double* n_dev;          // Density
+double* x_dev;          // Time-averaged ionized fraction
+double* phi_dev;        // Photoionization rates
 
 // ========================================================================
 // Initialization function to allocate device memory (pointers above)
@@ -85,11 +96,19 @@ void device_init(const int & N)
 }
 
 // ========================================================================
+// Utility function to copy density field to device
+// ========================================================================
+void density_to_device(double* ndens,const int & N)
+{
+    cudaMemcpy(n_dev,ndens,N*N*N*sizeof(double),cudaMemcpyHostToDevice);
+}
+
+// ========================================================================
 // Deallocate device memory at the end of a run
 // ========================================================================
 void device_close()
 {   
-    printf("Freeing device pointers...\n");
+    printf("Deallocating device memory...\n");
     cudaFree(&cdh_dev);
     cudaFree(&n_dev);
     cudaFree(&x_dev);
@@ -139,10 +158,8 @@ void do_all_sources_octa_gpu(
         thrust::fill(ion,ion + m1*m1*m1,0.0);
         #endif
 
-        // Copy the N-Body data (density & temperature) to the GPU.
-        // This should actually be done only at the beginning of a timestep and not at every call
-        // to do_all_sources. For now, leave it here
-        cudaMemcpy(n_dev,ndens,meshsize,cudaMemcpyHostToDevice);
+        // Copy current ionization fraction to the device
+        // cudaMemcpy(n_dev,ndens,meshsize,cudaMemcpyHostToDevice);  < --- !! density array is not modified, octa assumes that it has been copied to the device before
         cudaMemcpy(x_dev,xh_av,meshsize,cudaMemcpyHostToDevice);
 
         // Source position & strength variables

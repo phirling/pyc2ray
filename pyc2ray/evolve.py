@@ -224,6 +224,9 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
         xh_av_flat = np.ravel(xh).astype('float64',copy=True)
         ndens_flat = np.ravel(ndens).astype('float64',copy=True)
 
+        # Copy density field to GPU once at the beginning of timestep (!! do_all_sources does not touch the density field !!)
+        libocta.density_to_device(ndens_flat,N)
+
         # Initialize Flat Column density & ionization rate arrays. These are used to store the
         # output of OCTA. TODO: python column density array is actually not needed ?
         coldensh_out_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
