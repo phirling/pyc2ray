@@ -10,6 +10,7 @@ import pickle as pkl
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-N",type=int,default=128)
+parser.add_argument("--plot",action='store_true')
 args = parser.parse_args()
 
 # /////////////////////////////////////////////////////////////////////////////////
@@ -18,7 +19,7 @@ args = parser.parse_args()
 N = int(args.N)
 
 # Display options
-display = False                          # Display results at the end of run
+display = args.plot                           # Display results at the end of run
 zslice = 64                             # z-slice of the box to visualize
 
 # Output settings
