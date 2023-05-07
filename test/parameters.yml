@@ -1,0 +1,54 @@
+# ===========================================================
+# Parameter File for pyc2ray.
+#
+# Only the currently required parameters are included, as
+# more features of C2Ray are ported to pyc2ray, the relevant
+# parameters will be included here.
+# ===========================================================
+
+Grid:
+  # Box size in Mpc
+  boxsize: 0.014
+
+# (originally in cgsconstants, defines various collisional/recombination coeffs.)
+CGS:
+  # Hydrogen recombination parameter (power law index)
+  albpow: -0.7  #in the old code -0.79
+  # Hydrogen recombination parameter (value at 10^4 K)
+  bh00: 2.59e-13 # OTS value, alpha_B
+  # Helium0 recombination parameter (power law index)
+  alcpow: -0.672
+  # Hydrogen ionization energy (in eV)
+  eth0: 13.598
+  # Hydrogen collisional ionization parameter 1
+  xih0: 1.0
+  # Hydrogen collisional ionization parameter 2
+  fh0: 0.83
+  # ...
+  colh0_fact: 1.3e-8
+Abundances:
+  abu_he: 0.074 # Helium Abundance    0.08# 1 abu_he: 0.08 #  for EoR KP sims
+  abu_c: 7.1e-7 # Carbon Abundance
+
+Photo:
+  # HI cross section at its ionzing frequency (weighted by freq_factor)
+  sigma_HI_at_ion_freq: 6.30e-18
+
+# Cosmological Parameters
+Cosmology:
+  # C2Ray default values
+  h: 0.7
+  Omega0: 0.27
+  Omega_B: 0.044
+  cmbtemp: 2.726
+  # Planck 18
+  #  h: 0.6766
+  #  Omega0: 0.30966
+  #  Omega_B: 0.04897
+  #  cmbtemp: 2.7255
+Output:
+  results_basename: ./
+  logfile: pyC2Ray.log
+
+Raytracing:
+  loss_fraction: 1e-2

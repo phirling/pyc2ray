@@ -139,7 +139,7 @@ def evolve3D(dt,dr,srcflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,a
         prev_sum_xh0_int = sum_xh0_int
 
     # When converged, return the updated ionization fractions at the end of the timestep
-    return xh_intermed, phi_ion, coldensh_out
+    return xh_intermed, phi_ion
 
 
 # ===================================================================================================

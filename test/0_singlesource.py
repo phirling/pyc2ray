@@ -28,8 +28,7 @@ args = parser.parse_args()
 N = 128
 tsteps = 10                            # Number of timesteps
 dt = 31557600952243.961 # C2Ray value (Hard coded) # Timestep
-dxbox = 3.3753127248391602E+020
-dr = dxbox * np.ones(3)                 # Cell Size (3D)
+dr = 3.3753127248391602E+020
 avgdens = 1.0e-3                        # Constant Hydrogen number density
 xhav = 1.2e-3                           # Initial ionization fraction
 
@@ -119,7 +118,7 @@ else:
         for t in range(tsteps):
             tnow = time.time()
             print(f"\n --- Timestep {t+1:n}. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
-            xh_new_f, phi_ion_f, coldens_out_f = pc2r.evolve3D(dt,dr,srcflux,srcpos,max_subbox,subboxsize,temp_f,ndens_f,
+            xh_new_f, phi_ion_f = pc2r.evolve3D(dt,dr,srcflux,srcpos,max_subbox,subboxsize,temp_f,ndens_f,
                         xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c)
             
             mean_xfrac[t] = np.mean(xh_new_f)
@@ -147,7 +146,7 @@ else:
         for t in range(tsteps):
             tnow = time.time()
             print(f"\n --- Timestep {t+1:n}. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
-            xh_new_f, phi_ion_f = pc2r.evolve3D_octa(dt,dxbox,srcflux,srcpos,r_RT,temp_f,ndens_f,
+            xh_new_f, phi_ion_f = pc2r.evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp_f,ndens_f,
                 xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c,N)
             
             mean_xfrac_octa[t] = np.mean(xh_new_f)
