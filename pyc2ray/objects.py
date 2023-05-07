@@ -10,6 +10,7 @@ try:
 except ImportError:
     from yaml import SafeLoader
 from .utils.logutils import printlog
+from .utils.sourceutils import read_sources
 from .evolve import evolve3D, evolve3D_octa
 from .octa_core import device_init, device_close, cuda_is_init
 
@@ -133,7 +134,32 @@ class C2Ray:
         """
         return self.cosmology.age(z).to(unit)
 
-    
+    def read_sources(self,file,n): # >:( trgeoip
+        """Read sources from a C2Ray-formatted file
+
+        This is limited to the test case for now (total ionizing
+        flux of the sources is known)
+
+        Parameters
+        ----------
+        file : str
+            Filename to read
+        n : int
+            Number of sources to read from the file
+        
+        Returns
+        -------
+        srcpos : array
+            Grid positions of the sources formatted in a suitable way for
+            the chosen raytracing algorithm
+        srcflux : array
+            Total flux of ionizing photons of the sources
+        numsrc : int
+            Number of sources read from the file
+        """
+        if self.octa: mode = 'pyc2ray_octa'
+        else: mode = 'c2ray'
+        return read_sources(file, n, mode)
     # ==================================================================
     # Private methods of class
     # ==================================================================
@@ -164,6 +190,7 @@ class C2Ray:
     def _cosmology_init(self):
         """ Set up cosmology from parameters (H0, Omega,..)
         """
+        self.cosmological = self._ld['Cosmology']['cosmological']
         h = self._ld['Cosmology']['h']
         Om0 = self._ld['Cosmology']['Omega0']
         Ob0 = self._ld['Cosmology']['Omega_B']

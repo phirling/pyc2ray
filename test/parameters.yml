@@ -37,9 +37,15 @@ Photo:
 # Cosmological Parameters
 Cosmology:
   # C2Ray default values
+  # Global flag to use cosmology
+  cosmological: 1
+  # Reduced Hubble constant
   h: 0.7
+  # Omega matter t=0
   Omega0: 0.27
+  # Omega baryon t=0
   Omega_B: 0.044
+  # Temperature of CMB in Kelvins
   cmbtemp: 2.726
   # Planck 18
   #  h: 0.6766
