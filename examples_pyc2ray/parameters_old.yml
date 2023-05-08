@@ -1,0 +1,231 @@
+Abundances:
+  abu_he: 0.074 # Helium Abundance    0.08# 1 abu_he: 0.08 #  for EoR KP sims
+  abu_c: 7.1e-7 # Carbon Abundance
+
+# Atomic: is done directly in parameters.py
+Atomic:
+# Constants: is done via Astropy etc.
+# Cosmology: us done via astropy
+
+General:
+  convergence_fraction: 1.0e-4
+  # A really small number
+  epsilon: 1e-14
+  # Convergence criterion for per source calculation (evolve0d)
+  minimum_fractional_change: 1.0e-3
+  # Convergence criterion for global calculation (evolve0d)
+  convergence2: 1.0e-3
+  # Convergence criterion for neutral fraction (evolve4_periodic)
+  minimum_fraction_of_atoms: 1.0e-8
+  # Logical that determines the use of grey opacities
+  grey : 0 
+  # Modification factor for the HI ionization cross section. Should
+  # #  only be used in combination with grey opacities# #  Will in that
+  # #  case ensure that the average ionization cross sections will be
+  # #  similar between the grey and non-grey cases.
+  freq_factor: 1.0
+  # Size increase of subboxes around sources (evolve4_periodic)
+  # #  If 10, we do 10^3, 20^3, 30^3 cubes around a source until
+  # #  no photons escape or we reach the edge of the (possibly periodic)
+  # #  grid
+  subboxsize: 1
+  # The maximum number of cells on EITHER side of the source for which ray
+  # tracing is done. This is a very crude mean free path parameter which
+  # sets up a photon barrier at exactly this distance. However,
+  # this barrier is cubic in shape (it's a subbox) so we prefer to set
+  # a spherical barrier, which must be done below (type_LLS: 3).
+  max_subbox: 1000
+
+  # Add photon losses back into volume or not
+  add_photon_losses: 0
+  # Fraction of remaining photons below we stop ray-tracing
+  loss_fraction: 1e-2
+  # Subgrid clumping
+  # #  1: constant clumping (with clumping_factor)
+  # #  2: Globally Averaged Clumping Model GCM, (provide parameters file)
+  # #  3: Deterministic Clumping Model DCM (Mao et al. 2019), (provide parameters file)
+  # #  4: Stochastic Clumping Model SCM (Bianco et al. 2020), (provide parameters file)
+  # #  5: Pre-computed grid of clumping, (provide files)
+  type_of_clumping: 1
+  # Clumping factor if constant
+  clumping_factor: 1.0
+  # Include LLS?
+  use_LLS: 1
+  # Type of LLS approach
+  # #  0: no LLS
+  # #  1: homogeneous optical depth due to LLS
+  # #  2: position dependent optical depth due to LLS (requires LLS input
+  # #      files)
+  # #  3: hard barrier at a distance R_max_cMpc (see below)
+  type_of_LLS: 1
+  # Model selection in case of type_of_LLS: 1
+  # #  1: standard Worseck et al. (2014) mean free path fit
+  # #  2: lower mean free path
+  # #  3: higher mean free path
+  # #  4: constant proper Mpc
+  # #  5: constant comoving Mpc
+  LLS_model: 5
+  # Value of maximum comoving distance for photons from source in case of
+  # #  type_of_LLS: 3
+  R_max_cMpc: 10.0
+  # Should we stop when photon conservation violation is detected?
+  stop_on_photon_violation : 0
+  # Cosmology (in C2Ray.F90 and mat_ini) and Cosmological cooling (in cosmology)
+  cosmological: 1
+
+  # Thermal: minimum temperature
+  minitemp: 1.0 #  minimum temperature
+  # Thermal: fraction of the cooling time step below which no iteration is done
+  relative_denergy: 0.1
+
+  # Source properties: Number of different sources
+  Number_Sourcetypes: 2
+  # Source properties: Photon per atom for different source types (high to low mass)
+  phot_per_atom:  [10.0, 150.0] # can also add 0
+
+  # Source properties: zeta parameter for collapsed fraction growth source
+  # #  model (high to low mass)
+  zeta: [50.0, 0.0]
+
+  # Source properties: X-ray photons per baryon. Mesinger et al. (2012) use
+  # #  0.02 as their nominal value. Note that this depends on your integration
+  # #  limits. Mesinger et al. use 300 eV as lowest energy.
+  xray_phot_per_atom :  0.02
+  # Source properties: Life time of sources (if set at compile time) (in years)
+  lifetime: 10e6
+  # Source properties: Smallest number of particles that makes a reliable halo
+  MinParticleContent: 20. #  in solar masses
+  # Source properties: Upper limit for low mass sources (not used)
+  LowMassLimit: 1e9 #  in solar masses
+  # Source properties: Lower limit neutral fraction for suppression criterion
+  StillNeutral: 0.1 #  lower limit of neutral criterium
+  # StillNeutral: 0.9 #  lower limit of neutral criterium
+  # StillNeutral: 1.1 #  NEVER suppress
+  # StillNeutral: -0.1 #  ALWAYS suppress
+
+# Files for logging/debugging
+Log:
+  timefile: Timings.log
+  logfile: C2Ray.log
+
+# Input Files for the run (densities, redshift tables,...)
+Input:
+  redfile: redshifts.txt
+  sourcefile: sources.txt
+  density_prefix: dens #../coarser_densities/dens
+
+# Grid Parameters
+Grid:
+  mesh: [100,100,100]
+  boxsize: 1
+  periodic: 1
+
+# Output parameters
+Output:
+  do_photonstatistics: 1
+  photon_statistics_file_1: PhotonCounts.out
+  photon_statistics_file_2: PhotonCounts2.out
+
+# Material properties
+Material:
+  # Set to true to let C2-Ray not change the temperature
+  isothermal: 1
+  # Thermal: initial temperature (if used)
+  initial_temperature: 1e4
+
+# Time integration parameters
+Time:
+  number_timesteps: 10            # Number of timesteps between redshift slices
+  number_outputs: 2               # Number of outputs between redshift slices
+
+# Parameters for SED (BB)
+SED: # TODO: fix missing stuff
+  stellar_SED_type: 1
+  # Effective temperature (K); if set to zero, the code will ask for SED parameters
+  bb_Teff: 5.0e4
+  # Number of ionizing photons / second (reference)
+  bb_S_star: 1e48
+  # nominal power law index (for photon number)
+  pl_index: 3.0
+  # Number of ionizing photons / second (reference)
+  pl_S_star: 1e48
+  # nominal Eddington efficiency
+  EddLeff_nominal: 1.0
+  # nominal black hole mass for Eddington luminosity (M0)
+  mass_nominal: 1.0e6
+  # Use an X-ray SED as well? This is not yet implemented so should be false.
+  use_xray_SED: 0
+
+  # Other SED parameters are calculated from the above times some weightings:
+  #  bb_MinFreq = ion_freq_HI * fact
+  #  bb_MaxFreq = ion_freq_HeII * fact
+  #  pl_MinFreq = ion_freq_HI * fact
+  #  pl_MaxFreq = ion_freq_HeII#  * fact
+  #  EddLum = mass_nominal * fact
+
+  # nominal minimum and maximum frequency for BB source
+  bb_MinFreq_fact: 1.0
+  bb_MaxFreq_fact: 10.0
+  # nominal minimum and maximum frequency for power law source
+  pl_MinFreq_fact: 1.0
+  pl_MaxFreq_fact: 100.0
+  # Eddington luminosity per mass_nominal solar mass (erg/s) will be fixed in parameters.py
+
+
+CGS: # (originally in cgsconstants, defines various collisional/recombination coeffs.)
+  ##  # Frequency scaling factor,
+  ##  ## this scaling parameter is independent of any main program scaling
+  ##  ## (see scaling.f90), and may only be used in the radiation physics 
+  ##  ## subroutines (currently switched off)
+  ##  real(kind: dp),parameter  :: sclfre: 1.0e15
+  ##  # conversion between evs and frequency
+  ##  real(kind: dp),parameter  :: ev2fr: 0.241838e15#/sclfre
+
+  hscl_fact: 1.0 # Factor for hscl (scaled planck constant)
+  # Hydrogen recombination parameter (power law index)
+  albpow: -0.7  #in the old code -0.79
+  # Hydrogen recombination parameter (value at 10^4 K)
+  bh00: 2.59e-13 # OTS value, alpha_B
+  # Helium0 recombination parameter (power law index)
+  alcpow: -0.672
+  # Helium0 recombination parameter (value at 10^4 K)
+  bhe00: 4.26e-13 #alpha_b+alpha_1
+  # Helium1 recombination parameter (value at 10^4 K)
+  bhe10: 1.53e-12 #different in the book# 
+  #here it was 5.91e-12 I replace with book value of 2*1.1e-12
+  # Hydrogen ionization energy (in eV)
+  eth0: 13.598
+  # Hydrogen collisional ionization parameter 1
+  xih0: 1.0
+  # Hydrogen collisional ionization parameter 2
+  fh0: 0.83
+  # critical electron density at which colisions become important for y-fraction ionization (Osterbrock)
+  n_el_crit: 4.0e3
+  # Helium ionization energy (in eV)
+  ethe: [24.587,54.416]
+  # Helium collisional ionization parameter 1
+  xihe: [2.0,1.0]
+  # Helium collisional ionization parameter 2
+  fhe: [0.63,1.30]
+
+  # Other params are set from the above, using scalings:
+  colh0_fact: 1.3e-8
+  colhe_fact: 1.3e-8
+
+Photo:
+  # HI cross section at its ionzing frequency (weighted by freq_factor)
+  sigma_HI_at_ion_freq: 6.30e-18
+  # HeI cross section at its ionzing frequency
+  sigma_HeI_at_ion_freq: 7.430e-18
+  # HeII cross section at its ionzing frequency
+  sigma_HeII_at_ion_freq: 1.589e-18
+  # HI cross-section at HeI ionization threshold
+  sigma_H_heth:  1.238e-18 
+  # HI cross-section at HeII Lya
+  sigma_H_heLya:  9.907e-22
+  # HeI cross-section at HeII Lya
+  sigma_He_heLya:  1.301e-20
+  # HeI cross-section at HeII ionization threshold
+  sigma_He_he2:  1.690780687052975e-18
+  # HI cross-section at HeII ionization threshold
+  sigma_H_he2: 1.230695924714239e-19

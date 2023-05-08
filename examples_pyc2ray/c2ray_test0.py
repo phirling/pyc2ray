@@ -26,9 +26,9 @@ res_basename = "./results_test/"             # Directory to store pickled result
 delta_results = 10                      # Number of timesteps between results
 
 # Run Parameters (sizes, etc.)
-tsim = 10                              # Simulation Time (in Myrs)
+tsim = 140                              # Simulation Time (in Myrs)
 t_evol = tsim * u.Myr.to('s')           # Simulation Time (in seconds)
-tsteps = 10                            # Number of timesteps
+tsteps = 140                            # Number of timesteps
 #dt = t_evol / tsteps                    # Timestep
 dt = 31557600952243.961 # C2Ray value  t_evol / tsteps                    # Timestep
 boxsize = 14 * u.kpc.to('cm')           # Simulation box size
@@ -96,7 +96,7 @@ for t in range(tsteps):
             pkl.dump(phi_ion_f,f)
     tnow = time.time()
     print(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
-    xh_new_f, phi_ion_f, coldens_out_f = pc2r.evolve3D(dt,dr,srcflux,srcpos,max_subbox,subboxsize,temp_f,ndens_f,
+    xh_new_f, phi_ion_f = pc2r.evolve3D(dt,dr,srcflux,srcpos,max_subbox,subboxsize,temp_f,ndens_f,
                 xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c)
 # =====================================================================================
 
