@@ -25,15 +25,12 @@ xhav = 1.2e-3
 temp0 = 1e4
 use_octa = False
 
+# Create C2Ray object
+sim = pc2r.C2Ray(paramfile, N, use_octa)
+
 # Source Parameters
 numsrc = 1
-srcflux = np.empty(numsrc)
-srcflux[0] = 5.0e48
-if use_octa:
-    srcpos = np.ravel(np.array([[63],[63],[63]],dtype='int32')) # C++ version uses flattened arrays
-else:
-    srcpos = np.empty((3,numsrc),dtype='int')
-    srcpos[:,0] = np.array([64,64,64])
+srcpos, srcflux, numsrc = sim.read_sources("src.txt",numsrc)
 
 # Raytracing Parameters
 max_subbox = 1000
@@ -44,12 +41,6 @@ r_RT = 100
 ndens_f = avgdens * np.ones((N,N,N),order='F')
 xh_f = xhav*np.ones((N,N,N),order='F')
 temp_f = temp0 * np.ones((N,N,N),order='F')
-phi_ion_f = np.zeros((N,N,N),order='F')
-
-# Create C2Ray object
-sim = pc2r.C2Ray(paramfile, N, use_octa)
-
-
 
 tinit = time.time()
 

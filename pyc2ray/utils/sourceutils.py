@@ -19,7 +19,8 @@ def read_sources(file,n,mode):
     
     with open(file,"r") as f:
         # Exclude first row and last column which are just conventional for c2ray
-        inp = np.loadtxt(f,skiprows=1)[:,:-1]
+        #inp = np.loadtxt(f,skiprows=1)[:,:-1]
+        inp = np.loadtxt(f,skiprows=1,usecols=(0,1,2,3),ndmin=2) # < -- ndmin = 2 in case of single source in the file
         
         max_n = inp.shape[0]
         

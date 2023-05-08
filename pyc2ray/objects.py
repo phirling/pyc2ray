@@ -132,7 +132,7 @@ class C2Ray:
         unit : str (optional)
             Unit to get age in astropy naming. Default: seconds
         """
-        return self.cosmology.age(z).to(unit)
+        return self.cosmology.age(z).to(unit).value
 
     def read_sources(self,file,n): # >:( trgeoip
         """Read sources from a C2Ray-formatted file
@@ -158,8 +158,16 @@ class C2Ray:
             Number of sources read from the file
         """
         if self.octa: mode = 'pyc2ray_octa'
-        else: mode = 'c2ray'
+        else: mode = 'pyc2ray'
         return read_sources(file, n, mode)
+    
+    def cosmo_scaling(self,z):
+        return (1.0 + self.zred_0)/(1.0 + z)
+    
+    def delta_z(self,t1,t2):
+        z1 = self.time2zred(t1)
+        z2 = self.time2zred(t2)
+        return (z2-z1)
     # ==================================================================
     # Private methods of class
     # ==================================================================
@@ -190,7 +198,6 @@ class C2Ray:
     def _cosmology_init(self):
         """ Set up cosmology from parameters (H0, Omega,..)
         """
-        self.cosmological = self._ld['Cosmology']['cosmological']
         h = self._ld['Cosmology']['h']
         Om0 = self._ld['Cosmology']['Omega0']
         Ob0 = self._ld['Cosmology']['Omega_B']
@@ -198,6 +205,9 @@ class C2Ray:
         H0 = 100*h
         self.cosmology = FlatLambdaCDM(H0, Om0, Tcmb0, Ob0=Ob0)
 
+        self.cosmological = self._ld['Cosmology']['cosmological']
+        self.zred_0 = self._ld['Cosmology']['zred_0']
+        self.age_0 = self.zred2time(self.zred_0)
     def _output_init(self):
         """ Set up output & log file
         """
