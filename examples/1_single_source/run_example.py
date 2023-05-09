@@ -1,12 +1,12 @@
 import sys
-sys.path.append("../")
+sys.path.append("../../")
 import pyc2ray as pc2r
 import time
 
 # ======================================================================
 # Example 1 for pyc2ray: Single test source in homogeneous density field
 # ----------------------------------------------------------------------
-
+#
 # USAGE:
 # By default, this script will produce 15 outputs at redshifts separated
 # by 10 Myr in cosmic time, starting at z = 9. Between two slices, 10
@@ -19,6 +19,14 @@ import time
 # By default, the C2Ray raytracing is used. To use the gpu-accelerated
 # version, set use_octa = True. A CUDA-compatible GPU must be present
 # and the octa library must be compiled & located in the lib/ directory.
+# 
+# A results/ directory must be present in this directory for the script
+# to execute correctly (results directory name can be changed in yaml file)
+#
+# Don't be surprised if the redshift slices / file names differ from
+# the default C2Ray: this is because here we use astropy.cosmology to
+# convert between time and redshift, rather than the approximation
+# formulas used in C2Ray.
 # ======================================================================
 
 # Global parameters
@@ -39,7 +47,7 @@ sim = pc2r.C2Ray(paramfile, N, use_octa)
 zred_array = sim.generate_redshift_array(numzred,1e7)
 
 # Read sources
-srcpos, srcflux, numsrc = sim.read_sources("src.txt",1)
+srcpos, srcflux, numsrc = sim.read_sources("source.txt",1)
 
 # Measure time
 tinit = time.time()
@@ -51,7 +59,6 @@ for k in range(len(zred_array)-1):
     zi = zred_array[k]       # Start redshift
     zf = zred_array[k+1]     # End redshift
     dt = sim.set_timestep(zi,zf,num_steps_between_slices)
-    #dt = 31557600952243.961
 
     # Write output
     sim.write_output(zi)

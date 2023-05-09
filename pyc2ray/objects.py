@@ -20,20 +20,42 @@ from .octa_core import device_init, device_close
 # for a c2ray simulation. It deals with parameters, I/O, cosmology,
 # and other things such as memory allocation when using octa.
 #
-# I'm not sure what is best in terms of which features are
-# managed internally by the class, and which ones should appear
-# explicitely in a simulation script. For now, the actual grid
-# arrays are kept outside and the class only handles parameters,
-# computations, etc.
 #
-# Note on cosmology: from what I understand, C2Ray uses the
-# convention that the scale factor is 1 at the beginning of the
-# simulation (at tsim_0), rather than at present time (at z = 0).
-# Look at grid_ini and cosmo_evo: the box dimensions at input are
-# said to be "comoving" but are effectively used as initial values.
+# -- Notes on cosmology: --
+# * In C2Ray, the scale factor is 1 at z = 0. The box size is given
+# in comoving units, i.e. it is the proper size at z = 0. At the
+# start (in cosmo_ini), the cell size & volume are scaled down to
+# the first redshift slice of the program.
+# 
+# * There are 2 types of redshift evolution: (1) when the program
+# reaches a new "slice" (where a density file would be read etc)
+# and (2) at each timestep BETWEEN slices. Basically, at (1), the
+# density is set, and during (2), this density is diluted due to
+# the expansion.
 #
-# This means that 1 + z = a(z0) / a(z)
-# in other words, z0 = z(tsim_0) instead of z0 = 0.
+# * During this dilution (at each timestep between slices), C2Ray
+# has the convention that the redshift is incremented not by the
+# value that corresponds to a full timestep in cosmic time, but by
+# HALF a timestep.
+#    ||          |           |           |           |               ||
+#    ||    z1    |     z2    |     z3    |     z4    |       ...     ||
+#    ||          |           |           |           |               ||
+#    t0          t1          t2          t3          t4
+# 
+#   ("||" = slice,    "|" = timestep,   "1,2,3,4,.." indexes the timestep)
+# 
+# In terms of attributes, C2Ray.time always contains the time at the
+# end of the current timestep, while C2Ray.zred contains the redshift
+# at half the current timestep. This is relevant to understand the
+# cosmo_evolve routine below (which is based on what is done in the
+# original C2Ray)
+# 
+# This induces a potential bug: when a slice is reached and the
+# density is set, the density corresponds to zslice while
+# C2Ray.zred is at the redshift "half a timestep before".
+# The best solution I've found here is to just save the comoving cell
+# size dr_c and always set the current cell size to dr = a(z)*dr_c,
+# rather than "diluting" dr iteratively like the density.
 # ==================================================================
 
 # Conversion Factors. These will be replaced by astropy constants later on
@@ -74,11 +96,11 @@ class C2Ray:
 
         # Initialize Simulation
         self._param_init()
+        self._grid_init()
         self._cosmology_init()
         self._output_init()
-        self._grid_init()
         self._material_init()
-        self._redshift_ini()
+        self._redshift_init()
 
     def evolve3D(self,dt,srcflux,srcpos,r_RT,max_subbox):
         """Evolve the grid over one timestep
@@ -133,6 +155,78 @@ class C2Ray:
         dt = (t1-t2)/num_timesteps
         return dt
 
+    def read_sources(self,file,n): # >:( trgeoip
+        """Read sources from a C2Ray-formatted file
+
+        This is limited to the test case for now (total ionizing
+        flux of the sources is known)
+
+        Parameters
+        ----------
+        file : str
+            Filename to read
+        n : int
+            Number of sources to read from the file
+        
+        Returns
+        -------
+        srcpos : array
+            Grid positions of the sources formatted in a suitable way for
+            the chosen raytracing algorithm
+        srcflux : array
+            Total flux of ionizing photons of the sources
+        numsrc : int
+            Number of sources read from the file
+        """
+        if self.octa: mode = 'pyc2ray_octa'
+        else: mode = 'pyc2ray'
+        return read_sources(file, n, mode)
+    
+    def density_init(self,z):
+        """Set density at redshift z
+
+        For now, this simply sets the density to a constant value,
+        specified in the parameter file, that is scaled to redshift
+        if the run is cosmological.
+
+        Parameters
+        ----------
+        z : float
+            Redshift slice
+        
+        """
+        self.set_constant_average_density(self.avg_dens,z)
+
+    def cosmo_evolve(self,dt):
+        """Evolve cosmology over a timestep
+
+        Note that if cosmological is set to false in the parameter file, this
+        method does nothing!
+
+        Following the C2Ray convention, we set the redshift according to the
+        half point of the timestep.
+        """
+        # Time step
+        t_now = self.time
+        t_half = t_now + 0.5*dt
+        t_after = t_now + dt
+
+        # Increment redshift by half a time step
+        z_half = self.time2zred(t_half)
+
+        # Scale quantities if cosmological run
+        if self.cosmological:
+            # Scale density according to expansion
+            dilution_factor = ( (1+z_half) / (1+self.zred) )**3
+            self.ndens *= dilution_factor
+
+            # Set cell size to current proper size
+            self.dr = self.dr_c * self.cosmology.scale_factor(z_half)
+
+        # Set new time and redshift (after timestep)
+        self.zred = z_half
+        self.time = t_after
+
     def printlog(self,s,quiet=False):
         """Print to log file and standard output
 
@@ -161,83 +255,27 @@ class C2Ray:
             Unit to get age in astropy naming. Default: seconds
         """
         return self.cosmology.age(z).to(unit).value
-
-    def read_sources(self,file,n): # >:( trgeoip
-        """Read sources from a C2Ray-formatted file
-
-        This is limited to the test case for now (total ionizing
-        flux of the sources is known)
-
-        Parameters
-        ----------
-        file : str
-            Filename to read
-        n : int
-            Number of sources to read from the file
-        
-        Returns
-        -------
-        srcpos : array
-            Grid positions of the sources formatted in a suitable way for
-            the chosen raytracing algorithm
-        srcflux : array
-            Total flux of ionizing photons of the sources
-        numsrc : int
-            Number of sources read from the file
-        """
-        if self.octa: mode = 'pyc2ray_octa'
-        else: mode = 'pyc2ray'
-        return read_sources(file, n, mode)
     
-    def set_constant_average_density(self,ndens):
+    def set_constant_average_density(self,ndens,z):
         """Helper function to set the density grid to a constant value
 
         Parameters
         ----------
         ndens : float
-            Value of the hydrogen density in cm^-3
+            Value of the hydrogen density in cm^-3. When in a cosmological
+            run, this is the comoving density, or the proper density at
+            z = 0.
+        z : float
+            Redshift to scale the density. When cosmological is false,
+            this parameter has no effect and the initial redshift specified
+            in the parameter file is used at each call.
         """
-        self.ndens = ndens * np.ones(self.shape,order='F')
-
-    # We need a general method to increment the redshift, scale proper distances
-    # and dilute density field.
-    # Problem: is density given in comoving quantities ? I think yes
-
-    def scale_factor(self,z):
-        """Get scale factor at redshift z
-
-        Note that by convention, the scale factor is unity at
-        the initial simulation time (not at z = 0)
-        """
-        return (1+self.zred_0)/(1+z)
-    
-    def cosmo_evolve(self,dt):
-        """Evolve cosmology over a timestep
-
-        Note that if cosmological is set to false in the parameter file, this
-        method does nothing!
-
-        Following the C2Ray convention, we set the redshift according to the
-        half point of the timestep.
-        """
-        # Time step
-        t_now = self.time
-        t_half = t_now + 0.5*dt
-        t_after = t_now + dt
-
-        # Cosmology step
-        z_new = self.time2zred(t_half) # Set redshift to half of the time step
-        a_new = self.scale_factor(z_new)
-
-        # Scale quantities if cosmological run
+        # This is the same as in C2Ray
         if self.cosmological:
-            zfactor = (1+self.zred) / (1+z_new)
-            self.dr = self.dr_c * a_new
-            self.ndens /= zfactor**3
-
-        # Set new time and redshift
-        self.zred = z_new
-        self.time = t_after
+            redshift = z
+        else:
+            redshift = self.zred_0
+        self.ndens = ndens * np.ones(self.shape,order='F') * (1+redshift)**3
 
     def generate_redshift_array(self,num_zred,delta_t):
         """Helper function to generate a list of equally-time-spaced redshifts
@@ -279,7 +317,7 @@ class C2Ray:
             pkl.dump(self.phi_ion,f)
     
     def scale_density(self,z):
-        self.ndens /= self.scale_factor(z)**3
+        self.ndens /= self.cosmology.scale_factor(z)**3
 
     # ==================================================================
     # Private methods of class
@@ -293,6 +331,8 @@ class C2Ray:
         self.xh = xh0 * np.ones(self.shape,order='F')
         self.temp = temp0 * np.ones(self.shape,order='F')
         self.phi_ion = np.zeros(self.shape,order='F')
+
+        self.avg_dens = self._ld['Material']['avg_dens']
 
     def _param_init(self):
         """ Set up constants and parameters
@@ -318,7 +358,7 @@ class C2Ray:
         self.boxsize_c = self._ld['Grid']['boxsize'] * Mpc
         self.dr_c = self.boxsize_c / self.N
 
-        # Initialize cell size to comoving size
+        # Initialize cell size to comoving size (if cosmological run, it will be scaled in cosmology_init)
         self.dr = self.dr_c
 
     def _cosmology_init(self):
@@ -333,11 +373,15 @@ class C2Ray:
 
         self.cosmological = self._ld['Cosmology']['cosmological']
         self.zred_0 = self._ld['Cosmology']['zred_0']
-        # Scale facor normalization: to enforce that a(z0) = 1 instead of a(0) = 1. 
-        self.a_0_norm = 1.0 / (1+self.zred_0)
         self.age_0 = self.zred2time(self.zred_0)
 
-    def _redshift_ini(self):
+        # Scale quantities to the initial redshift
+        if self.cosmological:
+            self.dr = self.cosmology.scale_factor(self.zred_0) * self.dr_c
+        
+    def _redshift_init(self):
+        """Initialize time and redshift counter
+        """
         self.time = self.age_0
         self.zred = self.zred_0
 
@@ -352,7 +396,7 @@ class C2Ray:
         """ Read in YAML parameter file
         """
         loader = SafeLoader
-        # Configure to read scientific notation as floats
+        # Configure to read scientific notation as floats rather than strings
         loader.add_implicit_resolver(
             u'tag:yaml.org,2002:float',
             re.compile(u'''^(?:
@@ -371,25 +415,3 @@ class C2Ray:
         """ Deallocate GPU memory
         """
         device_close()
-
-# ========== Unused code ==========
-
-# def delta_z(self,t1,t2):
-#     z1 = self.time2zred(t1)
-#     z2 = self.time2zred(t2)
-#     return (z2-z1)
-
-# Old version of evolve3d before object-oriented approach
-#def evolve3D(self,dt,srcflux,srcpos,r_RT,temp,ndens,xh,max_subbox):
-#    """Evolve the grid over one timestep
-#    Parameters
-#    ----------
-#    ...
-#    Returns
-#    -------
-#    ...
-#    """
-#    if self.octa:
-#        return evolve3D_octa(dt, self.dr, srcflux, srcpos, r_RT, temp, ndens, xh, self.sig, self.bh00, self.albpow, self.colh0, self.temph0, self.abu_c, self.N, self.logfile)
-#    else:
-#        return evolve3D(dt, self.dr, srcflux, srcpos, max_subbox, r_RT, temp, ndens, xh, self.sig, self.bh00, self.albpow, self.colh0, self.temph0, self.abu_c,self.loss_fraction, self.logfile)

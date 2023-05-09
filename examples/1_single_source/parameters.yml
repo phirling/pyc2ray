@@ -10,7 +10,10 @@
 # Parameters to set up the simulation volume
 # ------------------------------------------
 Grid:
-  # Box size in comoving Mpc
+  # Box size in comoving Mpc !! Here we don't use 1/h units
+  # !! As in C2Ray, when cosmological = false, this box size is
+  # used "as is". When cosmological = true, it is first scaled to zred_0
+  # Maybe this should be changed, as it can induce some confusion ?
   boxsize: 0.14
 
 # --------------------------------------------------------------------
@@ -87,8 +90,8 @@ Cosmology:
 # Output setup
 # ------------
 Output:
-  # Directory where results and log files are stored
-  results_basename: ./results_cosmological/
+  # Directory where results and log files are stored (don't forget slash at end)
+  results_basename: ./results/
   # Name of the log file to write
   logfile: pyC2Ray.log
 
