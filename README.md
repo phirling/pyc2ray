@@ -1,9 +1,8 @@
-# pyc2ray: A Python-wrapped & GPU-accelerated Update of C2Ray
-`pyc2ray` is a Python package that wraps the C2Ray radiative transfer code (G. Mellema, I.T. Illiev, A. Alvarez and P.R. Shapiro)
-widely used for cosmic epoch of reionization simulations, and makes it easily usable through python scripts.
+# pyc2ray: A Python-wrapped and GPU-accelerated Update of C2Ray
+`pyc2ray` is a Python package that wraps [C2Ray](https://ui.adsabs.harvard.edu/link_gateway/2006NewA...11..374M/doi:10.48550/arXiv.astro-ph/0508416) (G. Mellema, I.T. Illiev, A. Alvarez and P.R. Shapiro), a radiative transfer code widely used for cosmic epoch of reionization simulations, and makes its usage accessible and modular through python.
 
 The core subroutines of C2Ray are implemented in compiled Fortran 90 and accessed as an extension module
-build using `f2py`. The other aspects of the RT simulation, such as configuration, I/O, cosmology, source modelling, etc.
+built using `f2py`. The other aspects of the RT simulation, such as configuration, I/O, cosmology, source modelling, etc.
 are implemented in pure python and are thus easily tweakable for a specific purpose.
 
 In addition, the computationally most expensive step of the RT simulation, namely the raytracing,
@@ -39,7 +38,7 @@ Then, run `make` and, assuming the build is successful, copy the `libocta.so` fi
 The `pyc2ray` package can then be used, assuming the pyc2ray/ directory is in the python path.
 
 ### Usage
-A detailed documentation isn't yet available, but example scripts can be found in the example/ directory
+A detailed documentation isn't yet available, but example scripts can be found in the `example/` directory
 of this repository.
 
 The general usage principle of pyc2ray is that:
