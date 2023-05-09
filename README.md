@@ -1,4 +1,14 @@
 # pyc2ray: A Python-wrapped & GPU-accelerated Update of C2Ray
+`pyc2ray` is a Python package that wraps the C2Ray radiative transfer code,
+widely used for cosmic epoch of reionization simulations, and makes it easily usable through python scripts.
+
+The core subroutines of C2Ray are implemented in compiled Fortran 90 and accessed as an extension module
+build using `f2py`. The other aspects of the RT simulation, such as configuration, I/O, cosmology, source modelling, etc.
+are implemented in pure python and are thus easily tweakable for a specific purpose.
+
+In addition, the computationally most expensive step of the RT simulation, namely the raytracing,
+has been modified to be GPU-parallelizable. This updated algorithm, called _OCTA_, is written
+in C++/CUDA and can be used as a python extension module, both in a standalone way and for C2Ray simulations.
 
 ## Get Started
 ### Requirements
@@ -6,7 +16,7 @@
 * `gfortran` compiler
 * `CUDA` and the `nvcc` compiler (Optional, for the accelerated raytracing library)
 ### Build Instructions
-At a later time, a build system (like `meson` or `setuptools`) will be added. For now, the extension modules
+At a later time, a build system (like `meson` or `setuptools`) may be added. For now, the extension modules
 required by the package must be compiled manually.
 1. **Compile Fortran Extension Module**
 
