@@ -2,20 +2,21 @@ import sys
 sys.path.append("../../")
 import pyc2ray as pc2r
 import time
+import numpy as np
 
 # ======================================================================
-# t_evol = 500 Myr
+# t_evol = 15 Myr
 # COARSE TIME: dt = t_evol / 10 = 50 Myr
 # 1 output per timestep to have 10 points on the plot
 # ======================================================================
 
 # Global parameters
-numzred = 10                        # Number of redshift slices
+numzred = 11                        # Number of redshift slices
 num_steps_between_slices = 1        # Number of timesteps between redshift slices
-t_evol = 5e8 # years
 paramfile = "parameters.yml"        # Name of the parameter file
 N = 256                             # Mesh size
 use_octa = False                    # Determines which raytracing algorithm to use
+dr = 4.53661698 / N # cell size in kpc
 
 # Raytracing Parameters
 max_subbox = 1000                   # Maximum subbox when using C2Ray raytracing
@@ -25,10 +26,24 @@ r_RT = 128                            # When using C2Ray raytracing, sets the su
 sim = pc2r.C2Ray(paramfile, N, use_octa)
 
 # Generate redshift list (test case)
-zred_array = sim.generate_redshift_array(numzred,t_evol/numzred)
+zred_array = sim.generate_redshift_array(numzred,1.5e6)
 
 # Read sources
 srcpos, srcstrength, numsrc = sim.read_sources("source.txt",1)
+
+# Density field
+ndens = np.empty((N,N,N),order='F')
+idx = range(N)
+ii,jj,kk = np.meshgrid(idx,idx,idx)
+rr = np.sqrt( (ii + 0.5 -128)**2 + (jj + 0.5 -128)**2 + (kk + 0.5 -128)**2 ) * dr
+ndens = 0.015 * (5 / rr)
+print(ndens.max())
+
+#for k in range(N):
+#    for j in range(N):
+#        for i in range(N):
+#            r = np.sqrt( (i-128)**2 + (j-128)**2 + (k-128)**2 ) * dr
+#            ndens[i,j,k] = 0.015 * (5 / r)
 
 # Measure time
 tinit = time.time()
@@ -48,12 +63,8 @@ for k in range(len(zred_array)-1):
     # Write output
     sim.write_output(zi)
 
-    # Set density field (could be an actual cosmological field here)
-    # Eventually, we want a general method that sets the density, scales it
-    # sets the redshift etc (like density_ini in C2Ray). This method should
-    # also be able to read in actual density fields. For now, do all this
-    # manually.
-    sim.density_init(zi) # when cosmological is false, zi has no effect
+    # TODO: Density
+    sim.ndens = ndens
 
     # Set redshift to current slice redshift
     sim.zred = zi
