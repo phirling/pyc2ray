@@ -28,7 +28,7 @@ sim = pc2r.C2Ray(paramfile, N, use_octa)
 zred_array = sim.generate_redshift_array(numzred,t_evol/numzred)
 
 # Read sources
-srcpos, srcflux, numsrc = sim.read_sources("source.txt",1)
+srcpos, srcstrength, numsrc = sim.read_sources("source.txt",1)
 
 # Measure time
 tinit = time.time()
@@ -68,7 +68,8 @@ for k in range(len(zred_array)-1):
         sim.cosmo_evolve(dt)
 
         # Evolve the simulation: raytrace -> photoionization rates -> chemistry -> until convergence
-        sim.evolve3D(dt, srcflux, srcpos, r_RT, max_subbox)
+        sim.evolve3D(dt, srcstrength, srcpos, r_RT, max_subbox)
 
 # Write final output
 sim.write_output(zf)
+pc2r.printlog(f"Done. Final time: {time.time() - tinit : .3f} seconds",sim.logfile)

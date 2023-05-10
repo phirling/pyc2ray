@@ -84,3 +84,28 @@ def generate_test_sourcefile(filename,N,numsrc,strength,seed=100):
 
     with open(filename,'a') as f:
         np.savetxt(f,output,("%i %i %i %.0e %.1f"))
+
+def format_for_octa(srcpos,srcstrength):
+    """Format source strength & position arrays for OCTA C extension module
+
+    The OCTA extension module expects flattened arrays of a
+    specific data type (position as C ints and strength as C doubles).
+
+    Parameters
+    ----------
+    srcpos : 2D-array
+        Source positions in shape (3,numsrc)
+    srcstrength : 1D-array
+        Source strength
+
+    Returns
+    -------
+    srcpos : 1D-array
+        Flattened, single precision int representation of srcpos
+    srcstrength : 1D-array
+        Source strengths as double-precision floats
+    """
+    srcpos_ = (srcpos - 1).astype('int32')
+    srcflux_ = srcstrength.astype('float64')
+    srcpos_ = np.ravel(srcpos,order='F')
+    return srcpos_, srcflux_

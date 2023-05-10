@@ -38,6 +38,9 @@ benchmark_daint/
 # Local test scripts
 test_package.py
 
+# Jupyter Notebooks
+*.ipynb
+
 # Distribution / packaging
 .Python
 build/

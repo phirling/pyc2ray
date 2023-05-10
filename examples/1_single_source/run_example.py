@@ -47,7 +47,7 @@ sim = pc2r.C2Ray(paramfile, N, use_octa)
 zred_array = sim.generate_redshift_array(numzred,1e7)
 
 # Read sources
-srcpos, srcflux, numsrc = sim.read_sources("source.txt",1)
+srcpos, srcstrength, numsrc = sim.read_sources("source.txt",1)
 
 # Measure time
 tinit = time.time()
@@ -55,9 +55,14 @@ tinit = time.time()
 # Loop over redshifts
 for k in range(len(zred_array)-1):
 
-    # Compute timestep of current redshift slice
     zi = zred_array[k]       # Start redshift
     zf = zred_array[k+1]     # End redshift
+
+    pc2r.printlog(f"\n=================================",sim.logfile)
+    pc2r.printlog(f"Doing redshift {zi:.3f} to {zf:.3f}",sim.logfile)
+    pc2r.printlog(f"=================================\n",sim.logfile)
+
+    # Compute timestep of current redshift slice
     dt = sim.set_timestep(zi,zf,num_steps_between_slices)
 
     # Write output
@@ -73,10 +78,6 @@ for k in range(len(zred_array)-1):
     # Set redshift to current slice redshift
     sim.zred = zi
 
-    pc2r.printlog(f"\n=================================",sim.logfile)
-    pc2r.printlog(f"Doing redshift {zi:.3f} to {zf:.3f}",sim.logfile)
-    pc2r.printlog(f"=================================\n",sim.logfile)
-
     # Loop over timesteps
     for t in range(num_steps_between_slices):
         tnow = time.time()
@@ -87,7 +88,7 @@ for k in range(len(zred_array)-1):
         sim.cosmo_evolve(dt)
 
         # Evolve the simulation: raytrace -> photoionization rates -> chemistry -> until convergence
-        sim.evolve3D(dt, srcflux, srcpos, r_RT, max_subbox)
+        sim.evolve3D(dt, srcstrength, srcpos, r_RT, max_subbox)
 
 # Write final output
 sim.write_output(zf)
