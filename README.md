@@ -26,7 +26,7 @@ make
 ```
 
 If successful, this should create a `libc2ray.*.so` file, where the * is platform-dependent. Copy this file to
-`pyc2ray/lib/`.
+`pyc2ray/lib/` (create the directory if it doesn't exist).
 
 2. **Compile CUDA Extension Module (optional)**
 

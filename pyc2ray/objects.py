@@ -153,6 +153,7 @@ class C2Ray:
         t2 = self.cosmology.lookback_time(z2).to('s').value
         # we do t1-t2 since ti are lookback times (not ages)
         dt = (t1-t2)/num_timesteps
+        self.printlog(f"dt [years]: {dt/YEAR:.3e}")
         return dt
 
     def read_sources(self,file,n): # >:( trgeoip
@@ -222,6 +223,8 @@ class C2Ray:
 
             # Set cell size to current proper size
             self.dr = self.dr_c * self.cosmology.scale_factor(z_half)
+
+        self.printlog(f"dr [kpc]: {self.dr/kpc:.3e}")
 
         # Set new time and redshift (after timestep)
         self.zred = z_half
