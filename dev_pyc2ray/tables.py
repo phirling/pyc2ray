@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.integrate import quad,quad_vec
+from scipy.integrate import quad,quad_vec, romberg
 import astropy.constants as ac
 
 h_over_k = (ac.h/(ac.k_B)).cgs.value
@@ -34,5 +34,5 @@ def photo_integrand_vec(freq,tau,T,R_star,grey):
 
 def make_photo_table(tau,freq_min,freq_max,T,R_star,grey):
     integrand_ = lambda f : photo_integrand_vec(f,tau,T,R_star,grey)
-    table = quad_vec(integrand_,freq_min,freq_max)
+    table = quad_vec(integrand_,freq_min,freq_max,epsrel=1e-12)
     return table[0]

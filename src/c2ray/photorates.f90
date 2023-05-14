@@ -59,8 +59,8 @@ module photorates
 
     !! IN DEVELOPMENT
     !! Photoionization rates from precalculated tables
-    subroutine photoion_rates(normflux,coldens_in,coldens_out,Vfact,sig,photo_thin_table,phi_photo_cell, &
-            phi_photo_out,minlogtau,dlogtau,NumTau)
+    subroutine photoion_rates(normflux,coldens_in,coldens_out,Vfact,sig,phi_photo_cell, &
+            phi_photo_out,photo_thin_table,minlogtau,dlogtau,NumTau)
 
         ! Subroutine Arguments
         real(kind=real64), intent(in) :: normflux               ! 
@@ -68,17 +68,20 @@ module photorates
         real(kind=real64), intent(in) :: coldens_out            ! Column density at cell exit
         real(kind=real64), intent(in) :: Vfact                  ! Volume factor (dilution, cell volume, etc) see evolve0D TODO: figure out correct form
         real(kind=real64), intent(in) :: sig                    ! Hydrogen photoionization cross section (constant here)
-        real(kind=real64),intent(in) :: photo_thin_table(NumTau)
-        integer, intent(in) :: NumTau
+        
 
         real(kind=real64), intent(out) :: phi_photo_cell        ! Photoionization rate of the cell Gamma, in s^-1
         real(kind=real64), intent(out) :: phi_photo_out         ! Photoionization rate at the output of the cell (radiation that leaves the cell), in s^-1
 
+        real(kind=real64),intent(in) :: photo_thin_table(NumTau)
+        integer, intent(in) :: NumTau
         real(kind=real64), intent(in) :: minlogtau
         real(kind=real64), intent(in) :: dlogtau
 
         real(kind=real64) :: tau_in                             ! Optical Depth to cell
         real(kind=real64) :: tau_out                            ! Optical Depth at cell exit
+        real(kind=real64) :: logtau_in                             ! Optical Depth to cell
+        real(kind=real64) :: logtau_out                            ! Optical Depth at cell exit
         real(kind=real64) :: phi_photo_in                       ! Photoionization rate at input of cell (radiation that enters the cell)
         real(kind=real64) :: prefact
         integer :: table_idx_in
@@ -87,18 +90,29 @@ module photorates
         ! Compute optical depth and ionization rate depending on whether the cell is optically thick or thin
         tau_in = coldens_in * sig
         tau_out = coldens_out * sig
-        
-        ! TODO: deal with 0 optical depth
-        ! table_idx_in = floor( (log10(tau_in) - minlogtau) / dlogtau )
-        ! table_idx_out = floor( (log10(tau_out) - minlogtau) / dlogtau )
-        table_idx_in = int(min(  real(NumTau)  , 1 + (log10( max(1.0e-20_real64,tau_in) ) - minlogtau) / dlogtau  ))
-        table_idx_out = int(min(  real(NumTau)  , 1 + (log10( max(1.0e-20_real64,tau_out) ) - minlogtau) / dlogtau  ))
 
         prefact = normflux / Vfact
 
-        phi_photo_in = prefact * photo_thin_table(table_idx_in)
-        phi_photo_out = prefact * photo_thin_table(table_idx_out)
+        phi_photo_in = prefact * photo_lookuptable(tau_in)
+        phi_photo_out = prefact * photo_lookuptable(tau_out)
         phi_photo_cell = phi_photo_in - phi_photo_out
+
+        contains
+        real(kind=real64) function photo_lookuptable(tau)
+            real(kind=real64),intent(in) :: tau
+            real(kind=real64) :: logtau
+            real(kind=real64) :: real_i, residual
+            integer :: i0, i1
+            
+            ! Find table index and do linear interpolation
+            ! Recall that tau(0) = 0 and tau(1:NumTau) ~ logspace(minlogtau,maxlogtau)
+            logtau = log10(max(1.0e-20_real64,tau))
+            real_i = min(real(NumTau),max(0.0_real64,1.0+(logtau-minlogtau)/dlogtau))
+            i0 = int( real_i )
+            i1 = min(NumTau, i0+1)
+            residual = real_i - real(i0)
+            photo_lookuptable = photo_thin_table(i0) + residual*(photo_thin_table(i1) - photo_thin_table(i0))
+        end function photo_lookuptable
 
     end subroutine photoion_rates
 

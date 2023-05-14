@@ -1,8 +1,9 @@
 import numpy as np
 
-S_star = 1.0e48     # Reference source strength, used to normalize flux
+# Reference source strength, used to normalize flux. Has to be equal to that set in
+# src/c2ray/photorates.f90.
 
-def read_sources(file,n,mode):
+def read_sources(file,n,mode,S_star_ref = 1e48):
     """ Read in a source file formatted for C2Ray
     
     Reads in a source list file formatted for the Fortran version of C2Ray and returns its contents
@@ -17,7 +18,11 @@ def read_sources(file,n,mode):
     case : string
         Raytracing code for which to format the sources. Can be either "pyc2ray" or "pyc2ray_octa". This is because
         the data has to be structured differently for these two modes.
-
+    S_star_ref : float, optional
+        Flux of the reference source. Default: 1e48
+        There is no real reason to change this, but if it is changed, the value in src/c2ray/photorates.f90
+        has to be changed accordingly and the library recompiled.
+        
     Returns
     -------
     srcpos : array
@@ -48,7 +53,7 @@ def read_sources(file,n,mode):
                 srcpos[0] = src_x
                 srcpos[1] = src_y
                 srcpos[2] = src_z
-                normflux = src_flux / S_star
+                normflux = src_flux / S_star_ref
                 return srcpos, normflux, src_num
             elif (mode == "pyc2ray_octa"):
                 srcpos = np.empty((3,src_num),dtype='int32')
@@ -56,7 +61,7 @@ def read_sources(file,n,mode):
                 srcpos[1] = src_y - 1
                 srcpos[2] = src_z - 1
                 srcpos = np.ravel(srcpos,order='F')
-                normflux = src_flux.astype('float64') / S_star
+                normflux = src_flux.astype('float64') / S_star_ref
                 return srcpos ,normflux, src_num
             else:
                 raise ValueError("Unknown mode: " + mode)

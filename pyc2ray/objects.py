@@ -14,6 +14,7 @@ from .utils.logutils import printlog
 from .utils.sourceutils import read_sources
 from .evolve import evolve3D, evolve3D_octa
 from .octa_core import device_init, device_close
+from .radiation import BlackBodySource
 
 # ==================================================================
 # This file defines the C2Ray object class, which is the basis
@@ -64,6 +65,7 @@ pc = 3.086e18               # parsec
 kpc = 1e3*pc                # kiloparsec
 Mpc = 1e6*pc                # megaparsec
 YEAR = 3.15576E+07
+ev2fr=0.241838e15
 
 class C2Ray:
     def __init__(self,paramfile,Nmesh,use_octa):
@@ -101,6 +103,7 @@ class C2Ray:
         self._output_init()
         self._material_init()
         self._redshift_init()
+        self._radiation_init()
 
     def evolve3D(self,dt,srcflux,srcpos,r_RT,max_subbox):
         """Evolve the grid over one timestep
@@ -127,9 +130,14 @@ class C2Ray:
 
         """
         if self.octa:
-            self.xh, self.phi_ion = evolve3D_octa(dt, self.dr, srcflux, srcpos, r_RT, self.temp, self.ndens, self.xh, self.sig, self.bh00, self.albpow, self.colh0, self.temph0, self.abu_c, self.N, self.logfile)
+            self.xh, self.phi_ion = evolve3D_octa(dt, self.dr, srcflux, srcpos, r_RT, self.temp, self.ndens,
+                                                  self.xh, self.sig, self.bh00, self.albpow, self.colh0,
+                                                  self.temph0, self.abu_c, self.N, self.logfile)
         else:
-            self.xh, self.phi_ion = evolve3D(dt, self.dr, srcflux, srcpos, max_subbox,r_RT, self.temp, self.ndens, self.xh, self.sig, self.bh00, self.albpow, self.colh0, self.temph0, self.abu_c,self.loss_fraction, self.logfile)
+            self.xh, self.phi_ion = evolve3D(dt, self.dr, srcflux, srcpos, max_subbox,r_RT, self.temp, self.ndens,
+                                             self.xh, self.sig, self.bh00, self.albpow, self.colh0,
+                                             self.temph0, self.abu_c,self.photo_thin_table,self.minlogtau,self.dlogtau,
+                                             self.loss_fraction, self.logfile)
 
 
     def set_timestep(self,z1,z2,num_timesteps):
@@ -174,8 +182,8 @@ class C2Ray:
         srcpos : array
             Grid positions of the sources formatted in a suitable way for
             the chosen raytracing algorithm
-        srcflux : array
-            Total flux of ionizing photons of the sources
+        normflux : array
+            Normalization of the flux of each source (relative to S_star)
         numsrc : int
             Number of sources read from the file
         """
@@ -394,6 +402,32 @@ class C2Ray:
         self.results_basename = self._ld['Output']['results_basename']
         self.logfile = self.results_basename + self._ld['Output']['logfile']
         with open(self.logfile,"w") as f: f.write("Log file for pyC2Ray. \n\n") # Clear file and write header line
+
+    def _radiation_init(self):
+        """Radiation Tables. IN DEVELOPMENT
+        """
+        # Create optical depth table (log-spaced)
+        self.minlogtau = self._ld['Photo']['minlogtau']
+        self.maxlogtau = self._ld['Photo']['maxlogtau']
+        self.NumTau = self._ld['Photo']['NumTau']
+        self.dlogtau = (self.maxlogtau - self.minlogtau) / (self.NumTau)
+
+        # The table has NumTau + 1 points: the 0-th position is tau=0 and the
+        # remaining NumTau points are log-spaced from minlogtau to maxlogtau (same as in C2Ray)
+        self.tau = np.empty(self.NumTau + 1)
+        self.tau[0] = 0.0
+        for i in range(1,self.NumTau+1):
+            self.tau[i] = 10.0**(self.minlogtau+self.dlogtau*(i-1))
+        
+        # Initialize Black-Body Source
+        self.Teff = self._ld['Photo']['Teff']
+        self.grey = self._ld['Photo']['grey']
+        self.cross_section_pl_index = self._ld['Photo']['cross_section_pl_index']
+        ion_freq_HI = ev2fr * self.eth0
+        self.radsource = BlackBodySource(self.Teff,self.grey,ion_freq_HI,self.cross_section_pl_index)
+
+        # Integrate table. TODO: make this more customizeable
+        self.photo_thin_table = self.radsource.make_photo_table(self.tau,ion_freq_HI,10*ion_freq_HI,1e48)
 
     def _read_paramfile(self,paramfile):
         """ Read in YAML parameter file

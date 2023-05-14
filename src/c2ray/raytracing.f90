@@ -41,7 +41,7 @@ module raytracing
     !! Author: P. Hirling, 2023
 
     use, intrinsic :: iso_fortran_env, only: real64          ! This replaces the "dp" parameter in original c2ray (unpractical to use)
-    use photorates, only: photoion_rates_test, S_star                ! Separate module to compute photoionization rate from column density
+    use photorates, only: photoion_rates_test, photoion_rates, S_star                ! Separate module to compute photoionization rate from column density
     implicit none
 
     real(kind=real64), parameter :: pi = 3.14159265358979323846264338_real64    ! Double precision pi
@@ -50,7 +50,7 @@ module raytracing
     contains
 
     subroutine do_all_sources(normflux,srcpos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
-        phi_ion,sum_nbox,photon_loss,loss_fraction,NumSrc,m1,m2,m3)
+        phi_ion,sum_nbox,photon_loss,loss_fraction,photo_thin_table,minlogtau,dlogtau,NumTau,NumSrc,m1,m2,m3)
     ! ===============================================================================================
     !! This subroutine computes the column density and ionization rate on the whole
     !! grid, for all sources. The global rates of all sources are then added up.
@@ -74,6 +74,11 @@ module raytracing
         integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
         
+        real(kind=real64),intent(in) :: photo_thin_table(NumTau)
+        integer, intent(in) :: NumTau
+        real(kind=real64), intent(in) :: minlogtau
+        real(kind=real64), intent(in) :: dlogtau
+
         integer :: ns                                                   !> Source counter
 
         real(kind=real64) :: phitest
@@ -93,7 +98,7 @@ module raytracing
         do ns=1, NumSrc
             ! write(*,*) "doing source ", ns, "at", srcpos(:,ns)
             call do_source(normflux,srcpos,ns,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
-                phi_ion,loss_fraction,sum_nbox,photon_loss,NumSrc,m1,m2,m3)
+                phi_ion,loss_fraction,sum_nbox,photon_loss,photo_thin_table,minlogtau,dlogtau,NumTau,NumSrc,m1,m2,m3)
         enddo
 
 ! This is done outside from python directly
@@ -110,7 +115,7 @@ module raytracing
     !! using other subroutines that remain to be translated.
     ! ===============================================================================================
     subroutine do_source(normflux,srcpos,ns,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
-        phi_ion,loss_fraction,sum_nbox,photon_loss,NumSrc,m1,m2,m3)
+        phi_ion,loss_fraction,sum_nbox,photon_loss,photo_thin_table,minlogtau,dlogtau,NumTau,NumSrc,m1,m2,m3)
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   !> Number of sources
         integer,intent(in)      :: ns                                   !> source number 
@@ -130,6 +135,11 @@ module raytracing
         integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
+
+        real(kind=real64),intent(in) :: photo_thin_table(NumTau)
+        integer, intent(in) :: NumTau
+        real(kind=real64), intent(in) :: minlogtau
+        real(kind=real64), intent(in) :: dlogtau
 
         integer,dimension(3) :: lastpos_l                               !> mesh position of left max RT range
         integer,dimension(3) :: lastpos_r                               !> mesh position of right max RT range 
@@ -173,13 +183,13 @@ module raytracing
             ! 1. transfer in the upper part of the grid (above srcpos(3))
             do k=srcpos(3,ns),last_r(3)
                 call evolve2D(k,normflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                    photon_loss_src,NumSrc,m1,m2,m3)
+                    photon_loss_src,photo_thin_table,minlogtau,dlogtau,NumTau,NumSrc,m1,m2,m3)
             end do
     
             ! 2. transfer in the lower part of the grid (below srcpos(3))
             do k=srcpos(3,ns)-1,last_l(3),-1
                 call evolve2D(k,normflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                    photon_loss_src,NumSrc,m1,m2,m3)
+                    photon_loss_src,photo_thin_table,minlogtau,dlogtau,NumTau,NumSrc,m1,m2,m3)
             end do
             
             ! write(*,*) "nbox=",nbox,"last_l=",last_l(1), "loss=",photon_loss_src
@@ -198,13 +208,13 @@ module raytracing
         ! 1. transfer in the upper part of the grid (above srcpos(3))
         do k=srcpos(3,ns),lastpos_r(3)
             call evolve2D(k,normflux,srcpos,ns,lastpos_l,lastpos_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                photon_loss_src,NumSrc,m1,m2,m3)
+                photon_loss_src,photo_thin_table,minlogtau,dlogtau,NumTau,NumSrc,m1,m2,m3)
         end do
 
         ! 2. transfer in the lower part of the grid (below srcpos(3))
         do k=srcpos(3,ns)-1,lastpos_l(3),-1
             call evolve2D(k,normflux,srcpos,ns,lastpos_l,lastpos_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                photon_loss_src,NumSrc,m1,m2,m3)
+                photon_loss_src,photo_thin_table,minlogtau,dlogtau,NumTau,NumSrc,m1,m2,m3)
         end do
 #endif
 
@@ -217,7 +227,8 @@ module raytracing
     ! (specified by argument k). This of course assumes that the previous plane has
     ! already been done.
     ! ===============================================================================================
-    subroutine evolve2D(k,normflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,photon_loss_src,NumSrc,m1,m2,m3)
+    subroutine evolve2D(k,normflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,photon_loss_src, &
+        photo_thin_table,minlogtau,dlogtau,NumTau,NumSrc,m1,m2,m3)
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   !> Number of sources
         integer,intent(in)      :: ns                                   !> source number 
@@ -237,6 +248,10 @@ module raytracing
         integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
         integer,dimension(3), intent(in) :: last_r                      !> mesh position of right end point for RT
 
+        real(kind=real64),intent(in) :: photo_thin_table(NumTau)
+        integer, intent(in) :: NumTau
+        real(kind=real64), intent(in) :: minlogtau
+        real(kind=real64), intent(in) :: dlogtau
 
         integer,dimension(3) :: rtpos                                   !> cell position (for RT)
         integer :: i,j                                                  !> mesh positions
@@ -249,12 +264,14 @@ module raytracing
                 rtpos(1)=i
                  ! `positive' i
                 call evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                    last_l, last_r, photon_loss_src,NumSrc,m1,m2,m3)
+                    last_l, last_r, photon_loss_src,photo_thin_table,minlogtau,dlogtau,NumTau, &
+                    NumSrc,m1,m2,m3)
             end do
             do i=srcpos(1,ns)-1,last_l(1),-1
                 rtpos(1)=i
                 call evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                    last_l, last_r, photon_loss_src,NumSrc,m1,m2,m3) ! `positive' i
+                    last_l, last_r, photon_loss_src,photo_thin_table,minlogtau,dlogtau,NumTau, &
+                    NumSrc,m1,m2,m3)
             end do
         end do
 
@@ -264,12 +281,14 @@ module raytracing
             do i=srcpos(1,ns),last_r(1)
                 rtpos(1)=i
                 call evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                    last_l, last_r, photon_loss_src,NumSrc,m1,m2,m3) ! `positive' i
+                    last_l, last_r, photon_loss_src,photo_thin_table,minlogtau,dlogtau,NumTau, &
+                    NumSrc,m1,m2,m3)
             end do
             do i=srcpos(1,ns)-1,last_l(1),-1
                 rtpos(1)=i
                 call evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                    last_l, last_r, photon_loss_src,NumSrc,m1,m2,m3) ! `positive' i
+                    last_l, last_r, photon_loss_src,photo_thin_table,minlogtau,dlogtau,NumTau, &
+                    NumSrc,m1,m2,m3)
             end do
         end do
     end subroutine evolve2D
@@ -280,7 +299,7 @@ module raytracing
     !! order by the parent routines evolve2D and evolve3D.
     ! ===============================================================================================
     subroutine evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,last_l,last_r, &
-            photon_loss_src,NumSrc,m1,m2,m3)
+            photon_loss_src,photo_thin_table,minlogtau,dlogtau,NumTau,NumSrc,m1,m2,m3)
     
         ! This version (2023) modified for use with f2py (P. Hirling)
 
@@ -317,6 +336,11 @@ module raytracing
         integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
         integer, intent(in) :: m3                                       !> mesh size z (hidden by f2py)
+
+        real(kind=real64),intent(in) :: photo_thin_table(NumTau)
+        integer, intent(in) :: NumTau
+        real(kind=real64), intent(in) :: minlogtau
+        real(kind=real64), intent(in) :: dlogtau
 
         ! integer :: nx,nd,idim                                         !> loop counters (used in LLS)
         integer,dimension(3) :: pos                                     !> RT position modulo periodicity
@@ -411,9 +435,17 @@ module raytracing
             ! calculated using precomputed tables
 
             ! Limit the calculation to a certain maximum column density (hydrogen)
-            if (.not.stop_rad_transfer) then 
+            if (.not.stop_rad_transfer) then
+                ! For grey opacities its possible to use an analytical expression for the rates
+                ! instead of tables. For testing purposes, this possibility is left
+                ! as a compilation option (compile with -DGREY_NOTABLES)
+#ifdef GREY_NOTABLES
                 call photoion_rates_test(normflux(NumSrc),coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
                     vol_ph,nHI_p,sig,phi_ion_p,phi_ion_out)
+#else
+                call photoion_rates(normflux(NumSrc),coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
+                    vol_ph,sig,phi_ion_p,phi_ion_out,photo_thin_table,minlogtau,dlogtau,NumTau)
+#endif
             ! -->     phi=photoion_rates(coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
             ! -->         vol_ph,ns,ion%h_av(1))
             ! -->     ! Divide the photo-ionization rates by the appropriate neutral density
