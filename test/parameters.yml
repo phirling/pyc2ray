@@ -21,7 +21,9 @@ Material:
   temp0: 1e4
   # Initial Ionized fraction of the grid
   xh0: 1.2e-3
-# (originally in cgsconstants, defines various collisional/recombination coeffs.)
+  # Constant average density, comoving value. Used only by the test case
+  # this value is scaled to zred_0 (even in non-cosmological mode)
+  avg_dens: 1.0e-6
 
 # --------------------------------
 # Miscellaneous physical constants

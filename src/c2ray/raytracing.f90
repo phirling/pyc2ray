@@ -41,7 +41,7 @@ module raytracing
     !! Author: P. Hirling, 2023
 
     use, intrinsic :: iso_fortran_env, only: real64          ! This replaces the "dp" parameter in original c2ray (unpractical to use)
-    use photorates, only: photoion_rates_test                ! Separate module to compute photoionization rate from column density
+    use photorates, only: photoion_rates_test, S_star                ! Separate module to compute photoionization rate from column density
     implicit none
 
     real(kind=real64), parameter :: pi = 3.14159265358979323846264338_real64    ! Double precision pi
@@ -49,7 +49,7 @@ module raytracing
 
     contains
 
-    subroutine do_all_sources(srcflux,srcpos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
+    subroutine do_all_sources(normflux,srcpos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
         phi_ion,sum_nbox,photon_loss,loss_fraction,NumSrc,m1,m2,m3)
     ! ===============================================================================================
     !! This subroutine computes the column density and ionization rate on the whole
@@ -57,7 +57,7 @@ module raytracing
     ! ===============================================================================================
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   !> Number of sources
-        real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
+        real(kind=real64),intent(in) :: normflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
         integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
         real(kind=real64), intent(in) :: dr                             !> Cell size
@@ -92,7 +92,7 @@ module raytracing
         ! Pass all sources in order
         do ns=1, NumSrc
             ! write(*,*) "doing source ", ns, "at", srcpos(:,ns)
-            call do_source(srcflux,srcpos,ns,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
+            call do_source(normflux,srcpos,ns,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
                 phi_ion,loss_fraction,sum_nbox,photon_loss,NumSrc,m1,m2,m3)
         enddo
 
@@ -109,12 +109,12 @@ module raytracing
     !! grid, for one source. The global rates of all sources are then added and applied
     !! using other subroutines that remain to be translated.
     ! ===============================================================================================
-    subroutine do_source(srcflux,srcpos,ns,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
+    subroutine do_source(normflux,srcpos,ns,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
         phi_ion,loss_fraction,sum_nbox,photon_loss,NumSrc,m1,m2,m3)
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   !> Number of sources
         integer,intent(in)      :: ns                                   !> source number 
-        real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
+        real(kind=real64),intent(in) :: normflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
         integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
         real(kind=real64), intent(in) :: dr                             !> Cell size
@@ -156,11 +156,11 @@ module raytracing
         ! With subboxing: raytrace in subboxes of increasing size until the photon loss is sufficiently low or "lastpos" is reached.
         ! --------------------------------------------------------------------------------------------------------------------------
         nbox = 0
-        photon_loss_src = srcflux(ns)
+        photon_loss_src = normflux(ns)*S_star
         last_r(:)=srcpos(:,ns) ! to pass the first while test
         last_l(:)=srcpos(:,ns) ! to pass the first while test
         
-        do while(photon_loss_src > loss_fraction*srcflux(ns) &
+        do while(photon_loss_src > loss_fraction*normflux(ns)*S_star &
             .and. last_r(3) < lastpos_r(3) & 
             .and. last_l(3) > lastpos_l(3))
 
@@ -172,13 +172,13 @@ module raytracing
             
             ! 1. transfer in the upper part of the grid (above srcpos(3))
             do k=srcpos(3,ns),last_r(3)
-                call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                call evolve2D(k,normflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
                     photon_loss_src,NumSrc,m1,m2,m3)
             end do
     
             ! 2. transfer in the lower part of the grid (below srcpos(3))
             do k=srcpos(3,ns)-1,last_l(3),-1
-                call evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                call evolve2D(k,normflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
                     photon_loss_src,NumSrc,m1,m2,m3)
             end do
             
@@ -197,13 +197,13 @@ module raytracing
 
         ! 1. transfer in the upper part of the grid (above srcpos(3))
         do k=srcpos(3,ns),lastpos_r(3)
-            call evolve2D(k,srcflux,srcpos,ns,lastpos_l,lastpos_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+            call evolve2D(k,normflux,srcpos,ns,lastpos_l,lastpos_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
                 photon_loss_src,NumSrc,m1,m2,m3)
         end do
 
         ! 2. transfer in the lower part of the grid (below srcpos(3))
         do k=srcpos(3,ns)-1,lastpos_l(3),-1
-            call evolve2D(k,srcflux,srcpos,ns,lastpos_l,lastpos_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+            call evolve2D(k,normflux,srcpos,ns,lastpos_l,lastpos_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
                 photon_loss_src,NumSrc,m1,m2,m3)
         end do
 #endif
@@ -217,12 +217,12 @@ module raytracing
     ! (specified by argument k). This of course assumes that the previous plane has
     ! already been done.
     ! ===============================================================================================
-    subroutine evolve2D(k,srcflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,photon_loss_src,NumSrc,m1,m2,m3)
+    subroutine evolve2D(k,normflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,photon_loss_src,NumSrc,m1,m2,m3)
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   !> Number of sources
         integer,intent(in)      :: ns                                   !> source number 
         integer, intent(in) :: k                                        !> z-coord of plane
-        real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
+        real(kind=real64),intent(in) :: normflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
         integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
         real(kind=real64), intent(in) :: dr               !> Cell size
@@ -248,12 +248,12 @@ module raytracing
             do i=srcpos(1,ns),last_r(1)
                 rtpos(1)=i
                  ! `positive' i
-                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                call evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
                     last_l, last_r, photon_loss_src,NumSrc,m1,m2,m3)
             end do
             do i=srcpos(1,ns)-1,last_l(1),-1
                 rtpos(1)=i
-                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                call evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
                     last_l, last_r, photon_loss_src,NumSrc,m1,m2,m3) ! `positive' i
             end do
         end do
@@ -263,12 +263,12 @@ module raytracing
             rtpos(2)=j
             do i=srcpos(1,ns),last_r(1)
                 rtpos(1)=i
-                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                call evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
                     last_l, last_r, photon_loss_src,NumSrc,m1,m2,m3) ! `positive' i
             end do
             do i=srcpos(1,ns)-1,last_l(1),-1
                 rtpos(1)=i
-                call evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
+                call evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
                     last_l, last_r, photon_loss_src,NumSrc,m1,m2,m3) ! `positive' i
             end do
         end do
@@ -279,7 +279,7 @@ module raytracing
     !! Does the short characteristics for one cell and a single source. Has to be called in the correct
     !! order by the parent routines evolve2D and evolve3D.
     ! ===============================================================================================
-    subroutine evolve0D(rtpos,srcflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,last_l,last_r, &
+    subroutine evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,last_l,last_r, &
             photon_loss_src,NumSrc,m1,m2,m3)
     
         ! This version (2023) modified for use with f2py (P. Hirling)
@@ -304,7 +304,7 @@ module raytracing
         integer,dimension(3),intent(in) :: rtpos                        !> cell position (for RT)
         integer,intent(in)      :: ns                                   !> source number 
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)                !> Hydrogen Density Field
-        real(kind=real64),intent(in) :: srcflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
+        real(kind=real64),intent(in) :: normflux(NumSrc)                 !> Strength of source. TODO: this is specific to the test case, need more general input
         integer,intent(in) :: srcpos(3,NumSrc)                          !> positions of ALL sources (mesh)
         real(kind=real64), intent(in) :: dr               !> Cell size
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
@@ -412,7 +412,7 @@ module raytracing
 
             ! Limit the calculation to a certain maximum column density (hydrogen)
             if (.not.stop_rad_transfer) then 
-                call photoion_rates_test(srcflux(NumSrc),coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
+                call photoion_rates_test(normflux(NumSrc),coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
                     vol_ph,nHI_p,sig,phi_ion_p,phi_ion_out)
             ! -->     phi=photoion_rates(coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
             ! -->         vol_ph,ns,ion%h_av(1))

@@ -4,18 +4,19 @@ module photorates
     use, intrinsic :: iso_fortran_env, only: real64 ! <-- This replaces the "dp" parameter in original c2ray (unpractical to use)
     implicit none
     real(kind=real64), parameter :: inv4pi = 0.079577471545947672804111050482_real64    ! 1/4π
+    real(kind=real64), parameter :: S_star = 1.0e48_real64                              ! Reference strength of sources (normalization)
 
     contains
     !! Subroutine to compute the photoionization rate of a test source,
     !! that is, a source with a known number of ionizing photons per
     !! unit time and assuming a frequency-independent cross section (sig).
-    subroutine photoion_rates_test(strength,coldens_in,coldens_out,Vfact,nHI,sig,phi_photo_cell,phi_photo_out)
+    subroutine photoion_rates_test(normflux,coldens_in,coldens_out,Vfact,nHI,sig,phi_photo_cell,phi_photo_out)
 
         ! Optical depth below which we should use the optically thin tables
         real(kind=real64),parameter :: tau_photo_limit = 1.0e-7 
 
         ! Subroutine Arguments
-        real(kind=real64), intent(in) :: strength               ! Strength of the test source, in s^-1
+        real(kind=real64), intent(in) :: normflux               ! Strength of the test source, in s^-1
         real(kind=real64), intent(in) :: coldens_in             ! Column density into to cell
         real(kind=real64), intent(in) :: coldens_out            ! Column density at cell exit
         real(kind=real64), intent(in) :: Vfact                  ! Volume factor (dilution, cell volume, etc) see evolve0D TODO: figure out correct form
@@ -36,7 +37,7 @@ module photorates
         ! Compute incoming photoionization rate
         !prefact = strength * inv4pi / (Vfact * nHI)
         !prefact = strength / (Vfact * nHI)
-        prefact = strength / (Vfact)
+        prefact = normflux * S_star / (Vfact)
         phi_photo_in = prefact * (exp(-tau_in))
 
         ! If cell is optically thick
@@ -88,8 +89,10 @@ module photorates
         tau_out = coldens_out * sig
         
         ! TODO: deal with 0 optical depth
-        table_idx_in = floor( (log10(tau_in) - minlogtau) / dlogtau )
-        table_idx_out = floor( (log10(tau_out) - minlogtau) / dlogtau )
+        ! table_idx_in = floor( (log10(tau_in) - minlogtau) / dlogtau )
+        ! table_idx_out = floor( (log10(tau_out) - minlogtau) / dlogtau )
+        table_idx_in = int(min(  real(NumTau)  , 1 + (log10( max(1.0e-20_real64,tau_in) ) - minlogtau) / dlogtau  ))
+        table_idx_out = int(min(  real(NumTau)  , 1 + (log10( max(1.0e-20_real64,tau_out) ) - minlogtau) / dlogtau  ))
 
         prefact = normflux / Vfact
 

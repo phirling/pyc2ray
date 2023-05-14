@@ -49,7 +49,7 @@ abu_c=7.1e-7
 # Source Parameters
 numsrc = 1
 srcflux = np.empty(numsrc)
-srcflux[0] = 5.0e48
+srcflux[0] = 5.0e48 / 1e48 # Normalized flux
 
 # Raytracing Parameters
 max_subbox = 1000

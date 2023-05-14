@@ -21,7 +21,7 @@ num_steps_between_slices = 10
 numzred = 2
 paramfile = "parameters.yml"
 N = 128
-avgdens = 1.0e-3
+avgdens = 1.0e-6
 use_octa = False
 
 # Create C2Ray object
@@ -56,8 +56,7 @@ for k in range(len(zred_array)-1):
     # Set density field (could be an actual cosmological field here)
     # TODO: this has to set the comoving density which is then scaled to the
     # correct redshift. In the timesteps, the density is then "diluted" gradually
-    sim.set_constant_average_density(avgdens) 
-    sim.scale_density(zi)
+    sim.set_constant_average_density(avgdens,0) 
 
     print(f"\n=================================")
     print(f"Doing redshift {zi:.3f} to {zf:.3f}")

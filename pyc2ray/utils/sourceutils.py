@@ -1,5 +1,7 @@
 import numpy as np
 
+S_star = 1.0e48     # Reference source strength, used to normalize flux
+
 def read_sources(file,n,mode):
     """ Read in a source file formatted for C2Ray
     
@@ -15,6 +17,13 @@ def read_sources(file,n,mode):
     case : string
         Raytracing code for which to format the sources. Can be either "pyc2ray" or "pyc2ray_octa". This is because
         the data has to be structured differently for these two modes.
+
+    Returns
+    -------
+    srcpos : array
+        Source positions
+    normflux : array
+        Normalization of the strength of each source
     """
     
     with open(file,"r") as f:
@@ -39,14 +48,16 @@ def read_sources(file,n,mode):
                 srcpos[0] = src_x
                 srcpos[1] = src_y
                 srcpos[2] = src_z
-                return srcpos, src_flux, src_num
+                normflux = src_flux / S_star
+                return srcpos, normflux, src_num
             elif (mode == "pyc2ray_octa"):
                 srcpos = np.empty((3,src_num),dtype='int32')
                 srcpos[0] = src_x - 1
                 srcpos[1] = src_y - 1
                 srcpos[2] = src_z - 1
                 srcpos = np.ravel(srcpos,order='F')
-                return srcpos, src_flux.astype('float64'), src_num
+                normflux = src_flux.astype('float64') / S_star
+                return srcpos ,normflux, src_num
             else:
                 raise ValueError("Unknown mode: " + mode)
             
