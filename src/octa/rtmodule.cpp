@@ -20,8 +20,11 @@ extern "C"
         PyArrayObject * phi_ion;
         int NumSrc;
         int m1;
+        double minlogtau;
+        double dlogtau;
+        int NumTau;
 
-        if (!PyArg_ParseTuple(args,"OOdOddOOOii",
+        if (!PyArg_ParseTuple(args,"OOdOddOOOiiddi",
         &srcpos,
         &srcflux,
         &R,
@@ -32,7 +35,10 @@ extern "C"
         &xh_av,
         &phi_ion,
         &NumSrc,
-        &m1))
+        &m1,
+        &minlogtau,
+        &dlogtau,
+        &NumTau))
             return NULL;
         
         // Error checking
@@ -55,7 +61,7 @@ extern "C"
         double * phi_ion_data = (double*)PyArray_DATA(phi_ion);
         double * xh_av_data = (double*)PyArray_DATA(xh_av);
 
-        do_all_sources_octa_gpu(srcpos_data,srcflux_data,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1);
+        do_all_sources_octa_gpu(srcpos_data,srcflux_data,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1,minlogtau,dlogtau,NumTau);
 
         return Py_None;
     }
@@ -75,8 +81,11 @@ extern "C"
         PyArrayObject * phi_ion;
         int NumSrc;
         int m1;
+        double minlogtau;
+        double dlogtau;
+        int NumTau;
 
-        if (!PyArg_ParseTuple(args,"OOidOddOOOii",
+        if (!PyArg_ParseTuple(args,"OOidOddOOOiiddi",
         &srcpos,
         &srcflux,
         &ns,
@@ -88,7 +97,10 @@ extern "C"
         &xh_av,
         &phi_ion,
         &NumSrc,
-        &m1))
+        &m1,
+        &minlogtau,
+        &dlogtau,
+        &NumTau))
             return NULL;
         
         // Error checking
@@ -111,7 +123,7 @@ extern "C"
         double * phi_ion_data = (double*)PyArray_DATA(phi_ion);
         double * xh_av_data = (double*)PyArray_DATA(xh_av);
 
-        do_source_octa_gpu(srcpos_data,srcflux_data,ns,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1);
+        do_source_octa_gpu(srcpos_data,srcflux_data,ns,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1,minlogtau,dlogtau,NumTau);
 
         return Py_None;
     }

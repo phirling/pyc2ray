@@ -16,9 +16,9 @@ inline __device__ bool in_box_gpu(const int & i,const int & j,const int & k,cons
 __device__ double photoion_rates_test_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & sig);
 
 __device__ double photoion_rates_gpu(const double & strength,const double & coldens_in,const double & coldens_out,
-    const double & Vfact,const double & sig,const double & minlogtau,const double & dlogtau,const int& NumTau);
+    const double & Vfact,const double & sig,const double* table,const double & minlogtau,const double & dlogtau,const int& NumTau);
 
-__device__ double photo_lookuptable(double*,const double &,const double &,const double &,const int &);
+__device__ double photo_lookuptable(const double*,const double &,const double &,const double &,const int &);
 
 void device_init(const int &);
 
@@ -77,7 +77,11 @@ __global__ void evolve0D_gpu_new(
     const double* ndens,
     const double* xh_av,
     double* phi_ion,
-    const int m1
+    const int m1,
+    const double* photo_table,
+    const double minlogtau,
+    const double dlogtau,
+    const int NumTau
 );
 
 void do_source_octa_gpu(
@@ -92,7 +96,10 @@ void do_source_octa_gpu(
     double* xh_av,
     double* phi_ion,
     const int & NumSrc,
-    const int & m1);
+    const int & m1,
+    const double & minlogtau,
+    const double & dlogtau,
+    const int & NumTau);
 
 void do_all_sources_octa_gpu(
     int* srcpos,
@@ -105,4 +112,7 @@ void do_all_sources_octa_gpu(
     double* xh_av,
     double* phi_ion,
     const int & NumSrc,
-    const int & m1);
+    const int & m1,
+    const double & minlogtau,
+    const double & dlogtau,
+    const int & NumTau);

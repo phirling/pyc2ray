@@ -158,7 +158,7 @@ class C2Ray:
             self.xh, self.phi_ion = evolve3D_octa(dt, self.dr, normflux, srcpos, r_RT, self.temp, self.ndens,
                                                   self.xh, self.sig, self.bh00, self.albpow, self.colh0,
                                                   self.temph0, self.abu_c,self.minlogtau,self.dlogtau,
-                                                  self.logfile)
+                                                  self.NumTau,self.logfile)
         else:
             self.xh, self.phi_ion = evolve3D(dt, self.dr, normflux, srcpos, max_subbox,r_RT, self.temp, self.ndens,
                                              self.xh, self.sig, self.bh00, self.albpow, self.colh0,
@@ -453,6 +453,7 @@ class C2Ray:
         # Copy radiation table to GPU
         if self.octa:
             photo_table_to_device(self.photo_thin_table)
+            self.printlog("Successfully copied tables to GPU memory.")
 
     # =====================================================================================================
     # OTHER PRIVATE METHODS

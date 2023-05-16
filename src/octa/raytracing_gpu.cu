@@ -138,7 +138,10 @@ void do_all_sources_octa_gpu(
     double* xh_av,
     double* phi_ion,
     const int & NumSrc,
-    const int & m1)
+    const int & m1,
+    const double & minlogtau,
+    const double & dlogtau,
+    const int & NumTau)
     {   
         // Byte-size of grid data
         auto meshsize = m1*m1*m1*sizeof(double);
@@ -198,7 +201,7 @@ void do_all_sources_octa_gpu(
                 gs.y = grl;
 
                 // Raytracing kernel: see below
-                evolve0D_gpu_new<<<gs,bs>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1);
+                evolve0D_gpu_new<<<gs,bs>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau);
 
                 // Synchronize GPU
                 cudaDeviceSynchronize();
@@ -238,7 +241,11 @@ __global__ void evolve0D_gpu_new(
     const double* ndens,
     const double* xh_av,
     double* phi_ion,
-    const int m1
+    const int m1,
+    const double* photo_table,
+    const double minlogtau,
+    const double dlogtau,
+    const int NumTau
 )
 {
     // x and y coordinates are cartesian
@@ -327,8 +334,11 @@ __global__ void evolve0D_gpu_new(
                 #if defined(LOCALRATES)
                 if (coldensh_in <= MAX_COLDENSH)
                 {
+                    #if defined(GREY_NOTABLES)
                     double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);
-
+                    #else
+                    double phi = photoion_rates_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig,photo_table,minlogtau,dlogtau,NumTau);
+                    #endif
                     // Divide the photo-ionization rates by the appropriate neutral density
                     // (part of the photon-conserving rate prescription)
                     phi /= nHI_p;
@@ -365,7 +375,7 @@ __device__ double photoion_rates_test_gpu(const double & strength,const double &
 }
 
 __device__ double photoion_rates_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & sig,
-    const double & minlogtau,const double & dlogtau,const int& NumTau)
+    const double* table,const double & minlogtau,const double & dlogtau,const int& NumTau)
 {
     // Compute optical depth and ionization rate depending on whether the cell is optically thick or thin
     double tau_in = coldens_in * sig;
@@ -373,12 +383,12 @@ __device__ double photoion_rates_gpu(const double & strength,const double & cold
 
     double prefact = strength / Vfact;
 
-    double phi_photo_in = prefact * photo_lookuptable(photo_thin_table_dev,tau_in,minlogtau,dlogtau,NumTau);
-    double phi_photo_out = prefact * photo_lookuptable(photo_thin_table_dev,tau_out,minlogtau,dlogtau,NumTau);
+    double phi_photo_in = prefact * photo_lookuptable(table,tau_in,minlogtau,dlogtau,NumTau);
+    double phi_photo_out = prefact * photo_lookuptable(table,tau_out,minlogtau,dlogtau,NumTau);
     return phi_photo_in - phi_photo_out;
 }
 
-__device__ double photo_lookuptable(double* photo_thin_table,const double & tau,const double & minlogtau,const double & dlogtau,const int & NumTau)
+__device__ double photo_lookuptable(const double* photo_thin_table,const double & tau,const double & minlogtau,const double & dlogtau,const int & NumTau)
 {
     double logtau;
     double real_i, residual;
@@ -624,7 +634,10 @@ void do_source_octa_gpu(
     double* xh_av,
     double* phi_ion,
     const int & NumSrc,
-    const int & m1)
+    const int & m1,
+    const double & minlogtau,
+    const double & dlogtau,
+    const int & NumTau)
     {   
         // For compatibility with c2ray, source position is stored in Fortran ordering (dim0: coordinate, dim1: src number)
         int i0 = srcpos[NumSrc*ns];      //srcpos[0][ns]
@@ -684,7 +697,7 @@ void do_source_octa_gpu(
             int grl = (2*q + 1) / bl + 1;
             gs.x = grl;
             gs.y = grl;
-            evolve0D_gpu_new<<<gs,bs>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1);
+            evolve0D_gpu_new<<<gs,bs>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau);
             cudaDeviceSynchronize();
 
             auto error = cudaGetLastError();
