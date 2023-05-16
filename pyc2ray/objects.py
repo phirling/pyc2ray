@@ -13,7 +13,7 @@ except ImportError:
 from .utils.logutils import printlog
 from .utils.sourceutils import read_sources
 from .evolve import evolve3D, evolve3D_octa
-from .octa_core import device_init, device_close
+from .octa_core import device_init, device_close, photo_table_to_device
 from .radiation import BlackBodySource
 
 # ==================================================================
@@ -105,41 +105,9 @@ class C2Ray:
         self._redshift_init()
         self._radiation_init()
 
-    def evolve3D(self,dt,srcflux,srcpos,r_RT,max_subbox):
-        """Evolve the grid over one timestep
-
-        Raytrace all sources, compute cumulative photoionization rate of each cell and
-        do chemistry. This is done until convergence in the ionized fraction is reached.
-        TODO: pass convergence criteria as arguments (they are fixed at compile-time for now)
-
-        Parameters
-        ----------
-        dt : float
-            Timestep in seconds (typically generated using set_timestep method)
-        srcflux : 1D-array
-            Strength of each source
-        srcpos : array
-            Positions of the sources. Shape depends on the raytracing algorithm used. Use
-            read_sources to automatically format the array in the correct way. TODO: make this automatic
-        r_RT : int
-            When using C2Ray raytracing: size of the subbox to use. When using OCTA, determines the
-            size of the octahedron
-        max_subbox : int
-            Maximum size of the subbox when using C2Ray raytracing. When using OCTA, this
-            parameter has no effect.
-
-        """
-        if self.octa:
-            self.xh, self.phi_ion = evolve3D_octa(dt, self.dr, srcflux, srcpos, r_RT, self.temp, self.ndens,
-                                                  self.xh, self.sig, self.bh00, self.albpow, self.colh0,
-                                                  self.temph0, self.abu_c, self.N, self.logfile)
-        else:
-            self.xh, self.phi_ion = evolve3D(dt, self.dr, srcflux, srcpos, max_subbox,r_RT, self.temp, self.ndens,
-                                             self.xh, self.sig, self.bh00, self.albpow, self.colh0,
-                                             self.temph0, self.abu_c,self.photo_thin_table,self.minlogtau,self.dlogtau,
-                                             self.loss_fraction, self.logfile)
-
-
+    # =====================================================================================================
+    # TIME-EVOLUTION METHODS
+    # =====================================================================================================
     def set_timestep(self,z1,z2,num_timesteps):
         """Compute timestep to use between redshift slices
 
@@ -163,48 +131,39 @@ class C2Ray:
         dt = (t1-t2)/num_timesteps
         self.printlog(f"dt [years]: {dt/YEAR:.3e}")
         return dt
-
-    def read_sources(self,file,n): # >:( trgeoip
-        """Read sources from a C2Ray-formatted file
-
-        This is limited to the test case for now (total ionizing
-        flux of the sources is known)
-
-        Parameters
-        ----------
-        file : str
-            Filename to read
-        n : int
-            Number of sources to read from the file
-        
-        Returns
-        -------
-        srcpos : array
-            Grid positions of the sources formatted in a suitable way for
-            the chosen raytracing algorithm
-        normflux : array
-            Normalization of the flux of each source (relative to S_star)
-        numsrc : int
-            Number of sources read from the file
-        """
-        if self.octa: mode = 'pyc2ray_octa'
-        else: mode = 'pyc2ray'
-        return read_sources(file, n, mode)
     
-    def density_init(self,z):
-        """Set density at redshift z
+    def evolve3D(self,dt,normflux,srcpos,r_RT,max_subbox):
+        """Evolve the grid over one timestep
 
-        For now, this simply sets the density to a constant value,
-        specified in the parameter file, that is scaled to redshift
-        if the run is cosmological.
+        Raytrace all sources, compute cumulative photoionization rate of each cell and
+        do chemistry. This is done until convergence in the ionized fraction is reached.
 
         Parameters
         ----------
-        z : float
-            Redshift slice
-        
+        dt : float
+            Timestep in seconds (typically generated using set_timestep method)
+        normflux : 1D-array
+            Normalization factor (relative to S_star = 1e48 by default) of the total ionizing flux of each source
+        srcpos : array
+            Positions of the sources. Shape depends on the raytracing algorithm used. Use
+            read_sources to automatically format the array in the correct way. TODO: make this automatic
+        r_RT : int
+            When using C2Ray raytracing: size of the subbox to use. When using OCTA, determines the
+            size of the octahedron
+        max_subbox : int
+            Maximum size of the subbox when using C2Ray raytracing. When using OCTA, this
+            parameter has no effect.
         """
-        self.set_constant_average_density(self.avg_dens,z)
+        if self.octa:
+            self.xh, self.phi_ion = evolve3D_octa(dt, self.dr, normflux, srcpos, r_RT, self.temp, self.ndens,
+                                                  self.xh, self.sig, self.bh00, self.albpow, self.colh0,
+                                                  self.temph0, self.abu_c,self.minlogtau,self.dlogtau,
+                                                  self.logfile)
+        else:
+            self.xh, self.phi_ion = evolve3D(dt, self.dr, normflux, srcpos, max_subbox,r_RT, self.temp, self.ndens,
+                                             self.xh, self.sig, self.bh00, self.albpow, self.colh0,
+                                             self.temph0, self.abu_c,self.photo_thin_table,self.minlogtau,self.dlogtau,
+                                             self.loss_fraction, self.logfile)
 
     def cosmo_evolve(self,dt):
         """Evolve cosmology over a timestep
@@ -238,6 +197,49 @@ class C2Ray:
         self.zred = z_half
         self.time = t_after
 
+    # =====================================================================================================
+    # I/O, MATERIAL AND SOURCES METHODS
+    # =====================================================================================================
+    def read_sources(self,file,n): # >:( trgeoip
+        """Read sources from a C2Ray-formatted file
+
+        The way sources are dealt with is still open and will change significantly
+        in the final version. For now, this method is provided:
+
+        It reads source positions and strengths (total ionizing flux in
+        photons/second) from a file that is formatted for the original C2Ray,
+        and computes the source strength as normalization factors relative
+        to a reference strength (1e48 by default). These normalization factors
+        are then used during raytracing to compute the photoionization rate.
+        (same procedure as in C2Ray)
+
+        Moreover, the method formats the source positions correctly depending
+        on whether OCTA is used or not. This is because, while the default CPU
+        raytracing takes a 3D-array of any type as argument, OCTA assumes that the
+        source position array is flattened and has a C single int type (int32),
+        and that the normalization (strength) array has C double float type (float64).
+
+        Parameters
+        ----------
+        file : str
+            Filename to read
+        n : int
+            Number of sources to read from the file
+        
+        Returns
+        -------
+        srcpos : array
+            Grid positions of the sources formatted in a suitable way for
+            the chosen raytracing algorithm
+        normflux : array
+            Normalization of the flux of each source (relative to S_star)
+        numsrc : int
+            Number of sources read from the file
+        """
+        if self.octa: mode = 'pyc2ray_octa'
+        else: mode = 'pyc2ray'
+        return read_sources(file, n, mode)
+    
     def printlog(self,s,quiet=False):
         """Print to log file and standard output
 
@@ -250,6 +252,38 @@ class C2Ray:
         """
         printlog(s,self.logfile,quiet)
 
+    def density_init(self,z):
+        """Set density at redshift z
+
+        For now, this simply sets the density to a constant value,
+        specified in the parameter file, that is scaled to redshift
+        if the run is cosmological.
+
+        Parameters
+        ----------
+        z : float
+            Redshift slice
+        
+        """
+        self.set_constant_average_density(self.avg_dens,z)
+
+    def write_output(self,z):
+        """Write ionization fraction & ionization rates as pickle files
+
+        Parameters
+        ----------
+        z : float
+            Redshift (used to name the file)
+        """
+        suffix = f"_{z:.3f}.pkl"
+        with open(self.results_basename + "xfrac" + suffix,"wb") as f:
+            pkl.dump(self.xh,f)
+        with open(self.results_basename + "IonRates" + suffix,"wb") as f:
+            pkl.dump(self.phi_ion,f)
+    
+    # =====================================================================================================
+    # UTILITY METHODS
+    # =====================================================================================================
     def time2zred(self,t):
         """Calculate the redshift corresponding to an age t in seconds
         """
@@ -313,37 +347,9 @@ class C2Ray:
             zred_array[i] = self.time2zred(self.age_0 + i*step)
         return zred_array
 
-    def write_output(self,z):
-        """Write ionization fraction & ionization rates as pickle files
-
-        Parameters
-        ----------
-        z : float
-            Redshift (used to name the file)
-        """
-        suffix = f"_{z:.3f}.pkl"
-        with open(self.results_basename + "xfrac" + suffix,"wb") as f:
-            pkl.dump(self.xh,f)
-        with open(self.results_basename + "IonRates" + suffix,"wb") as f:
-            pkl.dump(self.phi_ion,f)
-    
-    def scale_density(self,z):
-        self.ndens /= self.cosmology.scale_factor(z)**3
-
-    # ==================================================================
-    # Private methods of class
-    # ==================================================================
-
-    def _material_init(self):
-        xh0 = self._ld['Material']['xh0']
-        temp0 = self._ld['Material']['temp0']
-
-        self.ndens = np.empty(self.shape,order='F')
-        self.xh = xh0 * np.ones(self.shape,order='F')
-        self.temp = temp0 * np.ones(self.shape,order='F')
-        self.phi_ion = np.zeros(self.shape,order='F')
-
-        self.avg_dens = self._ld['Material']['avg_dens']
+    # =====================================================================================================
+    # INITIALIZATION METHODS (PRIVATE)
+    # =====================================================================================================
 
     def _param_init(self):
         """ Set up constants and parameters
@@ -389,12 +395,6 @@ class C2Ray:
         # Scale quantities to the initial redshift
         if self.cosmological:
             self.dr = self.cosmology.scale_factor(self.zred_0) * self.dr_c
-        
-    def _redshift_init(self):
-        """Initialize time and redshift counter
-        """
-        self.time = self.age_0
-        self.zred = self.zred_0
 
     def _output_init(self):
         """ Set up output & log file
@@ -402,6 +402,22 @@ class C2Ray:
         self.results_basename = self._ld['Output']['results_basename']
         self.logfile = self.results_basename + self._ld['Output']['logfile']
         with open(self.logfile,"w") as f: f.write("Log file for pyC2Ray. \n\n") # Clear file and write header line
+
+    def _material_init(self):
+        xh0 = self._ld['Material']['xh0']
+        temp0 = self._ld['Material']['temp0']
+
+        self.ndens = np.empty(self.shape,order='F')
+        self.xh = xh0 * np.ones(self.shape,order='F')
+        self.temp = temp0 * np.ones(self.shape,order='F')
+        self.phi_ion = np.zeros(self.shape,order='F')
+        self.avg_dens = self._ld['Material']['avg_dens']
+
+    def _redshift_init(self):
+        """Initialize time and redshift counter
+        """
+        self.time = self.age_0
+        self.zred = self.zred_0
 
     def _radiation_init(self):
         """Radiation Tables. IN DEVELOPMENT
@@ -425,9 +441,22 @@ class C2Ray:
         self.cross_section_pl_index = self._ld['Photo']['cross_section_pl_index']
         ion_freq_HI = ev2fr * self.eth0
         self.radsource = BlackBodySource(self.Teff,self.grey,ion_freq_HI,self.cross_section_pl_index)
+        self.printlog(f"Using Black-Body sources with effective temperature T = {self.Teff :.1e} K")
+        if self.grey:
+            self.printlog(f"Using grey opacity")
+        else:
+            self.printlog(f"Using power-law opacity with {self.NumTau:n} table points between tau=10^({self.minlogtau:n}) and tau=10^({self.maxlogtau:n})")
 
         # Integrate table. TODO: make this more customizeable
         self.photo_thin_table = self.radsource.make_photo_table(self.tau,ion_freq_HI,10*ion_freq_HI,1e48)
+
+        # Copy radiation table to GPU
+        if self.octa:
+            photo_table_to_device(self.photo_thin_table)
+
+    # =====================================================================================================
+    # OTHER PRIVATE METHODS
+    # =====================================================================================================
 
     def _read_paramfile(self,paramfile):
         """ Read in YAML parameter file

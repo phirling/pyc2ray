@@ -42,8 +42,11 @@ A detailed documentation isn't yet available, but example scripts can be found i
 of this repository.
 
 The general usage principle of pyc2ray is that:
-* A full C2Ray simulation can be configured and run using the `pyc2ray.C2Ray()` class along with a parameter file.
-* The individual components can also be used in a standalone way as module functions.
+1. A full C2Ray simulation can be configured and run using the `pyc2ray.C2Ray()` class along with a parameter file.
+2. The individual components can also be used in a standalone way as module functions.
+
+Bear in mind that the object-oriented usage (no. 1) is the reference implementation and that
+missing documentation and possibly even errors may happen when using the modules individually, at least during development.
 
 ## Directories Guide
 * `pyc2ray`: Python package directory

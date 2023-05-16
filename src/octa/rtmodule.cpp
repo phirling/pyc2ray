@@ -147,12 +147,27 @@ extern "C"
         return Py_None;
     }
 
+    static PyObject *
+    octa_photo_table_to_device(PyObject *self, PyObject *args)
+    {
+        int NumTau;
+        PyArrayObject * table;
+        if (!PyArg_ParseTuple(args,"Oi",&table,&NumTau))
+            return NULL;
+
+        double * table_data = (double*)PyArray_DATA(table);
+        photo_table_to_device(table_data,NumTau);
+
+        return Py_None;
+    }
+
     static PyMethodDef octaMethods[] = {
         {"do_source",  octa_do_source, METH_VARARGS,"Do OCTA raytracing (GPU)"},
         {"do_all_sources",  octa_do_all_sources, METH_VARARGS,"Do OCTA raytracing (GPU)"},
         {"device_init",  octa_device_init, METH_VARARGS,"Free GPU memory"},
         {"device_close",  octa_device_close, METH_VARARGS,"Free GPU memory"},
         {"density_to_device",  octa_density_to_device, METH_VARARGS,"Copy density field to GPU"},
+        {"photo_table_to_device",  octa_photo_table_to_device, METH_VARARGS,"Copy radiation table to GPU"},
         {NULL, NULL, 0, NULL}        /* Sentinel */
     };
 

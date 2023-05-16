@@ -3,7 +3,7 @@ import numpy as np
 # Reference source strength, used to normalize flux. Has to be equal to that set in
 # src/c2ray/photorates.f90.
 
-def read_sources(file,n,mode,S_star_ref = 1e48):
+def read_sources(file,numsrc,mode,S_star_ref = 1e48):
     """ Read in a source file formatted for C2Ray
     
     Reads in a source list file formatted for the Fortran version of C2Ray and returns its contents
@@ -13,7 +13,7 @@ def read_sources(file,n,mode,S_star_ref = 1e48):
     ----------
     file : string
         Name of the file to read
-    n : int
+    numsrc : int
         Numer of sources to read from the file
     case : string
         Raytracing code for which to format the sources. Can be either "pyc2ray" or "pyc2ray_octa". This is because
@@ -38,10 +38,10 @@ def read_sources(file,n,mode,S_star_ref = 1e48):
         
         max_n = inp.shape[0]
         
-        if (n > max_n):
-            raise ValueError(f"Number of sources given ({n:n}) is larger than that of the file ({max_n:n})")
+        if (numsrc > max_n):
+            raise ValueError(f"Number of sources given ({numsrc:n}) is larger than that of the file ({max_n:n})")
         else:
-            inp = inp[:n]
+            inp = inp[:numsrc]
             src_x = inp[:,0]
             src_y = inp[:,1]
             src_z = inp[:,2]
@@ -54,7 +54,7 @@ def read_sources(file,n,mode,S_star_ref = 1e48):
                 srcpos[1] = src_y
                 srcpos[2] = src_z
                 normflux = src_flux / S_star_ref
-                return srcpos, normflux, src_num
+                return srcpos, normflux
             elif (mode == "pyc2ray_octa"):
                 srcpos = np.empty((3,src_num),dtype='int32')
                 srcpos[0] = src_x - 1
@@ -62,7 +62,7 @@ def read_sources(file,n,mode,S_star_ref = 1e48):
                 srcpos[2] = src_z - 1
                 srcpos = np.ravel(srcpos,order='F')
                 normflux = src_flux.astype('float64') / S_star_ref
-                return srcpos ,normflux, src_num
+                return srcpos ,normflux
             else:
                 raise ValueError("Unknown mode: " + mode)
             

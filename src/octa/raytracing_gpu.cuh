@@ -22,6 +22,8 @@ void device_close();
 
 void density_to_device(double*,const int &);
 
+void photo_table_to_device(double*,const int &);
+
 //extern unsigned long meshsizze;
 
 extern double * cdh_dev;

@@ -13,9 +13,8 @@ __all__ = ['evolve3D', 'evolve3D_octa']
 # evolve3D routine: iterate between raytracing <-> chemistry to solve for the ionization fraction
 # ===================================================================================================
 
-def evolve3D(dt,dr,srcflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
-             photo_thin_table,minlogtau,dlogtau,
-             loss_fraction=1e-2,logfile="pyC2Ray.log",quiet=False):
+def evolve3D(dt,dr,normflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
+             photo_thin_table,minlogtau,dlogtau,loss_fraction=1e-2,logfile="pyC2Ray.log",quiet=False):
     
     """Evolves the ionization fraction over one timestep for the whole grid.
 
@@ -28,8 +27,8 @@ def evolve3D(dt,dr,srcflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,a
         Timestep in seconds
     dr : float
         Cell dimension in each direction in cm
-    srcflux : 1D-array
-        Array containing the normalization for the ionizing flux of each source. Shape: (NumSources)
+    normflux : 1D-array
+        Array containing the normalization factor (relative to S_star = 1e48 by default) of the total ionizing flux of each source
     srcpos : 2D-array
         Array containing the position of each source. Shape: (NumSources,3)
     max_subbox : int
@@ -55,6 +54,12 @@ def evolve3D(dt,dr,srcflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,a
         Hydrogen ionization energy expressed in K
     abu_c : float
         Carbon abundance
+    photo_thin_table : 1D-array
+        Tabulated values of the integral ∫L_v*e^(-τ_v)/hv
+    minlogtau : float
+        Base 10 log of the minimum value of the table in τ (excluding τ = 0)
+    dlogtau : float
+        Step size of the logτ-table
     loss_fraction : float (default: 1e-2)
         Fraction of remaining photons below we stop ray-tracing (subbox technique)
     logfile : str
@@ -107,7 +112,7 @@ def evolve3D(dt,dr,srcflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,a
         coldensh_out = np.zeros((m1,m1,m1),order='F')
 
         # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
-        nsubbox, photonloss = libc2ray.raytracing.do_all_sources(srcflux,srcpos,max_subbox,subboxsize,
+        nsubbox, photonloss = libc2ray.raytracing.do_all_sources(normflux,srcpos,max_subbox,subboxsize,
                                                                  coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,
                                                                  photo_thin_table,minlogtau,dlogtau,)
 
@@ -149,12 +154,15 @@ def evolve3D(dt,dr,srcflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,a
 # evolve3D routine with OCTA raytracing
 # ===================================================================================================
 
-def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,N,
-                  logfile="pyC2Ray.log",quiet=False):
+def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
+                  minlogtau,dlogtau,logfile="pyC2Ray.log",quiet=False):
     """Evolves the ionization fraction over one timestep for the whole grid, using OCTA raytracing
 
     For a given list of sources and hydrogen number density, computes the evolution of
     the ionization fraction over a timestep due to the radiative transfer from the sources.
+
+    !! Calling this function assumes that the radiation tables have been copied to the device using
+    photo_table_to_device()
 
     Parameters
     ----------
@@ -189,6 +197,10 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
         Hydrogen ionization energy expressed in K
     abu_c : float
         Carbon abundance
+    minlogtau : float
+        Base 10 log of the minimum value of the table in τ (excluding τ = 0)
+    dlogtau : float
+        Step size of the logτ-table
     logfile : str
         Name of the file to append logs to. Default: pyC2Ray.log
     quiet : bool
@@ -205,8 +217,9 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
     """
     # Allow a call only if 1. the octa library is present and 2. the GPU memory has been allocated using device_init()
     if cuda_is_init():
-        NumSrc = srcflux.shape[0]    # Number of sources
-        NumCells = N*N*N         # Number of cells/points
+        NumSrc = srcflux.shape[0]   # Number of sources
+        N = temp.shape[0]           # Mesh size
+        NumCells = N*N*N            # Number of cells/points
         conv_flag = NumCells        # Flag that counts the number of non-converged cells (initialized to non-convergence)
 
         # Convergence Criteria

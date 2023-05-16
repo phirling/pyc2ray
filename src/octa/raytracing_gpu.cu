@@ -46,10 +46,11 @@ __device__ inline double weightf_gpu(const double & cd, const double & sig) { re
 // * The column density is NEVER copied back to the host, since it is only
 // accessed on the device when computing ionization rates.
 // ========================================================================
-double* cdh_dev;        // Outgoing column density of the cells
-double* n_dev;          // Density
-double* x_dev;          // Time-averaged ionized fraction
-double* phi_dev;        // Photoionization rates
+double* cdh_dev;                // Outgoing column density of the cells
+double* n_dev;                  // Density
+double* x_dev;                  // Time-averaged ionized fraction
+double* phi_dev;                // Photoionization rates
+double* photo_thin_table_dev;   // Radiation table
 
 // ========================================================================
 // Initialization function to allocate device memory (pointers above)
@@ -96,11 +97,17 @@ void device_init(const int & N)
 }
 
 // ========================================================================
-// Utility function to copy density field to device
+// Utility functions to copy data to device
 // ========================================================================
 void density_to_device(double* ndens,const int & N)
 {
     cudaMemcpy(n_dev,ndens,N*N*N*sizeof(double),cudaMemcpyHostToDevice);
+}
+
+void photo_tables_to_device(double* table,const int & NumTau)
+{
+    cudaMalloc(&photo_thin_table_dev,NumTau*sizeof(double));
+    cudaMemcpy(photo_thin_table_dev,table,NumTau*sizeof(double),cudaMemcpyHostToDevice);
 }
 
 // ========================================================================
@@ -113,6 +120,7 @@ void device_close()
     cudaFree(&n_dev);
     cudaFree(&x_dev);
     cudaFree(&phi_dev);
+    cudaFree(&photo_thin_table_dev);
 }
 
 // ========================================================================
