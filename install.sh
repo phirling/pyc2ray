@@ -33,12 +33,11 @@ make
 
 cp libocta.so ../../pyc2ray/lib
 
-cd ../../pyc2ray
+#cd ../../pyc2ray
+#PYC2RAY_PATH=$(pwd)
+#export PYTHONPATH="$PYC2RAY_PATH:$PYTHONPATH"
 
-PYC2RAY_PATH=$(pwd)
-export PYTHONPATH="$PYC2RAY_PATH:$PYTHONPATH"
-
-cd
+cd ../../
 
 python -c "import pyc2ray as pc2r"
 echo "Installation of pyc2ray successful"
