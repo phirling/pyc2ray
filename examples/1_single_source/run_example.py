@@ -2,6 +2,7 @@ import sys
 sys.path.append("../../")
 import pyc2ray as pc2r
 import time
+import argparse
 
 # ======================================================================
 # Example 1 for pyc2ray: Single test source in homogeneous density field
@@ -29,16 +30,21 @@ import time
 # formulas used in C2Ray.
 # ======================================================================
 
+parser = argparse.ArgumentParser("Single source example for pyc2ray")
+parser.add_argument("--octa",action='store_true',help="Use OCTA raytracing")
+parser.add_argument("-r_RT",type=int,default=5,help="Subbox size (pyc2ray) or raytracing radius (OCTA)")
+args = parser.parse_args()
+
 # Global parameters
 numzred = 15                        # Number of redshift slices
 num_steps_between_slices = 10       # Number of timesteps between redshift slices
 paramfile = "parameters.yml"        # Name of the parameter file
 N = 128                             # Mesh size
-use_octa = False                    # Determines which raytracing algorithm to use
+use_octa = args.octa                # Determines which raytracing algorithm to use
 
 # Raytracing Parameters
 max_subbox = 1000                   # Maximum subbox when using C2Ray raytracing
-r_RT = 5                            # When using C2Ray raytracing, sets the subbox size. When using OCTA, sets the octahedron size
+r_RT = int(args.r_RT)               # When using C2Ray raytracing, sets the subbox size. When using OCTA, sets the octahedron size
 
 # Create C2Ray object
 sim = pc2r.C2Ray(paramfile, N, use_octa)

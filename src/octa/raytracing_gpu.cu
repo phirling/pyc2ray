@@ -13,6 +13,7 @@
 #define INV4PI 0.079577471545947672804111050482     // 1/4π
 #define TAU_PHOTO_LIMIT 1.0e-7                      // Limit to consider a cell "optically thin/thick"
 #define MAX_COLDENSH 2e30                           // Column density limit (rates are set to zero above this)
+#define S_STAR_REF 1e48                             // Reference ionizing flux (strength of source is given in this unit)
 
 // ========================================================================
 // Utility Device Functions
@@ -28,7 +29,7 @@ inline __device__ int sign_gpu(const double & x) { if (x>=0) return 1; else retu
 inline __device__ int mem_offst_gpu(const int & i,const int & j,const int & k,const int & N) { return N*N*i + N*j + k;}
 
 // Weight function for C2Ray interpolation function (see cinterp_gpu below)
-__device__ inline double weightf_gpu(const double & cd, const double & sig) { return 1.0/fmax(0.6,cd*sig);}
+__device__ inline double weightf_gpu(const double & cd, const double & sig) { return 1.0/max(0.6,cd*sig);}
 
 // ========================================================================
 // Global variables. Pointers to GPU memory to store grid data
@@ -104,7 +105,7 @@ void density_to_device(double* ndens,const int & N)
     cudaMemcpy(n_dev,ndens,N*N*N*sizeof(double),cudaMemcpyHostToDevice);
 }
 
-void photo_tables_to_device(double* table,const int & NumTau)
+void photo_table_to_device(double* table,const int & NumTau)
 {
     cudaMalloc(&photo_thin_table_dev,NumTau*sizeof(double));
     cudaMemcpy(photo_thin_table_dev,table,NumTau*sizeof(double),cudaMemcpyHostToDevice);
@@ -326,7 +327,11 @@ __global__ void evolve0D_gpu_new(
                 #if defined(LOCALRATES)
                 if (coldensh_in <= MAX_COLDENSH)
                 {
-                    double phi = photoion_rate_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,nHI_p,sig);
+                    double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);
+
+                    // Divide the photo-ionization rates by the appropriate neutral density
+                    // (part of the photon-conserving rate prescription)
+                    phi /= nHI_p;
 
                     phi_ion[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
                 }
@@ -341,25 +346,52 @@ __global__ void evolve0D_gpu_new(
 // physical values of the cell. For now, this contains only the grey-
 // opacity test case
 // ========================================================================
-__device__ double photoion_rate_test_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & nHI,const double & sig)
+__device__ double photoion_rates_test_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & sig)
 {
     // Compute optical depth and ionization rate depending on whether the cell is optically thick or thin
     double tau_in = coldens_in * sig;
     double tau_out = coldens_out * sig;
 
-    // Divide the photo-ionization rates by the appropriate neutral density
-    // (part of the photon-conserving rate prescription)
+    
 
     // If cell is optically thick
     if (fabs(tau_out - tau_in) > TAU_PHOTO_LIMIT)
         // return strength * INV4PI / (Vfact * nHI) * (exp(-tau_in) - exp(-tau_out));
-        return (strength / (Vfact * nHI)) * (exp(-tau_in) - exp(-tau_out));
+        return (strength*S_STAR_REF / (Vfact)) * (exp(-tau_in) - exp(-tau_out));
     // If cell is optically thin
     else
         // return strength * INV4PI * sig * (tau_out - tau_in) / (Vfact) * exp(-tau_in);
-        return (strength / (Vfact * nHI)) * (tau_out - tau_in) * exp(-tau_in);
+        return (strength*S_STAR_REF / (Vfact)) * (tau_out - tau_in) * exp(-tau_in);
 }
 
+__device__ double photoion_rates_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & sig,
+    const double & minlogtau,const double & dlogtau,const int& NumTau)
+{
+    // Compute optical depth and ionization rate depending on whether the cell is optically thick or thin
+    double tau_in = coldens_in * sig;
+    double tau_out = coldens_out * sig;
+
+    double prefact = strength / Vfact;
+
+    double phi_photo_in = prefact * photo_lookuptable(photo_thin_table_dev,tau_in,minlogtau,dlogtau,NumTau);
+    double phi_photo_out = prefact * photo_lookuptable(photo_thin_table_dev,tau_out,minlogtau,dlogtau,NumTau);
+    return phi_photo_in - phi_photo_out;
+}
+
+__device__ double photo_lookuptable(double* photo_thin_table,const double & tau,const double & minlogtau,const double & dlogtau,const int & NumTau)
+{
+    double logtau;
+    double real_i, residual;
+    int i0, i1;
+    // Find table index and do linear interpolation
+    // Recall that tau(0) = 0 and tau(1:NumTau) ~ logspace(minlogtau,maxlogtau)
+    logtau = log10(max(1.0e-20,tau));
+    real_i = min(float(NumTau),max(0.0,1.0+(logtau-minlogtau)/dlogtau));
+    i0 = int( real_i );
+    i1 = min(NumTau, i0+1);
+    residual = real_i - double(i0);
+    return photo_thin_table[i0] + residual*(photo_thin_table[i1] - photo_thin_table[i0]);
+}
 
 // ========================================================================
 // Short-characteristics interpolation function, adapted from C2Ray
@@ -766,8 +798,8 @@ __global__ void evolve0D_gpu(
                 #if defined(LOCALRATES)
                 if (coldensh_in <= MAX_COLDENSH)
                 {
-                    double phi = photoion_rate_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,nHI_p,sig);
-                    phi_dev[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
+                    double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);
+                    phi_dev[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi/nHI_p;
                 }
                 #endif
             }
@@ -820,8 +852,8 @@ __global__ void do_rates(
         }
 
         cdh_out = cdh_in + path[mem_offst_gpu(pos[0],pos[1],pos[2],m1)]*nHI;
-        phi = photoion_rate_test_gpu(strength,cdh_in,cdh_out,vol_ph,nHI,sig);
-        phi_ion[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
+        phi = photoion_rates_test_gpu(strength,cdh_in,cdh_out,vol_ph,sig);
+        phi_ion[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi / nHI;
 
     } 
 }

@@ -13,8 +13,12 @@ inline __device__ bool in_box_gpu(const int & i,const int & j,const int & k,cons
     return (i >= 0 && i < N) && (j >= 0 && j < N) && (k >= 0 && k < N);
 }
 
-__device__ double photoion_rate_test_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & nHI,const double & sig);
+__device__ double photoion_rates_test_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & sig);
 
+__device__ double photoion_rates_gpu(const double & strength,const double & coldens_in,const double & coldens_out,
+    const double & Vfact,const double & sig,const double & minlogtau,const double & dlogtau,const int& NumTau);
+
+__device__ double photo_lookuptable(double*,const double &,const double &,const double &,const int &);
 
 void device_init(const int &);
 

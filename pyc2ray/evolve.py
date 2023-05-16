@@ -114,7 +114,7 @@ def evolve3D(dt,dr,normflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,
         # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
         nsubbox, photonloss = libc2ray.raytracing.do_all_sources(normflux,srcpos,max_subbox,subboxsize,
                                                                  coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,
-                                                                 photo_thin_table,minlogtau,dlogtau,)
+                                                                 photo_thin_table,minlogtau,dlogtau)
 
         #print(f"Average number of subboxes: {nsubbox/NumSrc:n}, Total photon loss: {photonloss:.3e}")
         printlog(f"Average number of subboxes: {nsubbox/NumSrc:n}, Total photon loss: {photonloss:.3e}",logfile,quiet)
