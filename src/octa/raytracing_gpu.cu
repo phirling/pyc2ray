@@ -352,9 +352,29 @@ __global__ void evolve0D_gpu_new(
 }
 
 // ========================================================================
-// Compute photoionization rate from in/out column density and other
-// physical values of the cell. For now, this contains only the grey-
-// opacity test case
+// Compute photoionization rate from in/out column density by looking up
+// values of the integral ∫L_v*e^(-τ_v)/hv in precalculated tables. These
+// tables are assumed to have been copied to device memory in advance using
+// photo_table_to_device()
+// ========================================================================
+__device__ double photoion_rates_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & sig,
+    const double* table,const double & minlogtau,const double & dlogtau,const int& NumTau)
+{
+    // Compute optical depth and ionization rate depending on whether the cell is optically thick or thin
+    double tau_in = coldens_in * sig;
+    double tau_out = coldens_out * sig;
+
+    double prefact = strength / Vfact;
+
+    double phi_photo_in = prefact * photo_lookuptable(table,tau_in,minlogtau,dlogtau,NumTau);
+    double phi_photo_out = prefact * photo_lookuptable(table,tau_out,minlogtau,dlogtau,NumTau);
+    return phi_photo_in - phi_photo_out;
+}
+
+// ========================================================================
+// Grey-opacity test case photoionization rate, computed from analytical
+// expression rather than using tables. To use this version, compile
+// with the -DGREY_NOTABLES flag
 // ========================================================================
 __device__ double photoion_rates_test_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & sig)
 {
@@ -374,27 +394,17 @@ __device__ double photoion_rates_test_gpu(const double & strength,const double &
         return (strength*S_STAR_REF / (Vfact)) * (tau_out - tau_in) * exp(-tau_in);
 }
 
-__device__ double photoion_rates_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & sig,
-    const double* table,const double & minlogtau,const double & dlogtau,const int& NumTau)
-{
-    // Compute optical depth and ionization rate depending on whether the cell is optically thick or thin
-    double tau_in = coldens_in * sig;
-    double tau_out = coldens_out * sig;
-
-    double prefact = strength / Vfact;
-
-    double phi_photo_in = prefact * photo_lookuptable(table,tau_in,minlogtau,dlogtau,NumTau);
-    double phi_photo_out = prefact * photo_lookuptable(table,tau_out,minlogtau,dlogtau,NumTau);
-    return phi_photo_in - phi_photo_out;
-}
-
+// ========================================================================
+// Utility function to look up the integral value corresponding to an
+// optical depth τ by doing linear interpolation.
+// ========================================================================
 __device__ double photo_lookuptable(const double* photo_thin_table,const double & tau,const double & minlogtau,const double & dlogtau,const int & NumTau)
 {
     double logtau;
     double real_i, residual;
     int i0, i1;
     // Find table index and do linear interpolation
-    // Recall that tau(0) = 0 and tau(1:NumTau) ~ logspace(minlogtau,maxlogtau)
+    // Recall that tau(0) = 0 and tau(1:NumTau) ~ logspace(minlogtau,maxlogtau) (so in reality the table has size NumTau+1)
     logtau = log10(max(1.0e-20,tau));
     real_i = min(float(NumTau),max(0.0,1.0+(logtau-minlogtau)/dlogtau));
     i0 = int( real_i );
@@ -402,6 +412,7 @@ __device__ double photo_lookuptable(const double* photo_thin_table,const double 
     residual = real_i - double(i0);
     return photo_thin_table[i0] + residual*(photo_thin_table[i1] - photo_thin_table[i0]);
 }
+
 
 // ========================================================================
 // Short-characteristics interpolation function, adapted from C2Ray
@@ -622,203 +633,7 @@ __device__ void cinterp_gpu(
 // OLD OR EXPERIMENTAL CODE. KEPT AS REFERENCE BUT UNUSED
 // ==========================================================================================================
 
-void do_source_octa_gpu(
-    int* srcpos,
-    double* srcstrength,
-    const int & ns,
-    const double & R,
-    double* coldensh_out,
-    const double & sig,
-    const double & dr,
-    double* ndens,
-    double* xh_av,
-    double* phi_ion,
-    const int & NumSrc,
-    const int & m1,
-    const double & minlogtau,
-    const double & dlogtau,
-    const int & NumTau)
-    {   
-        // For compatibility with c2ray, source position is stored in Fortran ordering (dim0: coordinate, dim1: src number)
-        int i0 = srcpos[NumSrc*ns];      //srcpos[0][ns]
-        int j0 = srcpos[1 + NumSrc*ns];  //srcpos[1][ns]
-        int k0 = srcpos[2 + NumSrc*ns];  //srcpos[2][ns]
-        
-        double strength = srcstrength[ns];
-        // Source position
-        //std::vector<int> srcpos_p = {srcpos[0][ns], srcpos[1][ns], srcpos[2][ns]};
 
-        auto meshsize = m1*m1*m1*sizeof(double);
-        // First, do the source cell
-        //std::vector<int> rtpos = {srcpos_p[0],srcpos_p[1],srcpos_p[2]};
-        //evolve0D(rtpos,srcpos_p,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,NumSrc,m1);
-        //double path = 0.5*dr;
-        //double src_cell_val = ndens[mem_offst(i0,j0,k0,m1)] * path * (1.0 - xh_av[mem_offst(i0,j0,k0,m1)]);
-
-        //std::cout << coldensh_out[mem_offst(i0,j0,k0,m1)] << std::endl;
-        // Sweep the grid by treating the faces of octahedra of increasing size.
-        int max_q = std::ceil(1.73205080757 * R); //std::ceil(1.5 * m1);
-
-        // double* coldensh_out_dev;
-        // double* ndens_dev;
-        // double* xh_av_dev;
-        // double* phi_ion_dev;
-
-        // cudaMalloc(&coldensh_out_dev,meshsize);
-        // cudaMalloc(&ndens_dev,meshsize);
-        // cudaMalloc(&xh_av_dev,meshsize);
-        // cudaMalloc(&phi_ion_dev,meshsize);
-
-        thrust::device_ptr<double> cdh(cdh_dev);
-        thrust::device_ptr<double> ion(phi_dev);
-        thrust::fill(cdh,cdh + m1*m1*m1,0.0);
-
-        // "RATES": do ionization rate computation using separate kernel. "LOCALRATES": do it in evolve0D
-        #if defined(LOCALRATES) || defined(RATES)
-        thrust::fill(ion,ion + m1*m1*m1,0.0);
-        #endif
-        //thrust::fill(cdh + mem_offst(i0,j0,k0,m1), cdh + mem_offst(i0,j0,k0,m1) +1,src_cell_val);
-
-        // cudaMemcpy(coldensh_out_dev,coldensh_out,meshsize,cudaMemcpyHostToDevice);
-        cudaMemcpy(n_dev,ndens,meshsize,cudaMemcpyHostToDevice);
-        cudaMemcpy(x_dev,xh_av,meshsize,cudaMemcpyHostToDevice);
-        //cudaMemcpy(phi_dev,phi_ion,meshsize,cudaMemcpyHostToDevice);
-
-        // cudaStream_t stream[8];
-        // for (int a = 0; a < 8 ; a++)
-        // {
-        //     cudaStreamCreate(&stream[a]);
-        // }
-        int bl = 8;
-        dim3 gs(1,1,2);
-        dim3 bs(bl,bl);
-        for (int q=0 ; q <= max_q; q++)
-        {   
-            int grl = (2*q + 1) / bl + 1;
-            gs.x = grl;
-            gs.y = grl;
-            evolve0D_gpu_new<<<gs,bs>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau);
-            cudaDeviceSynchronize();
-
-            auto error = cudaGetLastError();
-            if(error != cudaSuccess) {
-                std::cout << "error at q=" << q << std::endl;
-                throw std::runtime_error("Error Launching Kernel: "
-                                        + std::string(cudaGetErrorName(error)) + " - "
-                                        + std::string(cudaGetErrorString(error)));
-            }
-        }
-
-        // for (int a = 0; a < 8 ; a++)
-        // {
-        //     cudaStreamDestroy(stream[a]);
-        // }
-
-        auto error = cudaMemcpy(coldensh_out,cdh_dev,meshsize,cudaMemcpyDeviceToHost);
-        #if defined(LOCALRATES) || defined(RATES)
-        error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
-        #endif
-    }
-
-
-__global__ void evolve0D_gpu(
-    const int q,
-    const int i0,
-    const int j0,
-    const int k0,
-    const double strength,
-    double* coldensh_out,
-    const double sig,
-    const double dr,
-    const double* ndens,
-    const double* xh_av,
-    double* phi_dev,
-    const int m1,
-    const int d1,
-    const int d2,
-    const int d3)
-{
-    if (blockIdx.x <= q && threadIdx.x <= blockIdx.x)
-    {   
-        // integer :: nx,nd,idim                                         // loop counters (used in LLS)
-        //std::vector<int> pos(3);                                     // RT position modulo periodicity
-        int pos[3];
-        //double xs,ys,zs;                                   // Distances between source and cell
-        //double dist2,
-        double path;
-        //double vol_ph;                          // Distance parameters
-        double coldensh_in;                                // Column density to the cell
-        // bool stop_rad_transfer;                                    // Flag to stop column density when above max column density
-        double nHI_p;                                      // Local density of neutral hydrogen in the cell
-        double xh_av_p;                                    // Local ionization fraction of cell
-        //double phi_ion_p;                                  // Local photoionization rate of cell (to be computed)
-        //stop_rad_transfer = false;
-        #if defined(LOCALRATES)
-        double xs, ys, zs;
-        double dist2;
-        double vol_ph;
-        #endif
-
-        int k = k0 + d1*(q-blockIdx.x);
-        int i = i0 + d2*(blockIdx.x - threadIdx.x);
-        int j = j0 + d3*(blockIdx.x - (blockIdx.x - threadIdx.x));
-
-        #if !defined(PERIODIC)
-        if (in_box_gpu(i,j,k,m1))
-        #endif
-        {
-            pos[0] = modulo_gpu(i,m1);
-            pos[1] = modulo_gpu(j,m1);
-            pos[2] = modulo_gpu(k,m1);
-
-            //srcpos_p[0] = srcpos[0][ns];
-            //srcpos_p[1] = srcpos[1][ns];
-            //srcpos_p[2] = srcpos[2][ns];
-
-            // xh_av_p = 1e-3;
-            // nHI_p = (1.0 - xh_av_p);
-
-            xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
-            nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
-
-            if (coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
-            {
-                if (i == i0 &&
-                    j == j0 &&
-                    k == k0)
-                {
-                    coldensh_in = 0.0;
-                    path = 0.5*dr;
-                    #if defined(LOCALRATES)
-                    vol_ph = dr*dr*dr / (4*M_PI);
-                    #endif
-                }
-                else
-                {
-                    cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
-                    path *= dr;
-                    #if defined(LOCALRATES)
-                    // Find the distance to the source
-                    xs = dr*(i-i0);
-                    ys = dr*(j-j0);
-                    zs = dr*(k-k0);
-                    dist2=xs*xs+ys*ys+zs*zs;
-                    vol_ph = dist2 * path;
-                    #endif
-                }
-                coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
-                
-                #if defined(LOCALRATES)
-                if (coldensh_in <= MAX_COLDENSH)
-                {
-                    double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);
-                    phi_dev[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi/nHI_p;
-                }
-                #endif
-            }
-        }
-    }
-}
 
 // WIP: compute rates in a separate step ? This would require having a path and coldensh_in grid (replace cdh_out by path)
 __global__ void do_rates(

@@ -4,8 +4,19 @@
 #include <numpy/arrayobject.h>
 #include "raytracing_gpu.cuh"
 
+// ===========================================================================
+// OCTA Python C-extension module
+// Mostly boilerplate code, this file contains the wrappers for python
+// to access the C++ functions of the OCTA library. Care has to be taken
+// mostly with the numpy array arguments, since the underlying raw C pointer
+// is passed directly to the C++ functions without additional type checking.
+// ===========================================================================
+
 extern "C"
-{
+{   
+    // ========================================================================
+    // Raytrace all sources and compute photoionization rates
+    // ========================================================================
     static PyObject *
     octa_do_all_sources(PyObject *self, PyObject *args)
     {
@@ -66,68 +77,9 @@ extern "C"
         return Py_None;
     }
 
-    static PyObject *
-    octa_do_source(PyObject *self, PyObject *args)
-    {
-        PyArrayObject * srcpos;
-        PyArrayObject * srcflux;
-        int ns;
-        double R;
-        PyArrayObject * coldensh_out;
-        double sig;
-        double dr;
-        PyArrayObject * ndens;
-        PyArrayObject * xh_av;
-        PyArrayObject * phi_ion;
-        int NumSrc;
-        int m1;
-        double minlogtau;
-        double dlogtau;
-        int NumTau;
-
-        if (!PyArg_ParseTuple(args,"OOidOddOOOiiddi",
-        &srcpos,
-        &srcflux,
-        &ns,
-        &R,
-        &coldensh_out,
-        &sig,
-        &dr,
-        &ndens,
-        &xh_av,
-        &phi_ion,
-        &NumSrc,
-        &m1,
-        &minlogtau,
-        &dlogtau,
-        &NumTau))
-            return NULL;
-        
-        // Error checking
-        if (!PyArray_Check(srcpos) || !PyArray_ISINTEGER(srcpos))
-        {
-            PyErr_SetString(PyExc_TypeError,"Srcpos must be Array of type int");
-            return NULL;
-        }
-        if (!PyArray_Check(coldensh_out) || PyArray_TYPE(coldensh_out) != NPY_DOUBLE)
-        {
-            PyErr_SetString(PyExc_TypeError,"coldensh_out must be Array of type double");
-            return NULL;
-        }
-
-        // Get Array data
-        int * srcpos_data = (int*)PyArray_DATA(srcpos);
-        double * srcflux_data = (double*)PyArray_DATA(srcflux);
-        double * coldensh_out_data = (double*)PyArray_DATA(coldensh_out);
-        double * ndens_data = (double*)PyArray_DATA(ndens);
-        double * phi_ion_data = (double*)PyArray_DATA(phi_ion);
-        double * xh_av_data = (double*)PyArray_DATA(xh_av);
-
-        do_source_octa_gpu(srcpos_data,srcflux_data,ns,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1,minlogtau,dlogtau,NumTau);
-
-        return Py_None;
-    }
-
+    // ========================================================================
+    // Allocate GPU memory for grid data
+    // ========================================================================
     static PyObject *
     octa_device_init(PyObject *self, PyObject *args)
     {
@@ -138,6 +90,9 @@ extern "C"
         return Py_None;
     }
 
+    // ========================================================================
+    // Deallocate GPU memory
+    // ========================================================================
     static PyObject *
     octa_device_close(PyObject *self, PyObject *args)
     {
@@ -145,6 +100,9 @@ extern "C"
         return Py_None;
     }
 
+    // ========================================================================
+    // Copy density grid to GPU
+    // ========================================================================
     static PyObject *
     octa_density_to_device(PyObject *self, PyObject *args)
     {
@@ -159,6 +117,9 @@ extern "C"
         return Py_None;
     }
 
+    // ========================================================================
+    // Copy radiation table to GPU
+    // ========================================================================
     static PyObject *
     octa_photo_table_to_device(PyObject *self, PyObject *args)
     {
@@ -173,8 +134,10 @@ extern "C"
         return Py_None;
     }
 
+    // ========================================================================
+    // Define module functions and initialization function
+    // ========================================================================
     static PyMethodDef octaMethods[] = {
-        {"do_source",  octa_do_source, METH_VARARGS,"Do OCTA raytracing (GPU)"},
         {"do_all_sources",  octa_do_all_sources, METH_VARARGS,"Do OCTA raytracing (GPU)"},
         {"device_init",  octa_device_init, METH_VARARGS,"Free GPU memory"},
         {"device_close",  octa_device_close, METH_VARARGS,"Free GPU memory"},

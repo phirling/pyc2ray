@@ -57,6 +57,11 @@ from .radiation import BlackBodySource
 # The best solution I've found here is to just save the comoving cell
 # size dr_c and always set the current cell size to dr = a(z)*dr_c,
 # rather than "diluting" dr iteratively like the density.
+#
+# TODO ideas:
+# * Add "default" values for YAML parameter file so that if the user
+# omits a value in the file, a default value is used instead rather
+# than throwing an error
 # ==================================================================
 
 # Conversion Factors. These will be replaced by astropy constants later on

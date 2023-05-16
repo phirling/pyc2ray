@@ -12,7 +12,6 @@ __all__ = ['evolve3D', 'evolve3D_octa']
 # ===================================================================================================
 # evolve3D routine: iterate between raytracing <-> chemistry to solve for the ionization fraction
 # ===================================================================================================
-
 def evolve3D(dt,dr,normflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
              photo_thin_table,minlogtau,dlogtau,loss_fraction=1e-2,logfile="pyC2Ray.log",quiet=False):
     
@@ -153,7 +152,6 @@ def evolve3D(dt,dr,normflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,
 # ===================================================================================================
 # evolve3D routine with OCTA raytracing
 # ===================================================================================================
-
 def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
                   minlogtau,dlogtau,NumTau,logfile="pyC2Ray.log",quiet=False):
     """Evolves the ionization fraction over one timestep for the whole grid, using OCTA raytracing
@@ -201,6 +199,8 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
         Base 10 log of the minimum value of the table in τ (excluding τ = 0)
     dlogtau : float
         Step size of the logτ-table
+    NumTau : int
+        Number of table points
     logfile : str
         Name of the file to append logs to. Default: pyC2Ray.log
     quiet : bool
