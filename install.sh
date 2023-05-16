@@ -23,7 +23,7 @@ cp libc2ray.*.so ../../pyc2ray/lib
 cd ../octa/
 
 # copy Makefile
-cp Makefile Makefile_copy
+cp Makefile_copy Makefile
 
 # sostitute include path in Makefile
 sed -i 's,/insert_here_path_to_python_include,'"$PYTHON_INCLUDE"',' Makefile
@@ -33,6 +33,7 @@ make
 
 cp libocta.so ../../pyc2ray/lib
 
+#TODO: include path does not work for some reason. To check.
 #cd ../../pyc2ray
 #PYC2RAY_PATH=$(pwd)
 #export PYTHONPATH="$PYC2RAY_PATH:$PYTHONPATH"
