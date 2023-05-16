@@ -1,7 +1,8 @@
+#!/bin/bash
+
 # load Piz Daint (CSCS) modules
 module purge
 module load daint-gpu
-module load cudatoolkit/11.2.0_3.39-2.1__gf93aa1c
 module load gcc/9.3.0
 module load nvidia
 
