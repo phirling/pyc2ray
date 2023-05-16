@@ -1,7 +1,7 @@
 CXX=g++
 NVCC=nvcc
-PYTHONINC+=-I/usr/include/python3.10 -I/usr/include/python3.6m
-NUMPYINC+=-I/home/phirling/miniconda3/envs/astro/lib/python3.10/site-packages/numpy/core/include -I/users/phirling/miniconda3/envs/ion/lib/python3.10/site-packages/numpy/core/include
+PYTHONINC+=-I/insert_here_path_to_python_include
+NUMPYINC+=-I/insert_here_path_to_numpy_include
 
 # Include Paths for both local and piz daint
 INC+=$(PYTHONINC) $(NUMPYINC)
