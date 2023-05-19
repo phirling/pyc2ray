@@ -28,7 +28,7 @@ sim = pc2r.C2Ray(paramfile, N, use_octa)
 zred_array = sim.generate_redshift_array(numzred,t_evol/numzred)
 
 # Read sources
-srcpos, srcstrength, numsrc = sim.read_sources("source.txt",1)
+srcpos, srcstrength = sim.read_sources("source.txt",1)
 
 # Measure time
 tinit = time.time()
