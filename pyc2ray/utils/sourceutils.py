@@ -3,7 +3,7 @@ import numpy as np
 # Reference source strength, used to normalize flux. Has to be equal to that set in
 # src/c2ray/photorates.f90.
 
-def read_sources(file,numsrc,mode,S_star_ref = 1e48):
+def read_sources(file, numsrc, mode, S_star_ref=1e48):
     """ Read in a source file formatted for C2Ray
     
     Reads in a source list file formatted for the Fortran version of C2Ray and returns its contents
@@ -34,7 +34,7 @@ def read_sources(file,numsrc,mode,S_star_ref = 1e48):
     with open(file,"r") as f:
         # Exclude first row and last column which are just conventional for c2ray
         #inp = np.loadtxt(f,skiprows=1)[:,:-1]
-        inp = np.loadtxt(f,skiprows=1,usecols=(0,1,2,3),ndmin=2) # < -- ndmin = 2 in case of single source in the file
+        inp = np.loadtxt(f, skiprows=1, usecols=(0,1,2,3), ndmin=2) # < -- ndmin = 2 in case of single source in the file
         
         max_n = inp.shape[0]
         

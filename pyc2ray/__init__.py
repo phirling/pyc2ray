@@ -3,4 +3,4 @@ from .octa_core import *            # Import and Initialization functions for t
 from .raytracing import *           # Raytracing subroutines only
 from .chemistry import *            # Chemistry subroutines only (not yet implemented)
 from .utils import *                # Utility methods: read source files, parameters, write log files, ...
-from .objects import C2Ray
+from .objects import C2Ray, C2Ray_test
