@@ -48,7 +48,7 @@ for k in range(len(zred_array)-1):
     sim.write_output(zi)
 
     # Set density field
-    sim.read_density(zi)
+    sim.read_density(zi, zdens)
 
     # Read sources
     srcpos, normflux = sim.read_sources(zi)

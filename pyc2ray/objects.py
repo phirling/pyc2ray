@@ -516,6 +516,8 @@ class C2Ray:
         """
         device_close()
 
+# ==========================================================================================
+
 
 class C2Ray_test:
     def __init__(self,paramfile,Nmesh,use_octa):
