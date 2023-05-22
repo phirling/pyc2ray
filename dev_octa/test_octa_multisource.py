@@ -1,7 +1,6 @@
 import sys
 sys.path.append("../")
 
-import octa
 import pyc2ray as pc2r
 from pyc2ray.visualization import zTomography_rates
 import numpy as np
