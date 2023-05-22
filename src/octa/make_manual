@@ -1,0 +1,23 @@
+CXX=g++
+NVCC=nvcc
+PYTHONINC+=-I/usr/include/python3.10 -I/usr/include/python3.6m
+NUMPYINC+=-I/home/phirling/miniconda3/envs/astro/lib/python3.10/site-packages/numpy/core/include -I/users/phirling/miniconda3/envs/ion/lib/python3.10/site-packages/numpy/core/include
+
+# Include Paths for both local and piz daint
+INC+=$(PYTHONINC) $(NUMPYINC)
+CXXFLAGS+=-std=c++14 -O2 -pedantic -fPIC -D PERIODIC -D RATES #-Wall -Wextra -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-overflow=5 -Wswitch-default -Wundef -Werror -Wno-unused
+CUDAFLAGS+=--gpu-architecture=sm_60 -std=c++14 -O2  -Xcompiler -fPIC -D PERIODIC -D LOCALRATES --gpu-architecture=sm_60 #-Wall -Wextra -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-overflow=5 -Wswitch-default -Wundef -Werror -Wno-unused
+
+all: libocta.so
+
+libocta.so: raytracing_gpu.o rtmodule.o
+	$(NVCC) $(CUDAFLAGS) $(INC) -shared -o libocta.so raytracing_gpu.o rtmodule.o
+
+raytracing_gpu.o: raytracing_gpu.cu
+	$(NVCC) $(CUDAFLAGS) $(INC) -dc raytracing_gpu.cu
+
+rtmodule.o: rtmodule.cpp
+	$(NVCC) $(CUDAFLAGS) $(INC) -c rtmodule.cpp
+
+clean:
+	rm *.so *.o
