@@ -1,5 +1,5 @@
 import sys
-sys.path.append("../../")
+sys.path.append("../../../")
 import pyc2ray as pc2r
 import numpy as np
 import matplotlib.pyplot as plt
