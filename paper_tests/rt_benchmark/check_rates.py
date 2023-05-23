@@ -3,6 +3,13 @@ sys.path.append("../../")
 import pyc2ray as pc2r
 import numpy as np
 
+# =========================================
+# There seems to be a bug with the tables,
+# pyc2ray and OCTA dont have quite the same
+# values in some cells, probably to do with
+# difference between C++ and Fortran in rounding
+# =========================================
+
 kpc = 3.086e21
 
 # Main parameters
