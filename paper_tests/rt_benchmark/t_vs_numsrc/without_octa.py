@@ -35,20 +35,24 @@ pl_index = 2.8
 radsource = pc2r.radiation.BlackBodySource(Teff, grey, freq0, pl_index)
 photo_thin_table = radsource.make_photo_table(tau, freq0, 10*freq0, 1e48)
 
-numsrc = [1, 10, 50, 100, 500, 1000]
+#numsrc = [1, 10, 50, 100, 500, 1000]
+#numsrc = [300,750]
+#numsrc = [1500]
+numsrc = [1, 10, 50, 100, 300, 500, 750, 1000, 1500]
 timings = []
 mean_phi = []
 max_phi = []
 
 # do empty rt
-srcpos, normflux = pc2r.read_sources("sources.txt", 1, "pyc2ray")
+srcpos, normflux = pc2r.read_sources("sources_more.txt", 1, "pyc2ray")
 phi_ion, nsb, photonloss = pc2r.raytracing.do_all_sources(dr, normflux, srcpos, 6,5, ndens, xh_av, sig,photo_thin_table, minlogtau, dlogtau)
 
 # Raytrace
-r = 100
+#r = 100
+r = 50
 for ns in numsrc:
     # Read example sources
-    srcpos, normflux = pc2r.read_sources("sources.txt", ns, "pyc2ray")
+    srcpos, normflux = pc2r.read_sources("sources_more.txt", ns, "pyc2ray")
     print(f"Doing {ns:n} sources, r = {r:.2f}")
     t1 = time.perf_counter()
     phi_ion, nsb, photonloss = pc2r.raytracing.do_all_sources(dr, normflux, srcpos, r+1,r, ndens, xh_av, sig,photo_thin_table, minlogtau, dlogtau)
@@ -63,9 +67,10 @@ max_phi = np.array(max_phi)
 
 #plt.imshow(phi_ion[:,:,323],norm='log')
 #plt.show()
-with open("ionrate_c2ray.pkl","wb") as f:
-    pkl.dump(phi_ion,f)
+#with open("ionrate_c2ray.pkl","wb") as f:
+#    pkl.dump(phi_ion,f)
 
 output = np.stack((numsrc,timings,mean_phi,max_phi),axis=1)
 print(output)
-np.savetxt("result_octa.out",output,("%.2f %.6f %.6e %.6e"))
+np.savetxt("result_no_octa.out",output,("%.2f %.6f %.6e %.6e"))
+#np.savetxt("result_no_octa_compl.out",output,("%.2f %.6f %.6e %.6e"))

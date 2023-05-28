@@ -8,7 +8,7 @@
 #SBATCH --constraint=gpu
 #SBATCH --gres=gpu:1
 
-#SBATCH --time=08:00:00
+#SBATCH --time=20:00:00
 
 #SBATCH --output=logs/c2ray.%j.out
 #SBATCH --error=logs/c2ray.%j.err
@@ -17,6 +17,7 @@
 
 #export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 #export CRAY_CUDA_MPS=1
-export LD_LIBRARY_PATH=/users/phirling/miniconda3/envs/ion/lib:$LD_LIBRARY_PATH
+#export LD_LIBRARY_PATH=/users/phirling/miniconda3/envs/ion/lib:$LD_LIBRARY_PATH
+conda activate ion
 
 srun python without_octa.py

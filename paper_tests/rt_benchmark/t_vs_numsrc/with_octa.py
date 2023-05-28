@@ -39,20 +39,23 @@ photo_thin_table = radsource.make_photo_table(tau, freq0, 10*freq0, 1e48)
 pc2r.device_init(N)
 pc2r.photo_table_to_device(photo_thin_table)
 
-numsrc = [1, 10, 50, 100, 500, 1000]
+#numsrc = [1, 10, 50, 100, 500, 1000]
+#numsrc = [300,750]
+#numsrc = [1500]
+numsrc = [1, 10, 50, 100, 300, 500, 750, 1000, 1500]
 timings = []
 mean_phi = []
 max_phi = []
 
 # do empty rt
-srcpos, normflux = pc2r.read_sources("sources.txt", 1, "pyc2ray_octa")
+srcpos, normflux = pc2r.read_sources("sources_more.txt", 1, "pyc2ray_octa")
 phi_ion = pc2r.raytracing.do_all_sources_octa(dr, normflux, srcpos, 20, ndens, xh_av, sig, minlogtau, dlogtau,NumTau)
 
 # Raytrace
-r = 100
+r = 50
 for ns in numsrc:
     # Read example sources
-    srcpos, normflux = pc2r.read_sources("sources.txt", ns, "pyc2ray_octa")
+    srcpos, normflux = pc2r.read_sources("sources_more.txt", ns, "pyc2ray_octa")
     print(f"Doing r = {r:.1f}")
     t1 = time.perf_counter()
     phi_ion = pc2r.raytracing.do_all_sources_octa(dr, normflux, srcpos, r, ndens, xh_av, sig, minlogtau, dlogtau,NumTau)
@@ -67,9 +70,10 @@ max_phi = np.array(max_phi)
 
 pc2r.device_close()
 
-with open("ionrate_octa.pkl","wb") as f:
-    pkl.dump(phi_ion,f)
+#with open("ionrate_octa.pkl","wb") as f:
+#    pkl.dump(phi_ion,f)
 
 output = np.stack((numsrc,timings,mean_phi,max_phi),axis=1)
 print(output)
 np.savetxt("result_octa.out",output,("%.2f %.6f %.6e %.6e"))
+#np.savetxt("result_octa_compl.out",output,("%.2f %.6f %.6e %.6e"))

@@ -18,7 +18,8 @@ ndens = 1e-3 * np.ones((N,N,N),order='F')       # Number density of Hydrogen in 
 xh_av = 1.2e-3 * np.ones((N,N,N),order='F')     # Current time-averaged ionized fraction of hydrogen
 
 # Read example sources
-srcpos, normflux = pc2r.read_sources("sources.txt", 100, "pyc2ray_octa")
+srcpos, normflux = pc2r.read_sources("sources.txt", 10, "pyc2ray_octa")
+#srcpos, normflux = pc2r.read_sources("sources_more.txt", 1000, "pyc2ray_octa")
 
 # Set up optical depth table
 minlogtau = -20
@@ -41,6 +42,7 @@ photo_thin_table = radsource.make_photo_table(tau, freq0, 10*freq0, 1e48)
 pc2r.device_init(N)
 pc2r.photo_table_to_device(photo_thin_table)
 
+#radii = np.linspace(10,200,20)
 radii = np.linspace(10,200,20)
 timings = []
 mean_phi = []

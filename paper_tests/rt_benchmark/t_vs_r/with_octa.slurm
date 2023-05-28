@@ -17,6 +17,7 @@
 
 #export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 #export CRAY_CUDA_MPS=1
-export LD_LIBRARY_PATH=/users/phirling/miniconda3/envs/ion/lib:$LD_LIBRARY_PATH
+#export LD_LIBRARY_PATH=/users/phirling/miniconda3/envs/ion/lib:$LD_LIBRARY_PATH
+conda activate ion
 
 srun python with_octa.py

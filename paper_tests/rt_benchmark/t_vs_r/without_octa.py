@@ -18,7 +18,8 @@ ndens = 1e-3 * np.ones((N,N,N),order='F')       # Number density of Hydrogen in 
 xh_av = 1.2e-3 * np.ones((N,N,N),order='F')     # Current time-averaged ionized fraction of hydrogen
 
 # Read example sources
-srcpos, normflux = pc2r.read_sources("sources.txt", 100, "pyc2ray")
+#srcpos, normflux = pc2r.read_sources("sources.txt", 100, "pyc2ray")
+srcpos, normflux = pc2r.read_sources("sources_more.txt", 10, "pyc2ray")
 
 # Set up optical depth table
 minlogtau = -20
