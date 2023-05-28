@@ -13,22 +13,27 @@ parser.add_argument("-interp",type=str,default=None)
 parser.add_argument("-boxsize",type=float,default=None)
 parser.add_argument("-t",type=float,default=None)
 parser.add_argument("--zavg",action='store_true')
+parser.add_argument("--ionized",action='store_true')
 parser.add_argument("-o",type=str,default=None)
 
 args = parser.parse_args()
 
 with open(args.file[0],"rb") as f:
-    xHII = 1.0 - pkl.load(f)
+    if args.ionized:
+        grid = pkl.load(f)
+    else:
+        grid = 1.0 - pkl.load(f)
 
-Nmesh = xHII.shape[0]
+Nmesh = grid.shape[0]
 
 if not args.zavg:
     zz = int(args.z)
-    tomo = zTomography_xfrac(xHII,zz,incr=1,xmin=1e-4,cmap=args.cmap)
+    tomo = zTomography_xfrac(grid,zz,incr=1,xmin=1e-4,cmap=args.cmap)
 else:
-    x_zavg = xHII.mean(axis=2)
+    x_zavg = grid.mean(axis=2)
     fig, ax = plt.subplots(figsize=(6,6))
-    im, cb = xfrac_plot(x_zavg,ax,3e-4,cmap=args.cmap,interp=args.interp,boxsize=args.boxsize,time=args.t)
+    if args.ionized: im, cb = xfrac_plot(x_zavg,ax,cmap=args.cmap,interp=args.interp,boxsize=args.boxsize,time=args.t)
+    else: im, cb = xfrac_plot(x_zavg,ax,3e-4,cmap=args.cmap,interp=args.interp,boxsize=args.boxsize,time=args.t)
     ax.set_title(f"z-Averaged Neutral H Fraction, $N_{{mesh}}={Nmesh:n}$")
 
 if args.o is None:

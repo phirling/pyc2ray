@@ -10,6 +10,8 @@ __pycache__/
 *.gch
 *.o
 
+*.dat
+
 # debug folder
 debug/
 
