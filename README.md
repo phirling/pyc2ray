@@ -1,5 +1,5 @@
 # pyc2ray: A Python-wrapped and GPU-accelerated Update of C2Ray
-`pyc2ray` is a Python package that wraps [C2Ray](https://ui.adsabs.harvard.edu/link_gateway/2006NewA...11..374M/doi:10.48550/arXiv.astro-ph/0508416) (G. Mellema, I.T. Illiev, A. Alvarez and P.R. Shapiro), a radiative transfer code widely used for cosmic epoch of reionization simulations, and makes its usage accessible and modular through python.
+`pyc2ray` is a Python package that wraps [C2Ray](https://github.com/garrelt/C2-Ray3Dm/tree/factorization) [(G. Mellema, I.T. Illiev, A. Alvarez and P.R. Shapiro)](https://ui.adsabs.harvard.edu/link_gateway/2006NewA...11..374M/doi:10.48550/arXiv.astro-ph/0508416), a radiative transfer code widely used for cosmic epoch of reionization simulations, and makes its usage accessible and modular through python.
 
 The core subroutines of C2Ray are implemented in compiled Fortran 90 and accessed as an extension module
 built using `f2py`. The other aspects of the RT simulation, such as configuration, I/O, cosmology, source modelling, etc.
