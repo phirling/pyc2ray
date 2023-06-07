@@ -6,7 +6,7 @@ h_over_k = (ac.h/(ac.k_B)).cgs.value
 two_pi_over_c_square = 2*np.pi/ac.c.cgs.value**2
     
 class BlackBodySource:
-    def __init__(self,temp,grey,freq0,pl_index) -> None:
+    def __init__(self, temp, grey, freq0, pl_index) -> None:
         self.temp = temp
         self.grey = grey
         self.freq0 = freq0

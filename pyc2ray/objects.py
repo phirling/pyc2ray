@@ -13,6 +13,7 @@ except ImportError:
     from yaml import SafeLoader
 from .utils.logutils import printlog
 from .utils.sourceutils import read_sources
+from .utils.other_utils import get_redshifts_from_output, find_bins
 from .evolve import evolve3D, evolve3D_octa
 from .octa_core import device_init, device_close, photo_table_to_device
 from .radiation import BlackBodySource
@@ -66,12 +67,13 @@ from .radiation import BlackBodySource
 # ==================================================================
 
 # Conversion Factors. These will be replaced by astropy constants later on
-ev2k = 1.0/8.617e-05        # eV to Kelvin
-pc = 3.086e18               # parsec
-kpc = 1e3*pc                # kiloparsec
-Mpc = 1e6*pc                # megaparsec
-YEAR = 3.15576E+07
-ev2fr=0.241838e15
+ev2k = 1.0/8.617e-05         # eV to Kelvin
+pc = (1*u.pc).to('cm').value # parsec in cm
+kpc = 1e3*pc                 # kiloparsec in cm
+Mpc = 1e6*pc                 # megaparsec in cm
+YEAR = (1*u.yr).to('s').value
+ev2fr = 0.241838e15
+msun2g = (1*u.Msun).to('g').value  # solar mass to grams
 
 class C2Ray:
     def __init__(self,paramfile,Nmesh,use_octa):
@@ -107,8 +109,9 @@ class C2Ray:
         self._grid_init()
         self._cosmology_init()
         self._output_init()
-        self._material_init()
         self._redshift_init()
+        self._material_init()
+        self._sources_init()
         self._radiation_init()
 
     # =====================================================================================================
@@ -138,7 +141,7 @@ class C2Ray:
         self.printlog(f"dt [years]: {dt/YEAR:.3e}")
         return dt
     
-    def evolve3D(self,dt,normflux,srcpos,r_RT,max_subbox):
+    def evolve3D(self, dt, normflux, srcpos, r_RT, max_subbox):
         """Evolve the grid over one timestep
 
         Raytrace all sources, compute cumulative photoionization rate of each cell and
@@ -171,7 +174,7 @@ class C2Ray:
                                              self.temph0, self.abu_c,self.photo_thin_table,self.minlogtau,self.dlogtau,
                                              self.loss_fraction, self.logfile)
 
-    def cosmo_evolve(self,dt):
+    def cosmo_evolve(self, dt):
         """Evolve cosmology over a timestep
 
         Note that if cosmological is set to false in the parameter file, this
@@ -206,7 +209,7 @@ class C2Ray:
     # =====================================================================================================
     # I/O, MATERIAL AND SOURCES METHODS
     # =====================================================================================================
-    def read_sources(self, file, n): # >:( trgeoip
+    def read_sources(self, file, mass='hm'): # >:( trgeoip
         """Read sources from a C2Ray-formatted file
 
         The way sources are dealt with is still open and will change significantly
@@ -241,9 +244,26 @@ class C2Ray:
         numsrc : int
             Number of sources read from the file
         """
-        if self.octa: mode = 'pyc2ray_octa'
-        else: mode = 'pyc2ray'
-        return read_sources(file, n, mode)
+        S_star_ref = 1e48
+        
+        # TODO: automatic selection of low mass or high mass. For the moment only high mass
+        mass2phot = msun2g * self.fgamma_hm * self.cosmology.Ob0 / (self.mean_molecular * c.m_p.cgs.value * self.ts * self.cosmology.Om0)    
+        
+        src = t2c.SourceFile(filename=file, mass=mass)
+
+        if self.octa: 
+            # pyc2ray_octa
+            srcpos = src.sources_list[:, :3].T.astype('int64')
+            srcpos = np.ravel(srcpos,order='F')
+            normflux = src.sources_list[:, -1].astype('float32') * mass2phot / S_star_ref
+        else:
+            # pyc2ray
+            srcpos = src.sources_list[:, :3].T.astype('int32')
+            normflux = src.sources_list[:, -1].astype('float64') * mass2phot / S_star_ref
+
+        self.printlog('\n---- Reading source file with total of %d ionizing source:\n%s' %(np.count_nonzero(normflux), file))
+        self.printlog(' min, max source mass : %.3e  %.3e [Msun] and min, mean, max number of ionising sources : %.3e  %.3e  %.3e [1/s]' %(src.sources_list[:, -1].min(), src.sources_list[:, -1].max(), normflux.min()*S_star_ref, normflux.mean()*S_star_ref, normflux.max()*S_star_ref))
+        return srcpos, normflux
     
     def read_density(self, z):
         """ Read coarser density field from C2Ray-formatted file
@@ -266,8 +286,20 @@ class C2Ray:
             redshift = z
         else:
             redshift = self.zred_0
+
+        # redshift bin for the current redshift based on the density redshift
+        low_z, high_z = find_bins(redshift, self.zred_density)
         
-        self.ndens = t2c.DensityFile(filename='%scoarser_densities/%.3fn_all.dat' %(self.inputs_basename, z)).cgs_density * (1+redshift)**3
+        if(high_z != self.prev_zdens):
+            file = '%scoarser_densities/%.3fn_all.dat' %(self.inputs_basename, high_z)
+            self.printlog(f'\n---- Reading density file:\n '+file)
+            self.ndens = t2c.DensityFile(filename=file).cgs_density / (self.mean_molecular * c.m_p.cgs.value)* (1+redshift)**3
+            self.printlog(' min, mean and max density : %.3e  %.3e  %.3e [1/cm3]' %(self.ndens.min(), self.ndens.mean(), self.ndens.max()))
+            self.prev_zdens = high_z
+        else:
+            # no need to re-read the same file again
+            # TODO: in the future use this values for a 3D interpolation for the density (can be extended to sources too)
+            pass
 
     def printlog(self,s,quiet=False):
         """Print to log file and standard output
@@ -279,22 +311,7 @@ class C2Ray:
         quiet : bool
             Whether to print only to log file or also to standard output (default)
         """
-        printlog(s,self.logfile,quiet)
-
-    def density_init(self,z):
-        """Set density at redshift z
-
-        For now, this simply sets the density to a constant value,
-        specified in the parameter file, that is scaled to redshift
-        if the run is cosmological.
-
-        Parameters
-        ----------
-        z : float
-            Redshift slice
-        
-        """
-        self.set_constant_average_density(self.avg_dens, z)
+        printlog(s, self.logfile, quiet)
 
     def write_output(self,z):
         """Write ionization fraction & ionization rates as pickle files
@@ -304,15 +321,15 @@ class C2Ray:
         z : float
             Redshift (used to name the file)
         """
-        suffix = f"_{z:.3f}.pkl"
+        suffix = f"_{z:.3f}.dat"
         t2c.save_cbin(filename=self.results_basename + "xfrac" + suffix, data=self.xh)
         t2c.save_cbin(filename=self.results_basename + "IonRates" + suffix, data=self.phi_ion)
-        """
-        with open(self.results_basename + "xfrac" + suffix,"wb") as f:
-            pkl.dump(self.xh,f)
-        with open(self.results_basename + "IonRates" + suffix,"wb") as f:
-            pkl.dump(self.phi_ion,f)
-        """
+
+        self.printlog('\n--- Reionization History ----')
+        self.printlog(' min, mean, max xHII : %.3e  %.3e  %.3e' %(self.xh.min(), self.xh.mean(), self.xh.max()))
+        self.printlog(' min, mean, max Irate : %.3e  %.3e  %.3e [1/s]' %(self.phi_ion.min(), self.phi_ion.mean(), self.phi_ion.max()))
+        self.printlog(' min, mean, max density : %.3e  %.3e  %.3e [1/cm3]' %(self.ndens.min(), self.ndens.mean(), self.ndens.max()))
+
     # =====================================================================================================
     # UTILITY METHODS
     # =====================================================================================================
@@ -333,52 +350,6 @@ class C2Ray:
         """
         return self.cosmology.age(z).to(unit).value
     
-    def set_constant_average_density(self, ndens, z):
-        """Helper function to set the density grid to a constant value
-
-        Parameters
-        ----------
-        ndens : float
-            Value of the hydrogen density in cm^-3. When in a cosmological
-            run, this is the comoving density, or the proper density at
-            z = 0.
-        z : float
-            Redshift to scale the density. When cosmological is false,
-            this parameter has no effect and the initial redshift specified
-            in the parameter file is used at each call.
-        """
-        # This is the same as in C2Ray
-        if self.cosmological:
-            redshift = z
-        else:
-            redshift = self.zred_0
-        self.ndens = ndens * np.ones(self.shape,order='F') * (1+redshift)**3
-
-    def generate_redshift_array(self,num_zred,delta_t):
-        """Helper function to generate a list of equally-time-spaced redshifts
-
-        Generate num_zred redshifts that correspond to cosmic ages
-        separated by a constant time interval delta_t. Useful for the
-        test case of C2Ray. The initial redshift is set in the parameter file.
-
-        Parameters
-        ----------
-        num_zred : int
-            Number of redshifts to generate
-        delta_t : float
-            Spacing between redshifts in years
-
-        Returns
-        -------
-        zred_array : 1D-array
-            List of redshifts (including initial one)
-        """
-        step = delta_t * YEAR
-        zred_array = np.empty(num_zred)
-        for i in range(num_zred):
-            zred_array[i] = self.time2zred(self.age_0 + i*step)
-        return zred_array
-
     # =====================================================================================================
     # INITIALIZATION METHODS (PRIVATE)
     # =====================================================================================================
@@ -394,6 +365,9 @@ class C2Ray:
         self.fh0 = self._ld['CGS']['fh0']
         self.xih0 = self._ld['CGS']['xih0']
         self.albpow = self._ld['CGS']['albpow']
+        self.abu_h = self._ld['Abundances']['abu_h']
+        self.abu_he = self._ld['Abundances']['abu_he']
+        self.mean_molecular = self.abu_h + 4.0*self.abu_he
         self.abu_c = self._ld['Abundances']['abu_c']
         self.colh0 = self._ld['CGS']['colh0_fact']*self.fh0*self.xih0/self.eth0**2
         self.temph0=self.eth0*ev2k
@@ -405,7 +379,9 @@ class C2Ray:
         """
         # Comoving quantities
         self.boxsize_c = self._ld['Grid']['boxsize'] * Mpc
+        t2c.set_sim_constants(boxsize_cMpc=self._ld['Grid']['boxsize'])
         self.dr_c = self.boxsize_c / self.N
+        self.resume = self._ld['Grid']['resume']
 
         # Initialize cell size to comoving size (if cosmological run, it will be scaled in cosmology_init)
         self.dr = self.dr_c
@@ -427,30 +403,67 @@ class C2Ray:
         # Scale quantities to the initial redshift
         if self.cosmological:
             self.dr = self.cosmology.scale_factor(self.zred_0) * self.dr_c
-
+   
     def _output_init(self):
         """ Set up output & log file
         """
         self.results_basename = self._ld['Output']['results_basename']
         self.inputs_basename = self._ld['Output']['inputs_basename']
+
         self.logfile = self.results_basename + self._ld['Output']['logfile']
-        with open(self.logfile,"w") as f: f.write("Log file for pyC2Ray. \n\n") # Clear file and write header line
-
-    def _material_init(self):
-        xh0 = self._ld['Material']['xh0']
-        temp0 = self._ld['Material']['temp0']
-
-        self.ndens = np.empty(self.shape,order='F')
-        self.xh = xh0 * np.ones(self.shape,order='F')
-        self.temp = temp0 * np.ones(self.shape,order='F')
-        self.phi_ion = np.zeros(self.shape,order='F')
-        self.avg_dens = self._ld['Material']['avg_dens']
+        if(self.resume):
+            with open(self.logfile,"r") as f: 
+                log = f.readlines()
+            with open(self.logfile,"w") as f: 
+                log.append("\n\n Resume pyC2Ray. \n\n")
+                f.write(''.join(log))
+        else:
+            with open(self.logfile,"w") as f: 
+                title = '                 _________   ____            \n    ____  __  __/ ____/__ \ / __ \____ ___  __\n   / __ \/ / / / /    __/ // /_/ / __ `/ / / /\n  / /_/ / /_/ / /___ / __// _, _/ /_/ / /_/ / \n / .___/\__, /\____//____/_/ |_|\__,_/\__, /  \n/_/    /____/                        /____/   \n'
+                # Clear file and write header line
+                f.write(title+"\n\nLog file for pyC2Ray. \n\n") 
 
     def _redshift_init(self):
         """Initialize time and redshift counter
         """
+        self.zred_density = t2c.get_dens_redshifts(self.inputs_basename+'coarser_densities/')[::-1]
+        self.zred_sources = t2c.get_source_redshifts(self.inputs_basename+'sources/')[::-1]
+        if(self.resume):
+            # get the resuming redshift
+            self.zred_0 = np.min(get_redshifts_from_output(self.results_basename)) 
+            self.age_0 = self.zred2time(self.zred_0)
+            _, self.prev_zdens = find_bins(self.zred_0, self.zred_density)
+            _, self.prev_zsourc = find_bins(self.zred_0, self.zred_sources)
+                    
         self.time = self.age_0
         self.zred = self.zred_0
+
+    def _material_init(self):
+        if(self.resume):
+            # get fields at the resuming redshift
+            self.ndens = t2c.DensityFile(filename='%scoarser_densities/%.3fn_all.dat' %(self.inputs_basename, self.prev_zdens)).cgs_density / (self.mean_molecular * c.m_p.cgs.value)* (1+self.zred)**3
+            #self.ndens = self.read_density(z=self.zred)
+            self.xh = t2c.read_cbin('%sxfrac_%.3f.dat' %(self.results_basename, self.zred))
+            # TODO: implement heating
+            temp0 = self._ld['Material']['temp0']
+            self.temp = temp0 * np.ones(self.shape, order='F')
+            
+            self.phi_ion = t2c.read_cbin('%sIonRates_%.3f.dat' %(self.results_basename, self.zred))
+        else:
+            xh0 = self._ld['Material']['xh0']
+            temp0 = self._ld['Material']['temp0']
+            avg_dens = self._ld['Material']['avg_dens']
+
+            self.ndens = avg_dens * np.empty(self.shape, order='F')
+            self.xh = xh0 * np.ones(self.shape, order='F')
+            self.temp = temp0 * np.ones(self.shape, order='F')
+            self.phi_ion = np.zeros(self.shape, order='F')
+        pass
+    
+    def _sources_init(self):
+        self.fgamma_hm = self._ld['Sources']['fgamma_hm']
+        self.fgamma_lm = self._ld['Sources']['fgamma_lm']
+        self.ts = (self._ld['Sources']['ts'] * u.Myr).cgs.value
 
     def _radiation_init(self):
         """Radiation Tables. IN DEVELOPMENT
@@ -473,7 +486,7 @@ class C2Ray:
         self.grey = self._ld['Photo']['grey']
         self.cross_section_pl_index = self._ld['Photo']['cross_section_pl_index']
         ion_freq_HI = ev2fr * self.eth0
-        self.radsource = BlackBodySource(self.Teff,self.grey,ion_freq_HI,self.cross_section_pl_index)
+        self.radsource = BlackBodySource(self.Teff, self.grey, ion_freq_HI, self.cross_section_pl_index)
         self.printlog(f"Using Black-Body sources with effective temperature T = {self.Teff :.1e} K")
         if self.grey:
             self.printlog(f"Using grey opacity")
@@ -617,7 +630,7 @@ class C2Ray_test:
                                              self.temph0, self.abu_c,self.photo_thin_table,self.minlogtau,self.dlogtau,
                                              self.loss_fraction, self.logfile)
 
-    def cosmo_evolve(self,dt):
+    def cosmo_evolve(self, dt):
         """Evolve cosmology over a timestep
 
         Note that if cosmological is set to false in the parameter file, this

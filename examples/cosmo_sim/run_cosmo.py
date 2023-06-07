@@ -1,8 +1,9 @@
 import sys
-sys.path.append("../../")
+sys.path.append("/users/mibianco/codes/pyC2Ray/PC2R")
+import numpy as np, time
 import pyc2ray as pc2r
-import time
-import argparse
+
+from astropy import units as u
 
 # ======================================================================
 # Example 2 for pyc2ray: Cosmological simulation from N-body
@@ -10,26 +11,23 @@ import argparse
 
 # Global parameters
 num_steps_between_slices = 10       # Number of timesteps between redshift slices
-paramfile = "parameters.yml"        # Name of the parameter file
+paramfile = sys.argv[1]             # Name of the parameter file
 N = 250                             # Mesh size
-use_octa = True                # Determines which raytracing algorithm to use
+use_octa = True                     # Determines which raytracing algorithm to use
 
 # Raytracing Parameters
 max_subbox = 100                   # Maximum subbox when using C2Ray raytracing
-r_RT = 5                            # When using C2Ray raytracing, sets the subbox size. When using OCTA, sets the octahedron size
+r_RT = 40                           # When using C2Ray raytracing, sets the subbox size. When using OCTA, sets the octahedron size
 
 # Create C2Ray object
 sim = pc2r.C2Ray(paramfile=paramfile, Nmesh=N, use_octa=use_octa)
 
 # Get redshift list (test case)
-zred_array = np.loadtxt(sim.inputs_basename+'redsfhits.txt', dtype=float)
-zred_density = np.loadtxt(sim.inputs_basename+'redshift_density.txt', dtype=float)
-zred_sources = np.loadtxt(sim.inputs_basename+'redshift_sources.txt', dtype=float)
-
-#srcpos, normflux = sim.read_sources("source.txt",1)
+zred_array = np.loadtxt(sim.inputs_basename+'redshifts.txt', dtype=float)
 
 # Measure time
 tinit = time.time()
+prev_i_zdens, prev_i_zsourc = -1, -1
 
 # Loop over redshifts
 for k in range(len(zred_array)-1):
@@ -37,21 +35,30 @@ for k in range(len(zred_array)-1):
     zi = zred_array[k]       # Start redshift
     zf = zred_array[k+1]     # End redshift
 
-    pc2r.printlog(f"\n=================================",sim.logfile)
-    pc2r.printlog(f"Doing redshift {zi:.3f} to {zf:.3f}",sim.logfile)
-    pc2r.printlog(f"=================================\n",sim.logfile)
+    pc2r.printlog(f"\n=================================", sim.logfile)
+    pc2r.printlog(f"Doing redshift {zi:.3f} to {zf:.3f}", sim.logfile)
+    pc2r.printlog(f"=================================\n", sim.logfile)
 
     # Compute timestep of current redshift slice
-    dt = sim.set_timestep(zi,zf,num_steps_between_slices)
+    dt = sim.set_timestep(zi, zf, num_steps_between_slices)
 
     # Write output
     sim.write_output(zi)
 
-    # Set density field
-    sim.read_density(zi, zdens)
+    # Read input files
+    sim.read_density(z=zi)
 
-    # Read sources
-    srcpos, normflux = sim.read_sources(zi)
+    # Read source files
+    i_zsourc = np.argmin(np.abs(sim.zred_sources[sim.zred_sources > zf] - zi))
+    if(i_zsourc == prev_i_zsourc):
+        pass
+    else:
+        srcpos, normflux = sim.read_sources(file='%ssources/%.3f-coarsest_wsubgrid_sources.dat' %(sim.inputs_basename, sim.zred_sources[i_zsourc]), mass='hm')
+        prev_i_zsourc = i_zsourc
+
+    if(np.count_nonzero(normflux) == 0):
+        pc2r.printlog(f"\n --- No sources at redshift: z = {sim.zred : .3f}. Skipping redshift step --- \n", sim.logfile)
+        continue
 
     # Set redshift to current slice redshift
     sim.zred = zi
@@ -59,7 +66,7 @@ for k in range(len(zred_array)-1):
     # Loop over timesteps
     for t in range(num_steps_between_slices):
         tnow = time.time()
-        pc2r.printlog(f"\n --- Timestep {t+1:n}. Redshift: z = {sim.zred : .3f} Wall clock time: {tnow - tinit : .3f} seconds --- \n",sim.logfile)
+        pc2r.printlog(f"\n --- Timestep {t+1:n}. Redshift: z = {sim.zred : .3f} Wall clock time: {tnow - tinit : .3f} seconds --- \n", sim.logfile)
 
         # Evolve Cosmology: increment redshift and scale physical quantities (density, proper cell size, etc.)
         sim.cosmo_evolve(dt)

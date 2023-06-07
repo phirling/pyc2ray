@@ -69,7 +69,7 @@ for k in range(len(zred_array)-1):
     pc2r.printlog(f"=================================\n",sim.logfile)
 
     # Compute timestep of current redshift slice
-    dt = sim.set_timestep(zi,zf,num_steps_between_slices)
+    dt = sim.set_timestep(zi, zf, num_steps_between_slices)
 
     # Write output
     sim.write_output(zi)
