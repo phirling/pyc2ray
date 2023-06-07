@@ -152,7 +152,7 @@ def evolve3D(dt,dr,normflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,
 # ===================================================================================================
 # evolve3D routine with OCTA raytracing
 # ===================================================================================================
-def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
+def evolve3D_octa(dt,dr,normflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
                   minlogtau,dlogtau,NumTau,logfile="pyC2Ray.log",quiet=False):
     """Evolves the ionization fraction over one timestep for the whole grid, using OCTA raytracing
 
@@ -168,7 +168,7 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
         Timestep in seconds
     dr : float
         Cell dimension in each direction in cm
-    srcflux : 1D-array
+    normflux : 1D-array
         Array containing the normalization for the ionizing flux of each source. Shape: (NumSources)
     srcpos : 1D-array
         Array containing the position of each source. This array needs to be flattened correctly, e.g. using the readsources()
@@ -217,7 +217,7 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
     """
     # Allow a call only if 1. the octa library is present and 2. the GPU memory has been allocated using device_init()
     if cuda_is_init():
-        NumSrc = srcflux.shape[0]   # Number of sources
+        NumSrc = normflux.shape[0]   # Number of sources
         N = temp.shape[0]           # Mesh size
         NumCells = N*N*N            # Number of cells/points
         conv_flag = NumCells        # Flag that counts the number of non-converged cells (initialized to non-convergence)
@@ -257,7 +257,7 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
             # Rates are set to zero on the GPU in the octa code
 
             # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
-            libocta.do_all_sources(srcpos,srcflux,r_RT,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
+            libocta.do_all_sources(srcpos,normflux,r_RT,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
 
             # Reshape for C2Ray Fortran Chemistry
             phi_ion = np.reshape(phi_ion_flat, (N,N,N))

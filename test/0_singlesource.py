@@ -46,6 +46,23 @@ albpow=-0.7
 colh0=1.3e-8*fh0*xih0/(eth0*eth0)
 abu_c=7.1e-7
 
+# Set up optical depth table
+minlogtau = -20
+maxlogtau = 4
+NumTau = 200000
+dlogtau = (maxlogtau-minlogtau)/NumTau
+tau = np.empty(NumTau+1)
+tau[0] = 0.0
+tau[1:] = 10**(minlogtau + np.arange(NumTau)*dlogtau)
+
+# Set up radiation table
+Teff = 5e4                      # Temperature of black body
+grey = True                    # Use power-law opacity
+freq0 = 3288513124000000.0      # Ionization threshhold frequency of Hydrogen in s^-1
+pl_index = 2.8
+radsource = pc2r.radiation.BlackBodySource(Teff, grey, freq0, pl_index)
+photo_thin_table = radsource.make_photo_table(tau, freq0, 10*freq0, 1e48)
+
 # Source Parameters
 numsrc = 1
 srcflux = np.empty(numsrc)
@@ -119,7 +136,7 @@ else:
             tnow = time.time()
             print(f"\n --- Timestep {t+1:n}. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
             xh_new_f, phi_ion_f = pc2r.evolve3D(dt,dr,srcflux,srcpos,max_subbox,subboxsize,temp_f,ndens_f,
-                        xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c)
+                        xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c,photo_thin_table,minlogtau,dlogtau)
             
             mean_xfrac[t] = np.mean(xh_new_f)
             mean_ionrate[t] = np.mean(phi_ion_f)
@@ -139,6 +156,8 @@ else:
         xh_new_f = xh_f
 
         pc2r.device_init(N)
+        pc2r.photo_table_to_device(photo_thin_table)
+        
         mean_xfrac_octa = np.empty(tsteps)
         mean_ionrate_octa = np.empty(tsteps)
         print("\n ==================================== Running pyc2ray+OCTA... ==================================== \n")
@@ -147,7 +166,7 @@ else:
             tnow = time.time()
             print(f"\n --- Timestep {t+1:n}. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
             xh_new_f, phi_ion_f = pc2r.evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp_f,ndens_f,
-                xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c,N)
+                xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c,minlogtau,dlogtau,NumTau)
             
             mean_xfrac_octa[t] = np.mean(xh_new_f)
             mean_ionrate_octa[t] = np.mean(phi_ion_f)
