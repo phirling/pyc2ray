@@ -77,9 +77,6 @@ r_RT = 100
 srcpos = np.empty((3,numsrc),dtype='int')
 srcpos[:,0] = np.array([64,64,64])
 
-# For OCTA
-srcpos_octa = np.ravel(np.array([[63],[63],[63]],dtype='int32')) # C++ version uses flattened arrays
-
 # Initialize Arrays
 ndens_f = avgdens * np.ones((N,N,N),order='F')
 xh_f = xhav*np.ones((N,N,N),order='F')
