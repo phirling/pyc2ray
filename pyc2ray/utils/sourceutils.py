@@ -101,27 +101,29 @@ def generate_test_sourcefile(filename,N,numsrc,strength,seed=100):
     with open(filename,'a') as f:
         np.savetxt(f,output,("%i %i %i %.0e %.1f"))
 
-def format_for_octa(srcpos,srcstrength):
-    """Format source strength & position arrays for OCTA C extension module
+def format_sources(source_pos,source_flux):
+    """Convert source data to correct shape & data type for GPU extension module
 
-    The OCTA extension module expects flattened arrays of a
-    specific data type (position as C ints and strength as C doubles).
+    The ASORA raytracing module works on flattened arrays with specific C-types.
+    Also, C is 0-indexed while Fortran is 1-indexed, so the grid positions need to
+    be shifted accordingly. This utility function is used to automatically do the
+    reshaping/reformatting
 
     Parameters
     ----------
-    srcpos : 2D-array
-        Source positions in shape (3,numsrc)
-    srcstrength : 1D-array
-        Source strength
-
+    source_pos : 2D array of shape (3,numsrc)
+        Source grid positions
+    source_flux : 1D array of shape (numsrc)
+        Source flux normalization factors
+    
     Returns
     -------
-    srcpos : 1D-array
-        Flattened, single precision int representation of srcpos
-    srcstrength : 1D-array
-        Source strengths as double-precision floats
+    source_pos_flat : 1D array
+        Flattened single-int C representation of the source grid positions
+    source_flux_flat : 1D array
+        Flattened double-float C representation of the source flux normalization factors
     """
-    srcpos_ = (srcpos - 1).astype('int32')
-    srcflux_ = srcstrength.astype('float64')
-    srcpos_ = np.ravel(srcpos,order='F')
-    return srcpos_, srcflux_
+    source_pos_flat = np.ravel((source_pos - 1).astype('int32'),order='F')
+    source_flux_flat = source_flux.astype('float64')
+
+    return source_pos_flat, source_flux_flat

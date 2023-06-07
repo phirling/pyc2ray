@@ -1,6 +1,7 @@
 FC=gfortran
 F2PY=f2py
-F2PYFLAGS+=--f2cmap f2c.f2py_f2cmap -DUSE_SUBBOX #-DGREY_NOTABLES # Add -DGREY_NOTABLES to compile version with analytical formula for grey opacity rates
+CXXFLAGS+=-DUSE_SUBBOX
+F2PYFLAGS+=--f2cmap f2c.f2py_f2cmap $(CXXFLAGS)  #-DGREY_NOTABLES # Add -DGREY_NOTABLES to compile version with analytical formula for grey opacity rates
 FCFLAGS="-cpp"
 
 # Figure out the extension suffix for the platform (e.g. .cpython-310-x86_64-linux-gnu.so)

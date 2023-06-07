@@ -1,5 +1,6 @@
 import numpy as np
 from .utils import printlog
+from .utils.sourceutils import format_sources
 from .load_extensions import load_c2ray, load_octa
 from .octa_core import cuda_is_init
 
@@ -26,10 +27,10 @@ def evolve3D(dt,dr,normflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,
         Timestep in seconds
     dr : float
         Cell dimension in each direction in cm
-    normflux : 1D-array
+    normflux : 1D-array of shape (numsrc)
         Array containing the normalization factor (relative to S_star = 1e48 by default) of the total ionizing flux of each source
-    srcpos : 2D-array
-        Array containing the position of each source. Shape: (NumSources,3)
+    srcpos : 2D-array of shape (3,numsrc)
+        Array containing the 3D grid position of each source
     max_subbox : int
         Size of maximum subbox to raytrace
     subboxsize : int
@@ -152,7 +153,7 @@ def evolve3D(dt,dr,normflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,
 # ===================================================================================================
 # evolve3D routine with OCTA raytracing
 # ===================================================================================================
-def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
+def evolve3D_octa(dt,dr,normflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
                   minlogtau,dlogtau,NumTau,logfile="pyC2Ray.log",quiet=False):
     """Evolves the ionization fraction over one timestep for the whole grid, using OCTA raytracing
 
@@ -168,11 +169,10 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
         Timestep in seconds
     dr : float
         Cell dimension in each direction in cm
-    srcflux : 1D-array
-        Array containing the normalization for the ionizing flux of each source. Shape: (NumSources)
-    srcpos : 1D-array
-        Array containing the position of each source. This array needs to be flattened correctly, e.g. using the readsources()
-        method and setting the mode="pyc2ray_octa" flag.
+    normflux : 1D-array of shape (numsrc)
+        Array containing the normalization factor (relative to S_star = 1e48 by default) of the total ionizing flux of each source
+    srcpos : 2D-array of shape (3,numsrc)
+        Array containing the 3D grid position of each source
     r_RT : int
         Determines the size of the octahedron to raytrace: the condition is that it contains a sphere of radius r_RT. This means that
         the height of the octahedron (from the source position to the top vertex) will be sqrt(3)*r_RT.
@@ -217,7 +217,7 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
     """
     # Allow a call only if 1. the octa library is present and 2. the GPU memory has been allocated using device_init()
     if cuda_is_init():
-        NumSrc = srcflux.shape[0]   # Number of sources
+        NumSrc = normflux.shape[0]   # Number of sources
         N = temp.shape[0]           # Mesh size
         NumCells = N*N*N            # Number of cells/points
         conv_flag = NumCells        # Flag that counts the number of non-converged cells (initialized to non-convergence)
@@ -236,17 +236,18 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
         xh_av = np.copy(xh)
         xh_intermed = np.copy(xh)
 
-        # Create flattened copies of arrays for CUDA
+        # Format input data for the CUDA extension module (flat arrays, C-types,etc)
         xh_av_flat = np.ravel(xh).astype('float64',copy=True)
         ndens_flat = np.ravel(ndens).astype('float64',copy=True)
+        srcpos_flat, normflux_flat = format_sources(srcpos,normflux)
+
+        # Initialize Flat Column density & ionization rate arrays. These are used to store the
+        # output of the raytracing module. TODO: python column density array is actually not needed ?
+        coldensh_out_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
+        phi_ion_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
 
         # Copy density field to GPU once at the beginning of timestep (!! do_all_sources does not touch the density field !!)
         libocta.density_to_device(ndens_flat,N)
-
-        # Initialize Flat Column density & ionization rate arrays. These are used to store the
-        # output of OCTA. TODO: python column density array is actually not needed ?
-        coldensh_out_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
-        phi_ion_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
 
         printlog(f"Convergence Criterion (Number of points): {conv_criterion : n}",logfile,quiet)
 
@@ -257,7 +258,7 @@ def evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,
             # Rates are set to zero on the GPU in the octa code
 
             # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
-            libocta.do_all_sources(srcpos,srcflux,r_RT,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
+            libocta.do_all_sources(srcpos_flat,normflux_flat,r_RT,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
 
             # Reshape for C2Ray Fortran Chemistry
             phi_ion = np.reshape(phi_ion_flat, (N,N,N))

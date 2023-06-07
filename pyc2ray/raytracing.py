@@ -13,29 +13,9 @@ __all__ = ['do_all_sources','do_all_sources_octa']
 # Raytrace all sources: find column density -> find photoionization rates
 # ===================================================================================================
 
-def do_all_sources(srcflux,srcpos,r_RT,subboxsize,sig,dr,ndens,xh_av,loss_fraction=1e-2):
+def do_all_sources(dr,normflux,srcpos,max_subbox,subboxsize,ndens,xh_av,sig,
+             photo_thin_table,minlogtau,dlogtau,loss_fraction=1e-2):
     """Raytrace all sources and compute photoionization rates
-
-    Parameters
-    ----------
-    srcflux : 1D-array
-        Array containing the normalization for the ionizing flux of each source. Shape: (NumSources)
-    srcpos : 2D-array
-        Array containing the position of each source. Shape: (NumSources,3)
-    r_RT : int
-        Size of maximum subbox to raytrace. When compiled without subbox, sets the constant subbox size
-    subboxsize : int
-        Increment for subbox technique
-    sig : float
-        Constant photoionization cross-section of hydrogen in cm^2.
-    dr : float
-        Cell dimension in each direction in cm
-    ndens : 3D-array
-        The hydrogen number density of each cell in cm^-3
-    xh_av : 3D-array
-        Current time-averaged value of ionization fraction in each cell
-    loss_fraction : float (default: 1e-2)
-        Fraction of remaining photons below we stop ray-tracing (subbox technique)
 
     Returns
     -------
@@ -49,15 +29,18 @@ def do_all_sources(srcflux,srcpos,r_RT,subboxsize,sig,dr,ndens,xh_av,loss_fracti
     coldensh_out = np.zeros((m1,m1,m1),order='F')
     phi_ion = np.zeros((m1,m1,m1),order='F')
 
+    nsubbox, photonloss = libc2ray.raytracing.do_all_sources(normflux,srcpos,max_subbox,subboxsize,
+                                                                 coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,
+                                                                 photo_thin_table,minlogtau,dlogtau)
 
-    nsubbox, photonloss = libc2ray.raytracing.do_all_sources(srcflux,srcpos,r_RT,subboxsize,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction)
     return phi_ion, nsubbox, photonloss
 
 # ===================================================================================================
 # Raytrace all sources: OCTA GPU version
 # ===================================================================================================
 
-def do_all_sources_octa(srcflux,srcpos,r_RT,sig,dr,ndens,xh_av,phi_ion,N):
+def do_all_sources_octa(dr,srcflux,srcpos,r_RT,ndens,xh_av,sig,
+                  minlogtau,dlogtau,NumTau):
     """Do raytracing for a list of sources and collect photoioniztaion rates
 
     Parameters
@@ -83,7 +66,8 @@ def do_all_sources_octa(srcflux,srcpos,r_RT,sig,dr,ndens,xh_av,phi_ion,N):
         Mesh size
     """
     if cuda_is_init():
-        numsrc = srcflux.shape[0]
+        NumSrc = srcflux.shape[0]
+        N = ndens.shape[0]           # Mesh size
         phi_ion_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
         cdh_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
         # Create flattened copies of arrays
@@ -93,7 +77,7 @@ def do_all_sources_octa(srcflux,srcpos,r_RT,sig,dr,ndens,xh_av,phi_ion,N):
         # Copy density field to GPU (!! do_all_sources does not touch the density field !!)
         libocta.density_to_device(ndens_flat,N)
 
-        libocta.do_all_sources(srcpos,srcflux,r_RT,cdh_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,numsrc,N)
+        libocta.do_all_sources(srcpos,srcflux,r_RT,cdh_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
 
         phi_ion = np.reshape(phi_ion_flat, (N,N,N))
         return phi_ion

@@ -1,0 +1,7 @@
+# Ignore test/benchmark folders for language statistics
+dev_octa/** linguist-documentation
+dev_pyc2ray/** linguist-documentation
+examples/** linguist-documentation
+scripts/** linguist-documentation
+test/** linguist-documentation
+paper_tests/** linguist-documentation
