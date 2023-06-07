@@ -7,11 +7,17 @@ import astropy.constants as ac
 import astropy.units as u
 import pickle as pkl
 import numpy as np
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--daint",action='store_true')
+args = parser.parse_args()
 
 # Global parameters
 numzred = 5                        # Number of redshift slices
 num_steps_between_slices = 10        # Number of timesteps between redshift slices
-paramfile = "parameters.yml"        # Name of the parameter file
+if args.daint: paramfile = "parameters_daint.yml"
+else: paramfile = "parameters.yml"
 N = 250                             # Mesh size
 t_evol = 5e5
 use_octa = True                    # Determines which raytracing algorithm to use
@@ -53,6 +59,11 @@ tinit = time.time()
 
 out_i = 0
 
+# RESTART =====
+out_i = 40
+with open("xfrac_40.000.pkl","rb") as f:
+    sim.xh = pkl.load(f)
+    
 # Loop over redshifts
 pc2r.printlog(f"Running on {len(normflux):n} sources...",sim.logfile)
 pc2r.printlog(f"Raytracing radius: {r_RT:n} grid cells (= {sim.dr_c*u.cm.to('Mpc'):.3f} comoving Mpc)",sim.logfile)
