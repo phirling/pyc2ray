@@ -1,4 +1,5 @@
-from .objects import C2Ray, C2Ray_test
+from .c2ray_test import *
+from .c2ray_cubep3m import *
 from .evolve import *               # Full evolve subroutine: raytracing & chemistry
 from .octa_core import *            # Import and Initialization functions for the OCTA library
 from .raytracing import *           # Raytracing subroutines only

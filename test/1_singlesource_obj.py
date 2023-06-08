@@ -32,7 +32,7 @@ zred_array = sim.generate_redshift_array(numzred,1e7)
 
 # Read sources
 numsrc = 1
-srcpos, srcflux, numsrc = sim.read_sources("src.txt",numsrc)
+srcpos, srcflux = sim.read_sources("src.txt",numsrc)
 
 # Raytracing Parameters
 max_subbox = 1000
