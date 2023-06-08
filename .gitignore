@@ -15,6 +15,10 @@ __pycache__/
 # debug folder
 debug/
 
+# Dev folders
+dev_octa/
+dev_pyc2ray/
+
 # Benchmark Scripts folder
 benchmark_daint/
 
