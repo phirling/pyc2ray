@@ -7,6 +7,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--gpu",action='store_true')
+parser.add_argument("--plot",action='store_true')
 args = parser.parse_args()
 
 # Error checking arrays (referene results)
@@ -90,9 +91,8 @@ for k in range(len(zred_array)-1):
     print("-- Ionization Rate --")
     print(err_ionrate)
 
-
-import matplotlib.pyplot as plt
-
-plt.imshow(sim.xh[:,:,64],norm='log',cmap='jet')
-plt.colorbar()
-plt.show()
+if args.plot:
+    import matplotlib.pyplot as plt
+    plt.imshow(sim.xh[:,:,64],norm='log',cmap='jet')
+    plt.colorbar()
+    plt.show()
