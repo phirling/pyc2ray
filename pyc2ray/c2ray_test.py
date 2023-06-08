@@ -51,9 +51,9 @@ class C2Ray_Test(C2Ray):
             
         Returns
         -------
-        srcpos : array
+        src_pos : 2D-array of shape (3,numsrc)
             Source positions
-        normflux : array
+        src_flux : 1D-array of shape (numsrc)
             Normalization of the strength of each source, i.e. total ionizing flux / reference flux
         """
         
@@ -66,9 +66,9 @@ class C2Ray_Test(C2Ray):
             if (numsrc > max_n):
                 raise ValueError(f"Number of sources given ({numsrc:n}) is larger than that of the file ({max_n:n})")
             else:
-                srcpos = np.transpose(inp[:,0:3])
-                normflux = inp[:,3] / S_star_ref
-                return srcpos, normflux
+                src_pos = np.transpose(inp[:,0:3])
+                src_flux = inp[:,3] / S_star_ref
+                return src_pos, src_flux
 
     def density_init(self,z):
         """Set density at redshift z

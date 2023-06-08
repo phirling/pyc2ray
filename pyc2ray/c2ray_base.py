@@ -10,7 +10,7 @@ try:
 except ImportError:
     from yaml import SafeLoader
 from .utils.logutils import printlog
-from .evolve import evolve3D, evolve3D_gpu
+from .evolve import evolve3D
 from .asora_core import device_init, device_close, photo_table_to_device
 from .radiation import BlackBodySource
 
@@ -140,7 +140,7 @@ class C2Ray:
         self.printlog(f"dt [years]: {dt/YEAR:.3e}")
         return dt
     
-    def evolve3D(self, dt, normflux, srcpos, r_RT, max_subbox):
+    def evolve3D(self, dt, src_flux, src_pos, r_RT, max_subbox):
         """Evolve the grid over one timestep
 
         Raytrace all sources, compute cumulative photoionization rate of each cell and
@@ -150,28 +150,31 @@ class C2Ray:
         ----------
         dt : float
             Timestep in seconds (typically generated using set_timestep method)
-        normflux : 1D-array
-            Normalization factor (relative to S_star = 1e48 by default) of the total ionizing flux of each source
-        srcpos : array
-            Positions of the sources. Shape depends on the raytracing algorithm used. Use
-            read_sources to automatically format the array in the correct way. TODO: make this automatic
+        src_flux : 1D-array of shape (numsrc)
+            Array containing the total ionizing flux of each source, normalized by S_star (1e48 by default)
+        src_pos : 2D-array of shape (3,numsrc)
+            Array containing the 3D grid position of each source, in Fortran indexing (from 1)
         r_RT : int
-            When using CPU (cubic) raytracing: size of the subbox to use. When using ASORA, determines the
-            size of the octahedron
+            Parameter which determines the size of the raytracing volume around each source:
+            * When using CPU (cubic) RT, this sets the increment of the cubic region (subbox) that will be treated.
+            Raytracing stops when either max_subbox is reached or when the photon loss is low enough. For example, if
+            r_RT = 5, the size of the cube around the source will grow as 10^3, 20^3, ...
+            * When using GPU (octahedral) RT with ASORA, this sets the size of the octahedron such that a sphere of
+            radius r_RT fits inside the octahedron.
         max_subbox : int
             Maximum size of the subbox when using cubic raytracing. When using ASORA, this
             parameter has no effect.
         """
-        if self.gpu:
-            self.xh, self.phi_ion = evolve3D_gpu(dt, self.dr, normflux, srcpos, r_RT, self.temp, self.ndens,
-                                                  self.xh, self.sig, self.bh00, self.albpow, self.colh0,
-                                                  self.temph0, self.abu_c,self.minlogtau,self.dlogtau,
-                                                  self.NumTau,self.logfile)
-        else:
-            self.xh, self.phi_ion = evolve3D(dt, self.dr, normflux, srcpos, max_subbox,r_RT, self.temp, self.ndens,
-                                             self.xh, self.sig, self.bh00, self.albpow, self.colh0,
-                                             self.temph0, self.abu_c,self.photo_thin_table,self.minlogtau,self.dlogtau,
-                                             self.loss_fraction, self.logfile)
+        self.xh, self.phi_ion = evolve3D(
+            dt, self.dr,
+            src_flux, src_pos,
+            r_RT, self.gpu, max_subbox, self.loss_fraction,
+            self.temp, self.ndens, self.xh,
+            self.photo_thin_table, self.minlogtau, self.dlogtau,
+            self.sig, self.bh00, self.albpow, self.colh0, self.temph0, self.abu_c,
+            self.logfile
+            )
+
 
     def cosmo_evolve(self, dt):
         """Evolve cosmology over a timestep
