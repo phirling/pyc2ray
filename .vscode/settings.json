@@ -75,5 +75,6 @@
         "__nullptr": "cpp",
         "bitset": "cpp",
         "shared_mutex": "cpp"
-    }
+    },
+    "C_Cpp.default.compileCommands": "builddir/vscode_compile_commands.json"
 }
