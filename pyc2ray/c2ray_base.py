@@ -64,7 +64,7 @@ from .radiation import BlackBodySource
 # than throwing an error
 # ======================================================================
 
-# Conversion Factors. These will be replaced by astropy constants later on
+# Conversion Factors.
 ev2k = 1.0/8.617e-05         # eV to Kelvin
 pc = (1*u.pc).to('cm').value # parsec in cm
 kpc = 1e3*pc                 # kiloparsec in cm
@@ -76,7 +76,7 @@ msun2g = (1*u.Msun).to('g').value  # solar mass to grams
 
 class C2Ray:
     def __init__(self,paramfile,Nmesh,use_gpu):
-        """A C2Ray Simulation, abstract basis class
+        """Basis class for a C2Ray Simulation
 
         Parameters
         ----------

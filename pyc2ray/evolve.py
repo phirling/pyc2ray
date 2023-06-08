@@ -85,16 +85,7 @@ def evolve3D(dt,dr,
     bh00 : float
         Hydrogen recombination parameter at 10^4 K in the case B OTS approximation
     albpow : float
-        Power-law index for the H recombination parameter        #if self.gpu:
-        #    self.xh, self.phi_ion = evolve3D_gpu(dt, self.dr, src_flux, src_pos, r_RT, self.temp, self.ndens,
-        #                                          self.xh, self.sig, self.bh00, self.albpow, self.colh0,
-        #                                          self.temph0, self.abu_c,self.minlogtau,self.dlogtau,
-        #                                          self.NumTau,self.logfile)
-        #else:
-        #    self.xh, self.phi_ion = evolve3D(dt, self.dr, src_flux, src_pos, max_subbox,r_RT, self.temp, self.ndens,
-        #                                     self.xh, self.sig, self.bh00, self.albpow, self.colh0,
-        #                                     self.temph0, self.abu_c,self.photo_thin_table,self.minlogtau,self.dlogtau,
-        #                                     self.loss_fraction, self.logfile)
+        Power-law index for the H recombination parameter
     colh0 : float
         Hydrogen collisional ionization parameter
     temph0 : float
