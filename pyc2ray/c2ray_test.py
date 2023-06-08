@@ -3,14 +3,31 @@ from .utils.sourceutils import read_sources
 import numpy as np
 import pickle as pkl
 
-__all__ = ['C2Ray_test']
+__all__ = ['C2Ray_Test']
 
-class C2Ray_test(C2Ray):
+# ======================================================================
+# This file contains the C2Ray_Test subclass of C2Ray, which is a
+# version used for test simulations, i.e. which don't read N-body input
+# and use simple source files
+# ======================================================================
+
+class C2Ray_Test(C2Ray):
     def __init__(self, paramfile, Nmesh, use_gpu):
+        """A C2Ray Test-case simulation
+
+        Parameters
+        ----------
+        paramfile : str
+            Name of a YAML file containing parameters for the C2Ray simulation
+        Nmesh : int
+            Mesh size (number of cells in each dimension)
+        use_gpu : bool
+            Whether to use the GPU-accelerated ASORA library for raytracing
+        """
         super().__init__(paramfile, Nmesh, use_gpu)
 
     def read_sources(self,file,n): # >:( trgeoip
-        """Read sources from a C2Ray-formatted file
+        """Read from a C2Ray-formatted test source file
 
         The way sources are dealt with is still open and will change significantly
         in the final version. For now, this method is provided:
@@ -125,25 +142,20 @@ class C2Ray_test(C2Ray):
         for i in range(num_zred):
             zred_array[i] = self.time2zred(self.age_0 + i*step)
         return zred_array
-    
-    def _grid_init(self):
-        """ Set up grid properties
-        """
-        # Comoving quantities
-        self.boxsize_c = self._ld['Grid']['boxsize'] * Mpc
-        self.dr_c = self.boxsize_c / self.N
 
-        # Initialize cell size to comoving size (if cosmological run, it will be scaled in cosmology_init)
-        self.dr = self.dr_c
+    # =====================================================================================================
+    # Below are the overridden initialization routines specific to the test case
+    # =====================================================================================================
 
-    def _output_init(self):
-        """ Set up output & log file
+    def _redshift_init(self):
+        """Initialize time and redshift counter
         """
-        self.results_basename = self._ld['Output']['results_basename']
-        self.logfile = self.results_basename + self._ld['Output']['logfile']
-        with open(self.logfile,"w") as f: f.write("Log file for pyC2Ray. \n\n") # Clear file and write header line
+        self.time = self.age_0
+        self.zred = self.zred_0
 
     def _material_init(self):
+        """Initialize material properties of the grid
+        """
         xh0 = self._ld['Material']['xh0']
         temp0 = self._ld['Material']['temp0']
 
@@ -153,8 +165,9 @@ class C2Ray_test(C2Ray):
         self.phi_ion = np.zeros(self.shape,order='F')
         self.avg_dens = self._ld['Material']['avg_dens']
 
-    def _redshift_init(self):
-        """Initialize time and redshift counter
+    def _output_init(self):
+        """ Set up output & log file
         """
-        self.time = self.age_0
-        self.zred = self.zred_0
+        self.results_basename = self._ld['Output']['results_basename']
+        self.logfile = self.results_basename + self._ld['Output']['logfile']
+        with open(self.logfile,"w") as f: f.write("Log file for pyC2Ray. \n\n") # Clear file and write header line

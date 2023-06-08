@@ -14,10 +14,12 @@ from .evolve import evolve3D, evolve3D_gpu
 from .asora_core import device_init, device_close, photo_table_to_device
 from .radiation import BlackBodySource
 
-# ==================================================================
-# This file defines the C2Ray object class, which is the basis
+# ======================================================================
+# This file defines the abstract C2Ray object class, which is the basis
 # for a c2ray simulation. It deals with parameters, I/O, cosmology,
 # and other things such as memory allocation when using the GPU.
+# Any concrete simulation uses subclasses of C2Ray, with methods specific
+# to certain input files (e.g. CubeP3M)
 #
 #
 # -- Notes on cosmology: --
@@ -60,7 +62,7 @@ from .radiation import BlackBodySource
 # * Add "default" values for YAML parameter file so that if the user
 # omits a value in the file, a default value is used instead rather
 # than throwing an error
-# ==================================================================
+# ======================================================================
 
 # Conversion Factors. These will be replaced by astropy constants later on
 ev2k = 1.0/8.617e-05         # eV to Kelvin
@@ -74,7 +76,7 @@ msun2g = (1*u.Msun).to('g').value  # solar mass to grams
 
 class C2Ray:
     def __init__(self,paramfile,Nmesh,use_gpu):
-        """A C2Ray Simulation
+        """A C2Ray Simulation, abstract basis class
 
         Parameters
         ----------
@@ -247,7 +249,7 @@ class C2Ray:
     # =====================================================================================================
 
     def _param_init(self):
-        """ Set up constants and parameters
+        """ Set up general constants and parameters
 
         Computes additional required quantities from the read-in parameters
         and stores them as attributes
@@ -285,7 +287,7 @@ class C2Ray:
             self.dr = self.cosmology.scale_factor(self.zred_0) * self.dr_c
 
     def _radiation_init(self):
-        """Radiation Tables. IN DEVELOPMENT
+        """Set up radiation tables for ionization/heating rates
         """
         # Create optical depth table (log-spaced)
         self.minlogtau = self._ld['Photo']['minlogtau']
@@ -301,32 +303,40 @@ class C2Ray:
             self.tau[i] = 10.0**(self.minlogtau+self.dlogtau*(i-1))
         
         # Initialize Black-Body Source
-        self.Teff = self._ld['Photo']['Teff']
+        self.bb_Teff = self._ld['Photo']['Teff']
         self.grey = self._ld['Photo']['grey']
-        self.cross_section_pl_index = self._ld['Photo']['cross_section_pl_index']
+        self.cs_pl_idx_h = self._ld['Photo']['cross_section_pl_index']
+        self.printlog(f"Using Black-Body sources with effective temperature T = {self.bb_Teff :.1e} K")
+
         ion_freq_HI = ev2fr * self.eth0
-        self.radsource = BlackBodySource(self.Teff, self.grey, ion_freq_HI, self.cross_section_pl_index)
-        self.printlog(f"Using Black-Body sources with effective temperature T = {self.Teff :.1e} K")
+        radsource = BlackBodySource(self.bb_Teff, self.grey, ion_freq_HI, self.cs_pl_idx_h)
+
         if self.grey:
             self.printlog(f"Using grey opacity")
         else:
             self.printlog(f"Using power-law opacity with {self.NumTau:n} table points between tau=10^({self.minlogtau:n}) and tau=10^({self.maxlogtau:n})")
 
         # Integrate table. TODO: make this more customizeable
-        self.photo_thin_table = self.radsource.make_photo_table(self.tau,ion_freq_HI,10*ion_freq_HI,1e48)
+        self.photo_thin_table = radsource.make_photo_table(self.tau,ion_freq_HI,10*ion_freq_HI,1e48)
 
         # Copy radiation table to GPU
         if self.gpu:
             photo_table_to_device(self.photo_thin_table)
-            self.printlog("Successfully copied tables to GPU memory.")
+            self.printlog("Successfully copied radiation tables to GPU memory.")
 
-    # The following initialization methods are simulation kind-dependent and need to be
-    # overridden in the subclasses
     def _grid_init(self):
         """ Set up grid properties
         """
-        pass
+        # Comoving quantities
+        self.boxsize_c = self._ld['Grid']['boxsize'] * Mpc
+        self.dr_c = self.boxsize_c / self.N
 
+        # Initialize cell size to comoving size (if cosmological run, it will be scaled in cosmology_init)
+        self.dr = self.dr_c
+
+
+    # The following initialization methods are simulation kind-dependent and need to be
+    # overridden in the subclasses
     def _output_init(self):
         """ Set up output & log file
         """
@@ -338,9 +348,13 @@ class C2Ray:
         pass
 
     def _material_init(self):
+        """Initialize material properties of the grid
+        """
         pass
 
     def _sources_init(self):
+        """Initialize settings to read source files
+        """
         pass
 
     # =====================================================================================================

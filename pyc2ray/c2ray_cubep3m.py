@@ -5,10 +5,26 @@ from astropy import units as u
 from astropy import constants as c
 import numpy as np
 
-__all__ = ['C2Ray_cubep3m']
+__all__ = ['C2Ray_CubeP3M']
 
-class C2Ray_cubep3m(C2Ray):
+# ======================================================================
+# This file contains the C2Ray_CubeP3M subclass of C2Ray, which is a
+# version used for simulations that read in N-Body data from CubeP3M
+# ======================================================================
+
+class C2Ray_CubeP3M(C2Ray):
     def __init__(self, paramfile, Nmesh, use_gpu):
+        """A C2Ray CubeP3M simulation
+
+        Parameters
+        ----------
+        paramfile : str
+            Name of a YAML file containing parameters for the C2Ray simulation
+        Nmesh : int
+            Mesh size (number of cells in each dimension)
+        use_gpu : bool
+            Whether to use the GPU-accelerated ASORA library for raytracing
+        """
         super().__init__(paramfile, Nmesh, use_gpu)
 
     def read_sources(self, file, mass='hm'): # >:( trgeoip
@@ -104,7 +120,7 @@ class C2Ray_cubep3m(C2Ray):
             pass
 
     def write_output(self,z):
-        """Write ionization fraction & ionization rates as pickle files
+        """Write ionization fraction & ionization rates as C2Ray binary files
 
         Parameters
         ----------
@@ -120,38 +136,10 @@ class C2Ray_cubep3m(C2Ray):
         self.printlog(' min, mean, max Irate : %.3e  %.3e  %.3e [1/s]' %(self.phi_ion.min(), self.phi_ion.mean(), self.phi_ion.max()))
         self.printlog(' min, mean, max density : %.3e  %.3e  %.3e [1/cm3]' %(self.ndens.min(), self.ndens.mean(), self.ndens.max()))
 
-
-    def _grid_init(self):
-        """ Set up grid properties
-        """
-        # Comoving quantities
-        self.boxsize_c = self._ld['Grid']['boxsize'] * Mpc
-        t2c.set_sim_constants(boxsize_cMpc=self._ld['Grid']['boxsize'])
-        self.dr_c = self.boxsize_c / self.N
-        self.resume = self._ld['Grid']['resume']
-
-        # Initialize cell size to comoving size (if cosmological run, it will be scaled in cosmology_init)
-        self.dr = self.dr_c
-
-
-    def _output_init(self):
-        """ Set up output & log file
-        """
-        self.results_basename = self._ld['Output']['results_basename']
-        self.inputs_basename = self._ld['Output']['inputs_basename']
-
-        self.logfile = self.results_basename + self._ld['Output']['logfile']
-        if(self.resume):
-            with open(self.logfile,"r") as f: 
-                log = f.readlines()
-            with open(self.logfile,"w") as f: 
-                log.append("\n\n Resume pyC2Ray. \n\n")
-                f.write(''.join(log))
-        else:
-            with open(self.logfile,"w") as f: 
-                title = '                 _________   ____            \n    ____  __  __/ ____/__ \ / __ \____ ___  __\n   / __ \/ / / / /    __/ // /_/ / __ `/ / / /\n  / /_/ / /_/ / /___ / __// _, _/ /_/ / /_/ / \n / .___/\__, /\____//____/_/ |_|\__,_/\__, /  \n/_/    /____/                        /____/   \n'
-                # Clear file and write header line
-                f.write(title+"\n\nLog file for pyC2Ray. \n\n") 
+    
+    # =====================================================================================================
+    # Below are the overridden initialization routines specific to the CubeP3M case
+    # =====================================================================================================
 
     def _redshift_init(self):
         """Initialize time and redshift counter
@@ -169,6 +157,8 @@ class C2Ray_cubep3m(C2Ray):
         self.zred = self.zred_0
 
     def _material_init(self):
+        """Initialize material properties of the grid
+        """
         if(self.resume):
             # get fields at the resuming redshift
             self.ndens = t2c.DensityFile(filename='%scoarser_densities/%.3fn_all.dat' %(self.inputs_basename, self.prev_zdens)).cgs_density / (self.mean_molecular * c.m_p.cgs.value)* (1+self.zred)**3
@@ -190,7 +180,36 @@ class C2Ray_cubep3m(C2Ray):
             self.phi_ion = np.zeros(self.shape, order='F')
         pass
     
+    def _output_init(self):
+        """ Set up output & log file
+        """
+        self.results_basename = self._ld['Output']['results_basename']
+        self.inputs_basename = self._ld['Output']['inputs_basename']
+
+        self.logfile = self.results_basename + self._ld['Output']['logfile']
+        if(self.resume):
+            with open(self.logfile,"r") as f: 
+                log = f.readlines()
+            with open(self.logfile,"w") as f: 
+                log.append("\n\n Resume pyC2Ray. \n\n")
+                f.write(''.join(log))
+        else:
+            with open(self.logfile,"w") as f: 
+                title = '                 _________   ____            \n    ____  __  __/ ____/__ \ / __ \____ ___  __\n   / __ \/ / / / /    __/ // /_/ / __ `/ / / /\n  / /_/ / /_/ / /___ / __// _, _/ /_/ / /_/ / \n / .___/\__, /\____//____/_/ |_|\__,_/\__, /  \n/_/    /____/                        /____/   \n'
+                # Clear file and write header line
+                f.write(title+"\n\nLog file for pyC2Ray. \n\n") 
+
     def _sources_init(self):
+        """Initialize settings to read source files
+        """
         self.fgamma_hm = self._ld['Sources']['fgamma_hm']
         self.fgamma_lm = self._ld['Sources']['fgamma_lm']
         self.ts = (self._ld['Sources']['ts'] * u.Myr).cgs.value
+
+    def _grid_init(self):
+        """ Set up grid properties
+        """
+        super()._grid_init()
+
+        t2c.set_sim_constants(boxsize_cMpc=self._ld['Grid']['boxsize'])
+        self.resume = self._ld['Grid']['resume']

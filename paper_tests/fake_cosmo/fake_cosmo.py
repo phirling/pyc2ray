@@ -23,7 +23,7 @@ t_evol = 5e5
 use_octa = True                    # Determines which raytracing algorithm to use
 r_RT = 50
 
-sim = pc2r.C2Ray_test(paramfile, N, use_octa)
+sim = pc2r.C2Ray_Test(paramfile, N, use_octa)
 
 # Generate redshift list (test case)
 zred_array = sim.generate_redshift_array(numzred,t_evol/numzred)

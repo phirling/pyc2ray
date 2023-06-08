@@ -20,7 +20,7 @@ max_subbox = 100                   # Maximum subbox when using C2Ray raytracing
 r_RT = 40                           # When using C2Ray raytracing, sets the subbox size. When using OCTA, sets the octahedron size
 
 # Create C2Ray object
-sim = pc2r.C2Ray(paramfile=paramfile, Nmesh=N, use_octa=use_octa)
+sim = pc2r.C2Ray_CubeP3M(paramfile=paramfile, Nmesh=N, use_octa=use_octa)
 
 # Get redshift list (test case)
 zred_array = np.loadtxt(sim.inputs_basename+'redshifts.txt', dtype=float)
