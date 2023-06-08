@@ -70,7 +70,7 @@ Photo:
   # Effective temperature of Black Body source
   Teff: 5e4
   # Whether or not to use grey opacity (i.e. cross-section is frequency-independent)
-  grey: 1
+  grey: 0
   # Power-law index for the frequency dependence of the photoionization cross section
   cross_section_pl_index: 2.8
 

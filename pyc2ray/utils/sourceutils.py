@@ -2,6 +2,75 @@ import numpy as np
 
 # Reference source strength, used to normalize flux. Has to be equal to that set in
 # src/c2ray/photorates.f90.
+            
+
+def format_sources(source_pos,source_flux):
+    """Convert source data to correct shape & data type for GPU extension module
+
+    The ASORA raytracing module works on flattened arrays with specific C-types.
+    Also, C is 0-indexed while Fortran is 1-indexed, so the grid positions need to
+    be shifted accordingly. This utility function is used to automatically do the
+    reshaping/reformatting
+
+    Parameters
+    ----------
+    source_pos : 2D array of shape (3,numsrc)
+        Source grid positions
+    source_flux : 1D array of shape (numsrc)
+        Source flux normalization factors
+    
+    Returns
+    -------
+    source_pos_flat : 1D array
+        Flattened single-int C representation of the source grid positions
+    source_flux_flat : 1D array
+        Flattened double-float C representation of the source flux normalization factors
+    """
+    source_pos_flat = np.ravel((source_pos - 1).astype('int32'),order='F')
+    source_flux_flat = source_flux.astype('float64')
+
+    return source_pos_flat, source_flux_flat
+
+def generate_test_sourcefile(filename,N,numsrc,strength,seed=100):
+    """Generate a test source file for C2Ray
+
+    Generate sources of equal strength at random grid positions and write to file
+    formatted for C2Ray.
+
+    Parameters
+    ----------
+    filename : string
+        Name of the file to write (will overwrite an existing file!)
+    N : int
+        Grid size
+    numsrc : int
+        Number of sources to generate
+    strength : float
+        Strength of the sources in number of ionizing photons per second
+    seed : int (optional)
+        Seed to use with numpy.random. Default: 100
+    """
+
+    # Random Generator with given seed
+    rng = np.random.RandomState(seed)
+    srcpos = 1+rng.randint(0,N,size=3*numsrc)
+    srcpos = srcpos.reshape((numsrc,3),order='C')
+    srcflux = strength * np.ones((numsrc,1))
+    zerocol = np.zeros((numsrc,1)) # By convention for c2ray
+
+    output = np.hstack((srcpos,srcflux,zerocol))
+
+    with open(filename,'w') as f:
+        f.write(f"{numsrc:n}\n")
+
+    with open(filename,'a') as f:
+        np.savetxt(f,output,("%i %i %i %.0e %.1f"))
+
+
+
+# ================================================
+# DEPCRECATED
+# ================================================
 
 def read_sources(file, numsrc, mode, S_star_ref=1e48):
     """ Read in a source file formatted for C2Ray
@@ -65,65 +134,3 @@ def read_sources(file, numsrc, mode, S_star_ref=1e48):
                 return srcpos, normflux
             else:
                 raise ValueError("Unknown mode: " + mode)
-            
-def generate_test_sourcefile(filename,N,numsrc,strength,seed=100):
-    """Generate a test source file for C2Ray
-
-    Generate sources of equal strength at random grid positions and write to file
-    formatted for C2Ray.
-
-    Parameters
-    ----------
-    filename : string
-        Name of the file to write (will overwrite an existing file!)
-    N : int
-        Grid size
-    numsrc : int
-        Number of sources to generate
-    strength : float
-        Strength of the sources in number of ionizing photons per second
-    seed : int (optional)
-        Seed to use with numpy.random. Default: 100
-    """
-
-    # Random Generator with given seed
-    rng = np.random.RandomState(seed)
-    srcpos = 1+rng.randint(0,N,size=3*numsrc)
-    srcpos = srcpos.reshape((numsrc,3),order='C')
-    srcflux = strength * np.ones((numsrc,1))
-    zerocol = np.zeros((numsrc,1)) # By convention for c2ray
-
-    output = np.hstack((srcpos,srcflux,zerocol))
-
-    with open(filename,'w') as f:
-        f.write(f"{numsrc:n}\n")
-
-    with open(filename,'a') as f:
-        np.savetxt(f,output,("%i %i %i %.0e %.1f"))
-
-def format_sources(source_pos,source_flux):
-    """Convert source data to correct shape & data type for GPU extension module
-
-    The ASORA raytracing module works on flattened arrays with specific C-types.
-    Also, C is 0-indexed while Fortran is 1-indexed, so the grid positions need to
-    be shifted accordingly. This utility function is used to automatically do the
-    reshaping/reformatting
-
-    Parameters
-    ----------
-    source_pos : 2D array of shape (3,numsrc)
-        Source grid positions
-    source_flux : 1D array of shape (numsrc)
-        Source flux normalization factors
-    
-    Returns
-    -------
-    source_pos_flat : 1D array
-        Flattened single-int C representation of the source grid positions
-    source_flux_flat : 1D array
-        Flattened double-float C representation of the source flux normalization factors
-    """
-    source_pos_flat = np.ravel((source_pos - 1).astype('int32'),order='F')
-    source_flux_flat = source_flux.astype('float64')
-
-    return source_pos_flat, source_flux_flat

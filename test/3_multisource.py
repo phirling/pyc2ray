@@ -36,8 +36,8 @@ sim = pc2r.C2Ray_Test(paramfile, N, use_octa)
 zred_array = sim.generate_redshift_array(numzred,1e7)
 
 # Read sources
-numsrc = 1
-srcpos, srcflux = sim.read_sources("src.txt",numsrc)
+numsrc = 5
+srcpos, srcflux = sim.read_sources("src_mult.txt",numsrc)
 
 # Raytracing Parameters
 max_subbox = 1000
@@ -78,9 +78,9 @@ for k in range(len(zred_array)-1):
         # Evolve the simulation: raytrace -> photoionization rates -> chemistry -> until convergence
         sim.evolve3D(dt, srcflux, srcpos, r_RT, max_subbox)
         
-        # Measure error
-        mean_xfrac[t] = np.mean(sim.xh)
-        mean_ionrate[t] = np.mean(sim.phi_ion)
+    # Measure error
+    mean_xfrac[t] = np.mean(sim.xh)
+    mean_ionrate[t] = np.mean(sim.phi_ion)
     err_xfrac = np.abs(mean_xfrac-xfrac_target)/xfrac_target
     err_ionrate = np.abs(mean_ionrate-ionrate_target)/ionrate_target
 
@@ -89,3 +89,10 @@ for k in range(len(zred_array)-1):
     print(err_xfrac)
     print("-- Ionization Rate --")
     print(err_ionrate)
+
+
+import matplotlib.pyplot as plt
+
+plt.imshow(sim.xh[:,:,64],norm='log',cmap='jet')
+plt.colorbar()
+plt.show()

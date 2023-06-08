@@ -26,53 +26,55 @@ class C2Ray_Test(C2Ray):
         """
         super().__init__(paramfile, Nmesh, use_gpu)
 
-    def read_sources(self,file,n): # >:( trgeoip
-        """Read from a C2Ray-formatted test source file
+    def read_sources(self,file,numsrc,S_star_ref = 1e48):
+        """ Read in a source file formatted for Test-C2Ray
 
-        The way sources are dealt with is still open and will change significantly
-        in the final version. For now, this method is provided:
+        Read in a file that gives source positions and total ionizing flux
+        in s^-1, formatted like for the original C2Ray code, e.g.
 
-        It reads source positions and strengths (total ionizing flux in
-        photons/second) from a file that is formatted for the original C2Ray,
-        and computes the source strength as normalization factors relative
-        to a reference strength (1e48 by default). These normalization factors
-        are then used during raytracing to compute the photoionization rate.
-        (same procedure as in C2Ray)
+        1.0
+        40 40 40 1e54 1.0
 
-        Moreover, the method formats the source positions correctly depending
-        on whether OCTA is used or not. This is because, while the default CPU
-        raytracing takes a 3D-array of any type as argument, OCTA assumes that the
-        source position array is flattened and has a C single int type (int32),
-        and that the normalization (strength) array has C double float type (float64).
+        for one source at (40,40,40) (Fortran indexing) and of total flux
+        1e54 photons/s. The last row is conventional.
 
         Parameters
         ----------
-        file : str
-            Filename to read
-        n : int
-            Number of sources to read from the file
-        
+        file : string
+            Name of the file to read
+        numsrc : int
+            Numer of sources to read from the file
+        S_star_ref : float, optional
+            Flux of the reference source. Default: 1e48
+            There is no real reason to change this, but if it is changed, the value in src/c2ray/photorates.f90
+            has to be changed accordingly and the library recompiled.
+            
         Returns
         -------
         srcpos : array
-            Grid positions of the sources formatted in a suitable way for
-            the chosen raytracing algorithm
+            Source positions
         normflux : array
-            Normalization of the flux of each source (relative to S_star)
-        numsrc : int
-            Number of sources read from the file
+            Normalization of the strength of each source, i.e. total ionizing flux / reference flux
         """
-        if self.gpu: mode = 'pyc2ray_octa'
-        else: mode = 'pyc2ray'
-        return read_sources(file, n, mode)
-    
+        
+        with open(file,"r") as f:
+            # Exclude first row and last column which are just conventional for c2ray
+            inp = np.loadtxt(f, skiprows=1, usecols=(0,1,2,3), ndmin=2) # < -- ndmin = 2 in case of single source in the file
+            
+            max_n = inp.shape[0]
+            
+            if (numsrc > max_n):
+                raise ValueError(f"Number of sources given ({numsrc:n}) is larger than that of the file ({max_n:n})")
+            else:
+                srcpos = np.transpose(inp[:,0:3])
+                normflux = inp[:,3] / S_star_ref
+                return srcpos, normflux
 
     def density_init(self,z):
         """Set density at redshift z
 
-        For now, this simply sets the density to a constant value,
-        specified in the parameter file, that is scaled to redshift
-        if the run is cosmological.
+        Sets the density to a constant value, specified in the parameter file,
+        that is scaled to redshift if the run is cosmological.
 
         Parameters
         ----------
