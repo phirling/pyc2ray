@@ -2,8 +2,8 @@
 
 _c2ray_lib = None
 _c2ray_lib_loaded = None
-_octa_lib = None
-_octa_lib_loaded = None
+_asora_lib = None
+_asora_lib_loaded = None
 
 # Load the f2py-compiled C2Ray subroutines
 def load_c2ray():
@@ -26,23 +26,23 @@ def load_c2ray():
     else:
         return None
     
-# Load the OCTA raytracing library
-def load_octa():
-    global _octa_lib
-    global _octa_lib_loaded
+# Load the ASORA raytracing library
+def load_asora():
+    global _asora_lib
+    global _asora_lib_loaded
 
     # Try once to load the library
-    if _octa_lib_loaded is None:
+    if _asora_lib_loaded is None:
         try:
-            from .lib import libocta
-            _octa_lib_loaded = True
-            _octa_lib = libocta
-            return _octa_lib
+            from .lib import libocta # The library used to be called OCTA
+            _asora_lib_loaded = True
+            _asora_lib = libocta
+            return _asora_lib
         except ImportError:
-            # If octa is not found, the package can still be used but we inform the user that GPU raytracing is not available
-            print("Info: could not load OCTA library (image not found)")
-            _octa_lib_loaded = False
-    elif _octa_lib_loaded is True:
-        return _octa_lib
+            # If asora is not found, the package can still be used but we inform the user that GPU raytracing is not available
+            print("Info: could not load ASORA library (image not found)")
+            _asora_lib_loaded = False
+    elif _asora_lib_loaded is True:
+        return _asora_lib
     else:
         return None

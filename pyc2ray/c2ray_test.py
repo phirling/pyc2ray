@@ -6,8 +6,8 @@ import pickle as pkl
 __all__ = ['C2Ray_test']
 
 class C2Ray_test(C2Ray):
-    def __init__(self, paramfile, Nmesh, use_octa):
-        super().__init__(paramfile, Nmesh, use_octa)
+    def __init__(self, paramfile, Nmesh, use_gpu):
+        super().__init__(paramfile, Nmesh, use_gpu)
 
     def read_sources(self,file,n): # >:( trgeoip
         """Read sources from a C2Ray-formatted file
@@ -45,7 +45,7 @@ class C2Ray_test(C2Ray):
         numsrc : int
             Number of sources read from the file
         """
-        if self.octa: mode = 'pyc2ray_octa'
+        if self.gpu: mode = 'pyc2ray_octa'
         else: mode = 'pyc2ray'
         return read_sources(file, n, mode)
     

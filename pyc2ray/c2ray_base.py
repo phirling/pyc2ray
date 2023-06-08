@@ -10,14 +10,14 @@ try:
 except ImportError:
     from yaml import SafeLoader
 from .utils.logutils import printlog
-from .evolve import evolve3D, evolve3D_octa
-from .octa_core import device_init, device_close, photo_table_to_device
+from .evolve import evolve3D, evolve3D_gpu
+from .asora_core import device_init, device_close, photo_table_to_device
 from .radiation import BlackBodySource
 
 # ==================================================================
 # This file defines the C2Ray object class, which is the basis
 # for a c2ray simulation. It deals with parameters, I/O, cosmology,
-# and other things such as memory allocation when using octa.
+# and other things such as memory allocation when using the GPU.
 #
 #
 # -- Notes on cosmology: --
@@ -73,7 +73,7 @@ msun2g = (1*u.Msun).to('g').value  # solar mass to grams
 
 
 class C2Ray:
-    def __init__(self,paramfile,Nmesh,use_octa):
+    def __init__(self,paramfile,Nmesh,use_gpu):
         """A C2Ray Simulation
 
         Parameters
@@ -82,8 +82,8 @@ class C2Ray:
             Name of a YAML file containing parameters for the C2Ray simulation
         Nmesh : int
             Mesh size (number of cells in each dimension)
-        use_octa : bool
-            Whether to use the OCTA library for raytracing
+        use_gpu : bool
+            Whether to use the GPU-accelerated ASORA library for raytracing
 
         """
         # Read YAML parameter file and set main properties
@@ -92,14 +92,14 @@ class C2Ray:
         self.shape = (Nmesh,Nmesh,Nmesh)
 
         # Set Raytracing mode
-        if use_octa:
-            self.octa = True
+        if use_gpu:
+            self.gpu = True
             # Allocate GPU memory
             device_init(Nmesh)
             # Register deallocation function (automatically calls this on program termination)
-            atexit.register(self._octa_close)
+            atexit.register(self._gpu_close)
         else:
-            self.octa = False
+            self.gpu = False
 
         # Initialize Simulation
         self._param_init()
@@ -154,14 +154,14 @@ class C2Ray:
             Positions of the sources. Shape depends on the raytracing algorithm used. Use
             read_sources to automatically format the array in the correct way. TODO: make this automatic
         r_RT : int
-            When using C2Ray raytracing: size of the subbox to use. When using OCTA, determines the
+            When using CPU (cubic) raytracing: size of the subbox to use. When using ASORA, determines the
             size of the octahedron
         max_subbox : int
-            Maximum size of the subbox when using C2Ray raytracing. When using OCTA, this
+            Maximum size of the subbox when using cubic raytracing. When using ASORA, this
             parameter has no effect.
         """
-        if self.octa:
-            self.xh, self.phi_ion = evolve3D_octa(dt, self.dr, normflux, srcpos, r_RT, self.temp, self.ndens,
+        if self.gpu:
+            self.xh, self.phi_ion = evolve3D_gpu(dt, self.dr, normflux, srcpos, r_RT, self.temp, self.ndens,
                                                   self.xh, self.sig, self.bh00, self.albpow, self.colh0,
                                                   self.temph0, self.abu_c,self.minlogtau,self.dlogtau,
                                                   self.NumTau,self.logfile)
@@ -316,12 +316,12 @@ class C2Ray:
         self.photo_thin_table = self.radsource.make_photo_table(self.tau,ion_freq_HI,10*ion_freq_HI,1e48)
 
         # Copy radiation table to GPU
-        if self.octa:
+        if self.gpu:
             photo_table_to_device(self.photo_thin_table)
             self.printlog("Successfully copied tables to GPU memory.")
 
     # The following initialization methods are simulation kind-dependent and need to be
-    # overloaded in the subclasses
+    # overridden in the subclasses
     def _grid_init(self):
         """ Set up grid properties
         """
@@ -366,7 +366,7 @@ class C2Ray:
         with open(paramfile,'r') as f:
             self._ld = yaml.load(f,loader)
 
-    def _octa_close(self):
+    def _gpu_close(self):
         """ Deallocate GPU memory
         """
         device_close()

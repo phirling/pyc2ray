@@ -1,10 +1,10 @@
 # ===================================================================================================
-# This module manages the initialization of the OCTA extension library. It ensures that GPU memory
-# has been allocated when GPU-accelerated functions are called.
+# This module manages the initialization of the ASORA raytracing extension library. It ensures that
+# GPU memory has been allocated when GPU-accelerated functions are called.
 # ===================================================================================================
 
-from .load_extensions import load_octa
-libocta = load_octa()
+from .load_extensions import load_asora
+libasora = load_asora()
 
 __all__ = ['cuda_is_init','device_init','device_close','photo_table_to_device']
 
@@ -26,21 +26,21 @@ def device_init(N):
         Mesh size in grid coordinates
     """
     global cuda_init
-    if libocta is not None:
-        libocta.device_init(N)
+    if libasora is not None:
+        libasora.device_init(N)
         cuda_init = True
     else:
-        raise RuntimeError("Could not initialize GPU: octa library not loaded")
+        raise RuntimeError("Could not initialize GPU: ASORA library not loaded")
 
 def device_close():
     """Deallocate GPU memory
     """
     global cuda_init
     if cuda_init:
-        libocta.device_close()
+        libasora.device_close()
         cuda_init = False
     else:
-        raise RuntimeError("GPU not initialized. Please initialize it by calling octa.device_init(N)")
+        raise RuntimeError("GPU not initialized. Please initialize it by calling device_init(N)")
     
 def photo_table_to_device(table):
     """Copy radiation table to GPU
@@ -49,6 +49,6 @@ def photo_table_to_device(table):
     global cuda_init
     NumTau = table.shape[0]
     if cuda_init:
-        libocta.photo_table_to_device(table,NumTau)
+        libasora.photo_table_to_device(table,NumTau)
     else:
-        raise RuntimeError("GPU not initialized. Please initialize it by calling octa.device_init(N)") 
+        raise RuntimeError("GPU not initialized. Please initialize it by calling device_init(N)") 

@@ -162,7 +162,7 @@ else:
         for t in range(tsteps):
             tnow = time.time()
             print(f"\n --- Timestep {t+1:n}. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
-            xh_new_f, phi_ion_f = pc2r.evolve3D_octa(dt,dr,srcflux,srcpos,r_RT,temp_f,ndens_f,
+            xh_new_f, phi_ion_f = pc2r.evolve3D_gpu(dt,dr,srcflux,srcpos,r_RT,temp_f,ndens_f,
                 xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c,minlogtau,dlogtau,NumTau)
             
             mean_xfrac_octa[t] = np.mean(xh_new_f)

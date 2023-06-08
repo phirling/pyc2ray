@@ -1,14 +1,14 @@
 import numpy as np
 from .utils import printlog
 from .utils.sourceutils import format_sources
-from .load_extensions import load_c2ray, load_octa
-from .octa_core import cuda_is_init
+from .load_extensions import load_c2ray, load_asora
+from .asora_core import cuda_is_init
 
 # Load extension modules
 libc2ray = load_c2ray()
-libocta = load_octa()
+libasora = load_asora()
 
-__all__ = ['evolve3D', 'evolve3D_octa']
+__all__ = ['evolve3D', 'evolve3D_gpu']
 
 # ===================================================================================================
 # evolve3D routine: iterate between raytracing <-> chemistry to solve for the ionization fraction
@@ -151,11 +151,11 @@ def evolve3D(dt,dr,normflux,srcpos,max_subbox,subboxsize,temp,ndens,xh,sig,bh00,
 
 
 # ===================================================================================================
-# evolve3D routine with OCTA raytracing
+# evolve3D routine with GPU raytracing (ASORA)
 # ===================================================================================================
-def evolve3D_octa(dt,dr,normflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
+def evolve3D_gpu(dt,dr,normflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0,temph0,abu_c,
                   minlogtau,dlogtau,NumTau,logfile="pyC2Ray.log",quiet=False):
-    """Evolves the ionization fraction over one timestep for the whole grid, using OCTA raytracing
+    """Evolves the ionization fraction over one timestep for the whole grid, using ASORA raytracing
 
     For a given list of sources and hydrogen number density, computes the evolution of
     the ionization fraction over a timestep due to the radiative transfer from the sources.
@@ -215,7 +215,7 @@ def evolve3D_octa(dt,dr,normflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0
     coldensh_out : 3D-array
         Outgoing column density of each cell due to the last source (for debugging, will be removed later on)
     """
-    # Allow a call only if 1. the octa library is present and 2. the GPU memory has been allocated using device_init()
+    # Allow a call only if 1. the asora library is present and 2. the GPU memory has been allocated using device_init()
     if cuda_is_init():
         NumSrc = normflux.shape[0]   # Number of sources
         N = temp.shape[0]           # Mesh size
@@ -247,7 +247,7 @@ def evolve3D_octa(dt,dr,normflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0
         phi_ion_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
 
         # Copy density field to GPU once at the beginning of timestep (!! do_all_sources does not touch the density field !!)
-        libocta.density_to_device(ndens_flat,N)
+        libasora.density_to_device(ndens_flat,N)
 
         printlog(f"Convergence Criterion (Number of points): {conv_criterion : n}",logfile,quiet)
 
@@ -255,10 +255,10 @@ def evolve3D_octa(dt,dr,normflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0
         while not converged:
             niter += 1
 
-            # Rates are set to zero on the GPU in the octa code
+            # Rates are set to zero on the GPU in the asora code
 
             # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
-            libocta.do_all_sources(srcpos_flat,normflux_flat,r_RT,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
+            libasora.do_all_sources(srcpos_flat,normflux_flat,r_RT,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
 
             # Reshape for C2Ray Fortran Chemistry
             phi_ion = np.reshape(phi_ion_flat, (N,N,N))
@@ -290,7 +290,7 @@ def evolve3D_octa(dt,dr,normflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0
             prev_sum_xh1_int = sum_xh1_int
             prev_sum_xh0_int = sum_xh0_int
 
-            # Flatten the updated time-average fraction for the next OCTA iteration
+            # Flatten the updated time-average fraction for the next ASORA call
             xh_av_flat = np.ravel(xh_av)
 
         # When converged, return the updated ionization fractions at the end of the timestep
@@ -298,4 +298,4 @@ def evolve3D_octa(dt,dr,normflux,srcpos,r_RT,temp,ndens,xh,sig,bh00,albpow,colh0
     
 
     else:
-        raise RuntimeError("GPU not initialized. Please initialize it by calling octa.device_init(N)")
+        raise RuntimeError("GPU not initialized. Please initialize it by calling device_init(N)")

@@ -8,8 +8,8 @@ import numpy as np
 __all__ = ['C2Ray_cubep3m']
 
 class C2Ray_cubep3m(C2Ray):
-    def __init__(self, paramfile, Nmesh, use_octa):
-        super().__init__(paramfile, Nmesh, use_octa)
+    def __init__(self, paramfile, Nmesh, use_gpu):
+        super().__init__(paramfile, Nmesh, use_gpu)
 
     def read_sources(self, file, mass='hm'): # >:( trgeoip
         """Read sources from a C2Ray-formatted file
@@ -53,7 +53,7 @@ class C2Ray_cubep3m(C2Ray):
         
         src = t2c.SourceFile(filename=file, mass=mass)
 
-        if self.octa: 
+        if self.gpu: 
             # pyc2ray_octa
             srcpos = src.sources_list[:, :3].T.astype('int64')
             srcpos = np.ravel(srcpos,order='F')

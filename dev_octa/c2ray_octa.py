@@ -103,7 +103,7 @@ for t in range(tsteps):
     tnow = time.time()
     #print(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n")
     pc2r.printlog(f"\n --- Timestep {t+1:n}, tf = {ct : .2e} yrs. Wall clock time: {tnow - tinit : .3f} seconds --- \n",logfile,quiet)
-    xh_new_f, phi_ion_f = pc2r.evolve3D_octa(dt,dxbox,srcflux,srcpos,r_RT,temp_f,ndens_f,
+    xh_new_f, phi_ion_f = pc2r.evolve3D_gpu(dt,dxbox,srcflux,srcpos,r_RT,temp_f,ndens_f,
                 xh_new_f,sig,bh00,albpow,colh0,temph0,abu_c,N,logfile=logfile)
 # =====================================================================================
 
