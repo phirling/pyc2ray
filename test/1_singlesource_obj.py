@@ -25,7 +25,7 @@ avgdens = 1.0e-6
 use_octa = False
 
 # Create C2Ray object
-sim = pc2r.C2Ray(paramfile, N, use_octa)
+sim = pc2r.C2Ray_test(paramfile, N, use_octa)
 
 # Generate redshift list (test case)
 zred_array = sim.generate_redshift_array(numzred,1e7)
