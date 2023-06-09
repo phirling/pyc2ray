@@ -14,7 +14,7 @@ if not has_cuda
     warning('CUDA compiler not found, will not build ASORA library')
 else
     add_global_arguments(['-O2','-Xcompiler','-fPIC'], language : 'cuda')
-    add_global_arguments(['-D PERIODIC'], language : 'cuda')
+    add_global_arguments(['-D PERIODIC','-D LOCALRATES'], language : 'cuda')
 endif
 
 # ==================================
@@ -41,6 +41,12 @@ incdir_f2py = run_command(py3,
 
 # F2PY type mapping file for Fortran -> C
 f2cmapfile = files('src/c2ray/f2c.f2py_f2cmap')
+
+cc = meson.get_compiler('c')
+m_dep = cc.find_library('m', required : false)
+if m_dep.found()
+  add_project_link_arguments('-lm', language : 'c')
+endif
 
 # Fortran source files for C2Ray
 c2ray_sources = [
@@ -75,7 +81,7 @@ pyc2ray_utils_sources = [
 # CUDA sources
 asora_sources = [
     'src/octa/raytracing_gpu.cu',
-    'src/octa/rtmodule.cpp',
+    'src/octa/rtmodule.cu',
 ]
 
 # Construct C-wrapper for Fortran extension module using F2PY
@@ -116,16 +122,27 @@ py3.extension_module('libc2ray',
 # PART 2: BUILD OPTIONAL ASORA MODULE
 # ===================================
 if has_cuda
-    libasora_raw = shared_library(
-        'asora',
-        'src/octa/raytracing_gpu.cu'
-    )
+    #libasora_raw = shared_library(
+    #    'asora_raw',
+    #    'src/octa/raytracing_gpu.cu'
+    #)
+#
+    #libasora_raw_dep = declare_dependency(compile_args: ['-DTAG_IS_SHARED=1'],
+    #    link_with : libasora_raw)
+    #
+    #py3.extension_module('libasora',
+    #    libasora_raw,
+    #    'src/octa/rtmodule.cpp',
+    #    include_directories: inc_np,
+    #    dependencies: [py3_dep, libasora_raw_dep],
+    #    install : true,
+    #    subdir : 'pyc2ray/lib',
+    #    link_language : 'cuda')
 
-    # py3.extension_module('libasora',
-    #     asora_sources,
-    #     include_directories: inc_np,
-    #     dependencies: py3_dep,
-    #     install : true,
-    #     subdir : 'pyc2ray/lib',
-    #     cuda_args : '-D LOCALRATES')
+    py3.extension_module('libocta',
+        asora_sources,
+        include_directories: inc_np,
+        dependencies: py3_dep,
+        install : true,
+        subdir : 'pyc2ray/lib')
 endif
