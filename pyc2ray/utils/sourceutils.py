@@ -66,14 +66,56 @@ def generate_test_sourcefile(filename,N,numsrc,strength,seed=100):
     with open(filename,'a') as f:
         np.savetxt(f,output,("%i %i %i %.0e %.1f"))
 
+def read_test_sources(file,numsrc,S_star_ref = 1e48):
+        """ Read in a source file formatted for Test-C2Ray
 
+        Read in a file that gives source positions and total ionizing flux
+        in s^-1, formatted like for the original C2Ray code, e.g.
+
+        1.0
+        40 40 40 1e54 1.0
+
+        for one source at (40,40,40) (Fortran indexing) and of total flux
+        1e54 photons/s. The last row is conventional.
+
+        Parameters
+        ----------
+        file : string
+            Name of the file to read
+        numsrc : int
+            Numer of sources to read from the file
+        S_star_ref : float, optional
+            Flux of the reference source. Default: 1e48
+            There is no real reason to change this, but if it is changed, the value in src/c2ray/photorates.f90
+            has to be changed accordingly and the library recompiled.
+            
+        Returns
+        -------
+        src_pos : 2D-array of shape (3,numsrc)
+            Source positions
+        src_flux : 1D-array of shape (numsrc)
+            Normalization of the strength of each source, i.e. total ionizing flux / reference flux
+        """
+        
+        with open(file,"r") as f:
+            # Exclude first row and last column which are just conventional for c2ray
+            inp = np.loadtxt(f, skiprows=1, usecols=(0,1,2,3), ndmin=2) # < -- ndmin = 2 in case of single source in the file
+            
+            max_n = inp.shape[0]
+            
+            if (numsrc > max_n):
+                raise ValueError(f"Number of sources given ({numsrc:n}) is larger than that of the file ({max_n:n})")
+            else:
+                src_pos = np.transpose(inp[:numsrc,0:3])
+                src_flux = inp[:numsrc,3] / S_star_ref
+                return src_pos, src_flux
 
 # ================================================
 # DEPCRECATED
 # ================================================
 
 def read_sources(file, numsrc, mode, S_star_ref=1e48):
-    """ Read in a source file formatted for C2Ray
+    """ Read in a source file formatted for C2Ray [DEPRECATED]
     
     Reads in a source list file formatted for the Fortran version of C2Ray and returns its contents
     as python objects suitably shaped for the wrapped versions.

@@ -1,5 +1,5 @@
 from .c2ray_base import C2Ray, YEAR, Mpc
-from .utils.sourceutils import read_sources
+from .utils.sourceutils import read_test_sources
 import numpy as np
 import pickle as pkl
 
@@ -56,19 +56,8 @@ class C2Ray_Test(C2Ray):
         src_flux : 1D-array of shape (numsrc)
             Normalization of the strength of each source, i.e. total ionizing flux / reference flux
         """
+        return read_test_sources(file,numsrc,S_star_ref)
         
-        with open(file,"r") as f:
-            # Exclude first row and last column which are just conventional for c2ray
-            inp = np.loadtxt(f, skiprows=1, usecols=(0,1,2,3), ndmin=2) # < -- ndmin = 2 in case of single source in the file
-            
-            max_n = inp.shape[0]
-            
-            if (numsrc > max_n):
-                raise ValueError(f"Number of sources given ({numsrc:n}) is larger than that of the file ({max_n:n})")
-            else:
-                src_pos = np.transpose(inp[:,0:3])
-                src_flux = inp[:,3] / S_star_ref
-                return src_pos, src_flux
 
     def density_init(self,z):
         """Set density at redshift z
