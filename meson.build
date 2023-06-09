@@ -1,7 +1,12 @@
-project('pyc2ray','c',
+project('pyc2ray','c','cpp',
     version : '0.1',
     default_options : [
-        'warning_level=2'])
+        'warning_level=2',
+        'cpp_std=c++14'])
+
+# ==================================
+# PART 1: BUILD WRAPPED C2RAY MODULE
+# ==================================
 
 add_languages('fortran')
 add_global_arguments('-cpp', language : 'fortran') # For lowercase-uppercase stuff
@@ -56,6 +61,11 @@ pyc2ray_utils_sources = [
     'pyc2ray/utils/sourceutils.py'
 ]
 
+asora_sources = [
+    'src/octa/raytracing_gpu.cu',
+    'src/octa/rtmodule.cpp',
+]
+
 # Construct C-wrapper for Fortran extension module using F2PY
 c2ray_wrapper_source = custom_target('libc2raymodule.c',
     input : c2ray_sources,
@@ -88,3 +98,23 @@ py3.extension_module('libc2ray',
     install : true,
     subdir : 'pyc2ray/lib',
     fortran_args : '-DUSE_SUBBOX')
+
+
+# ===================================
+# PART 2: BUILD OPTIONAL ASORA MODULE
+# ===================================
+has_cuda = add_languages('cuda',required:false)
+if not has_cuda
+    warning('CUDA compiler not found, will not build ASORA library')
+else
+    add_global_arguments(['-O2','-Xcompiler','-fPIC'], language : 'cuda')
+    add_global_arguments(['-D PERIODIC','-D LOCALRATES'], language : 'cuda')
+
+    py3.extension_module('libasora',
+        asora_sources,
+        include_directories: inc_np,
+        dependencies: py3_dep,
+        install : true,
+        subdir : 'pyc2ray/lib')
+endif
+
