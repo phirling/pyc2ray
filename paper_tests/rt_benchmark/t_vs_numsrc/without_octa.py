@@ -38,24 +38,25 @@ photo_thin_table = radsource.make_photo_table(tau, freq0, 10*freq0, 1e48)
 #numsrc = [1, 10, 50, 100, 500, 1000]
 #numsrc = [300,750]
 #numsrc = [1500]
-numsrc = [1, 10, 50, 100, 300, 500, 750, 1000, 1500]
+#numsrc = [1, 10, 50, 100, 300, 500, 750, 1000, 1500]
+numsrc = [10]
 timings = []
 mean_phi = []
 max_phi = []
 
 # do empty rt
-srcpos, normflux = pc2r.read_sources("sources_more.txt", 1, "pyc2ray")
-phi_ion, nsb, photonloss = pc2r.raytracing.do_all_sources(dr, normflux, srcpos, 6,5, ndens, xh_av, sig,photo_thin_table, minlogtau, dlogtau)
+src_pos, src_flux = pc2r.read_test_sources("sources_more.txt", 1)
+phi_ion = pc2r.raytracing.do_all_sources(dr,src_flux,src_pos,5,False,6,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
 
 # Raytrace
 #r = 100
 r = 50
 for ns in numsrc:
     # Read example sources
-    srcpos, normflux = pc2r.read_sources("sources_more.txt", ns, "pyc2ray")
+    src_pos, src_flux = pc2r.read_test_sources("sources_more.txt", ns)
     print(f"Doing {ns:n} sources, r = {r:.2f}")
     t1 = time.perf_counter()
-    phi_ion, nsb, photonloss = pc2r.raytracing.do_all_sources(dr, normflux, srcpos, r+1,r, ndens, xh_av, sig,photo_thin_table, minlogtau, dlogtau)
+    phi_ion = pc2r.raytracing.do_all_sources(dr,src_flux,src_pos,r,False,r+1,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
     t2 = time.perf_counter()
     timings.append(t2-t1)
     mean_phi.append(phi_ion.mean())

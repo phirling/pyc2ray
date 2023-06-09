@@ -43,13 +43,13 @@ mean_phi = []
 max_phi = []
 
 # do empty rt
-phi_ion = pc2r.raytracing.do_all_sources_unified(dr,src_flux,src_pos,5,False,6,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
+phi_ion = pc2r.raytracing.do_all_sources(dr,src_flux,src_pos,5,False,6,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
 
 # Raytrace
 for r in radii:
     print(f"Doing r = {r:.1f}")
     t1 = time.perf_counter()
-    phi_ion = pc2r.raytracing.do_all_sources_unified(dr,src_flux,src_pos,r,False,r+1,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
+    phi_ion = pc2r.raytracing.do_all_sources(dr,src_flux,src_pos,r,False,r+1,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
     t2 = time.perf_counter()
     timings.append(t2-t1)
     mean_phi.append(phi_ion.mean())
@@ -63,8 +63,8 @@ max_phi = np.array(max_phi)
 # Plot result
 plt.plot(radii,timings)
 plt.show()
-#plt.imshow(phi_ion[:,:,226],cmap='plasma',norm='log')
-#plt.show()
+plt.imshow(phi_ion[:,:,226],cmap='plasma',norm='log')
+plt.show()
 
 output = np.stack((radii,timings,mean_phi,max_phi),axis=1)
 print(output)
