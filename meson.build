@@ -34,6 +34,28 @@ c2ray_sources = [
     'src/c2ray/chemistry.f90',
 ]
 
+pyc2ray_sources = [
+    'pyc2ray/__init__.py',
+    'pyc2ray/asora_core.py',
+    'pyc2ray/c2ray_base.py',
+    'pyc2ray/c2ray_cubep3m.py',
+    'pyc2ray/c2ray_test.py',
+    'pyc2ray/chemistry.py',
+    'pyc2ray/evolve.py',
+    'pyc2ray/load_extensions.py',
+    'pyc2ray/radiation.py',
+    'pyc2ray/raytracing.py'
+]
+
+pyc2ray_utils_sources = [
+    'pyc2ray/utils/__init__.py',
+    'pyc2ray/utils/logutils.py',
+    'pyc2ray/utils/other_utils.py',
+    'pyc2ray/utils/paramutils.py',
+    'pyc2ray/utils/source_converter.py',
+    'pyc2ray/utils/sourceutils.py'
+]
+
 # Construct C-wrapper for Fortran extension module using F2PY
 c2ray_wrapper_source = custom_target('libc2raymodule.c',
     input : c2ray_sources,
@@ -43,7 +65,20 @@ c2ray_wrapper_source = custom_target('libc2raymodule.c',
 # Include directories for extension module
 inc_np = include_directories(incdir_numpy,incdir_f2py)
 
-# Build C2Ray extension module with F2PY
+# Install python sources
+py3.install_sources(
+  pyc2ray_sources,
+  subdir: 'pyc2ray',
+  pure: false
+)
+
+py3.install_sources(
+  pyc2ray_utils_sources,
+  subdir: 'pyc2ray/utils',
+  pure: false
+)
+
+# Build C2Ray extension module
 py3.extension_module('libc2ray',
     c2ray_wrapper_source,
     c2ray_sources,
