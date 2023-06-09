@@ -24,17 +24,14 @@ src_pos, src_flux = pc2r.read_test_sources("sources_more.txt", 10)
 minlogtau = -20
 maxlogtau = 4
 NumTau = 2000
-dlogtau = (maxlogtau-minlogtau)/NumTau
-tau = np.empty(NumTau+1)
-tau[0] = 0.0
-tau[1:] = 10**(minlogtau + np.arange(NumTau)*dlogtau)
+tau, dlogtau = pc2r.make_tau_table(minlogtau,maxlogtau,NumTau)
 
 # Set up radiation table
 Teff = 5e4                      # Temperature of black body
 grey = False                    # Use power-law opacity
 freq0 = 3288513124000000.0      # Ionization threshhold frequency of Hydrogen in s^-1
 pl_index = 2.8
-radsource = pc2r.radiation.BlackBodySource(Teff, grey, freq0, pl_index)
+radsource = pc2r.BlackBodySource(Teff, grey, freq0, pl_index)
 photo_thin_table = radsource.make_photo_table(tau, freq0, 10*freq0, 1e48)
 
 radii = np.linspace(10,200,20)

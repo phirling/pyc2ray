@@ -12,7 +12,7 @@ except ImportError:
 from .utils.logutils import printlog
 from .evolve import evolve3D
 from .asora_core import device_init, device_close, photo_table_to_device
-from .radiation import BlackBodySource
+from .radiation import BlackBodySource, make_tau_table
 
 # ======================================================================
 # This file defines the abstract C2Ray object class, which is the basis
@@ -21,6 +21,8 @@ from .radiation import BlackBodySource
 # Any concrete simulation uses subclasses of C2Ray, with methods specific
 # to certain input files (e.g. CubeP3M)
 #
+# Since all simulation classes inherit from this class, great care should
+# be taken in editing it!
 #
 # -- Notes on cosmology: --
 # * In C2Ray, the scale factor is 1 at z = 0. The box size is given
@@ -296,15 +298,11 @@ class C2Ray:
         self.minlogtau = self._ld['Photo']['minlogtau']
         self.maxlogtau = self._ld['Photo']['maxlogtau']
         self.NumTau = self._ld['Photo']['NumTau']
-        self.dlogtau = (self.maxlogtau - self.minlogtau) / (self.NumTau)
 
-        # The table has NumTau + 1 points: the 0-th position is tau=0 and the
+        # The actual table has NumTau + 1 points: the 0-th position is tau=0 and the
         # remaining NumTau points are log-spaced from minlogtau to maxlogtau (same as in C2Ray)
-        self.tau = np.empty(self.NumTau + 1)
-        self.tau[0] = 0.0
-        for i in range(1,self.NumTau+1):
-            self.tau[i] = 10.0**(self.minlogtau+self.dlogtau*(i-1))
-        
+        self.tau, self.dlogtau = make_tau_table(self.minlogtau,self.maxlogtau,self.NumTau)
+
         # Initialize Black-Body Source
         self.bb_Teff = self._ld['Photo']['Teff']
         self.grey = self._ld['Photo']['grey']

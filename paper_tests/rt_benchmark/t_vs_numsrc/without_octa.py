@@ -22,10 +22,7 @@ xh_av = 1.2e-3 * np.ones((N,N,N),order='F')     # Current time-averaged ionized 
 minlogtau = -20
 maxlogtau = 4
 NumTau = 2000
-dlogtau = (maxlogtau-minlogtau)/NumTau
-tau = np.empty(NumTau+1)
-tau[0] = 0.0
-tau[1:] = 10**(minlogtau + np.arange(NumTau)*dlogtau)
+tau, dlogtau = pc2r.radiation.make_tau_table(minlogtau,maxlogtau,NumTau)
 
 # Set up radiation table
 Teff = 5e4                      # Temperature of black body
@@ -66,8 +63,8 @@ timings = np.array(timings)
 mean_phi = np.array(mean_phi)
 max_phi = np.array(max_phi)
 
-#plt.imshow(phi_ion[:,:,323],norm='log')
-#plt.show()
+plt.imshow(phi_ion[:,:,323],norm='log')
+plt.show()
 #with open("ionrate_c2ray.pkl","wb") as f:
 #    pkl.dump(phi_ion,f)
 
