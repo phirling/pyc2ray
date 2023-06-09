@@ -18,8 +18,7 @@ ndens = 1e-3 * np.ones((N,N,N),order='F')       # Number density of Hydrogen in 
 xh_av = 1.2e-3 * np.ones((N,N,N),order='F')     # Current time-averaged ionized fraction of hydrogen
 
 # Read example sources
-#srcpos, normflux = pc2r.read_sources("sources.txt", 100, "pyc2ray")
-srcpos, normflux = pc2r.read_sources("sources_more.txt", 10, "pyc2ray")
+src_pos, src_flux = pc2r.read_test_sources("sources_more.txt", 10)
 
 # Set up optical depth table
 minlogtau = -20
@@ -44,13 +43,13 @@ mean_phi = []
 max_phi = []
 
 # do empty rt
-phi_ion, nsb, photonloss = pc2r.raytracing.do_all_sources(dr, normflux, srcpos, 6,5, ndens, xh_av, sig,photo_thin_table, minlogtau, dlogtau)
+phi_ion = pc2r.raytracing.do_all_sources_unified(dr,src_flux,src_pos,5,False,6,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
 
 # Raytrace
 for r in radii:
     print(f"Doing r = {r:.1f}")
     t1 = time.perf_counter()
-    phi_ion, nsb, photonloss = pc2r.raytracing.do_all_sources(dr, normflux, srcpos, r+1,r, ndens, xh_av, sig,photo_thin_table, minlogtau, dlogtau)
+    phi_ion = pc2r.raytracing.do_all_sources_unified(dr,src_flux,src_pos,r,False,r+1,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
     t2 = time.perf_counter()
     timings.append(t2-t1)
     mean_phi.append(phi_ion.mean())
@@ -64,6 +63,8 @@ max_phi = np.array(max_phi)
 # Plot result
 plt.plot(radii,timings)
 plt.show()
+#plt.imshow(phi_ion[:,:,226],cmap='plasma',norm='log')
+#plt.show()
 
 output = np.stack((radii,timings,mean_phi,max_phi),axis=1)
 print(output)

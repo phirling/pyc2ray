@@ -64,6 +64,15 @@ for k in range(len(zred_array)-1):
     # correct redshift. In the timesteps, the density is then "diluted" gradually
     sim.set_constant_average_density(avgdens,0) 
 
+    # Use cosmological density field for nice visual
+    # import tools21cm as t2c
+    # df = t2c.DensityFile("dens_9.938.dat")
+    # z = 9
+    # scaling = (1+z)**3
+    # m_H_cgs = 1.673533927065e-24 # Isotopic mass of hydrogen in grams
+    # ndens = dens = scaling * df.cgs_density / m_H_cgs
+    # sim.ndens = ndens[5:133,5:133,0:128] 
+
     print(f"\n=================================")
     print(f"Doing redshift {zi:.3f} to {zf:.3f}")
     print(f"=================================\n")
