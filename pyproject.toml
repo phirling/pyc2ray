@@ -1,0 +1,19 @@
+[build-system]
+requires = [
+    "meson-python",
+    "numpy",             # To get paths
+    "charset_normalizer" # This is to prevent bugs with F2PY when it reads Fortran sources
+]
+build-backend = "mesonpy"
+
+[project]
+name = "pyc2ray"
+description = "C2Ray Radiative Transfer code, wrapped in Python"
+version = "0.0.1"
+dependencies = [
+    "numpy",
+    "tools21cm"]
+maintainers = [
+    {name = "Patrick Hirling & Michele Bianco"},
+]
+requires-python = ">=3.9.0"

@@ -163,6 +163,7 @@ module raytracing
         coldensh_out(:,:,:) = 0.0
 
 #ifdef USE_SUBBOX
+        ! write(*,*) "Using subboxes!"
         ! With subboxing: raytrace in subboxes of increasing size until the photon loss is sufficiently low or "lastpos" is reached.
         ! --------------------------------------------------------------------------------------------------------------------------
         nbox = 0
