@@ -4,12 +4,22 @@ project('pyc2ray','c','cpp',
         'warning_level=2',
         'cpp_std=c++14'])
 
+# Define global options
+add_languages('fortran')
+add_global_arguments('-cpp', language : 'fortran') # For lowercase-uppercase stuff
+
+# CUDA compiler is optional, required to build ASORA
+has_cuda = add_languages('cuda',required:false)
+if not has_cuda
+    warning('CUDA compiler not found, will not build ASORA library')
+else
+    add_global_arguments(['-O2','-Xcompiler','-fPIC'], language : 'cuda')
+    add_global_arguments(['-D PERIODIC'], language : 'cuda')
+endif
+
 # ==================================
 # PART 1: BUILD WRAPPED C2RAY MODULE
 # ==================================
-
-add_languages('fortran')
-add_global_arguments('-cpp', language : 'fortran') # For lowercase-uppercase stuff
 
 # https://numpy.org/doc/stable/f2py/buildtools/meson.html
 py_mod = import('python')
@@ -39,6 +49,7 @@ c2ray_sources = [
     'src/c2ray/chemistry.f90',
 ]
 
+# Python sources
 pyc2ray_sources = [
     'pyc2ray/__init__.py',
     'pyc2ray/asora_core.py',
@@ -61,6 +72,7 @@ pyc2ray_utils_sources = [
     'pyc2ray/utils/sourceutils.py'
 ]
 
+# CUDA sources
 asora_sources = [
     'src/octa/raytracing_gpu.cu',
     'src/octa/rtmodule.cpp',
@@ -103,18 +115,17 @@ py3.extension_module('libc2ray',
 # ===================================
 # PART 2: BUILD OPTIONAL ASORA MODULE
 # ===================================
-has_cuda = add_languages('cuda',required:false)
-if not has_cuda
-    warning('CUDA compiler not found, will not build ASORA library')
-else
-    add_global_arguments(['-O2','-Xcompiler','-fPIC'], language : 'cuda')
-    add_global_arguments(['-D PERIODIC','-D LOCALRATES'], language : 'cuda')
+if has_cuda
+    libasora_raw = shared_library(
+        'asora',
+        'src/octa/raytracing_gpu.cu'
+    )
 
-    py3.extension_module('libasora',
-        asora_sources,
-        include_directories: inc_np,
-        dependencies: py3_dep,
-        install : true,
-        subdir : 'pyc2ray/lib')
+    # py3.extension_module('libasora',
+    #     asora_sources,
+    #     include_directories: inc_np,
+    #     dependencies: py3_dep,
+    #     install : true,
+    #     subdir : 'pyc2ray/lib',
+    #     cuda_args : '-D LOCALRATES')
 endif
-
