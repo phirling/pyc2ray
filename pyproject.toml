@@ -12,7 +12,7 @@ description = "Python-wrapped and Accelerated version of C2Ray"
 version = "0.1.0"
 dependencies = [
     "numpy",
-    "scipy,
+    "scipy",
     "tools21cm"]
 maintainers = [
     {name = "Patrick Hirling & Michele Bianco"},
