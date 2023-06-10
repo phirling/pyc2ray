@@ -7,53 +7,64 @@ are implemented in pure python and are thus easily tweakable for a specific purp
 
 In addition, the computationally most expensive step of the RT simulation, namely the raytracing,
 has been modified to be GPU-parallelizable. This updated algorithm, called _ASORA_, is written
-in C++/CUDA and can be used as a python extension module, both in a standalone way and for C2Ray simulations.
+in CUDA C++ as a python extension module. When no GPU is available, a CPU raytracing method is available as a fallback option.
 
-## Get Started
+## Installation
 ### Requirements
 * `f2py`, provided by Numpy
 * `gfortran` compiler
 * `CUDA` and the `nvcc` compiler (Optional, for the accelerated raytracing library)
 ### Build Instructions
-At a later time, a build system using `meson` may be added. For now, the extension modules
-required by the package must be compiled manually.
-1. **Compile Fortran Extension Module**
-
-First you need to compile the wrapped subroutines from C2Ray using `f2py`. To do this, run
+To build the required extension modules, `pyc2ray` uses the [Meson](https://mesonbuild.com/) build system, which
+automatically identifies the platform-specific settings to compile source files.
+The recommended method to install `pyc2ray` is by using `pip` directly on the repo, simply run
 ```
-cd src/c2ray/
-make
+pip install git+https://github.com/phirling/PC2R.git -v
 ```
+The `-v` flag is optional but prints additional information on the build process, and helps in identifying errors.
+Pip will install all the necessary build dependencies (including `meson`) and run `meson compile` on all the
+required targets, finally installing the package at the correct location. We recommend installing `pyc2ray`
+inside a virtual environment.
 
-If successful, this should create a `libc2ray.*.so` file, where the * is platform-dependent. Copy this file to
-`pyc2ray/lib/` (create the directory if it doesn't exist).
+`meson` will automatically detect if a CUDA compiler is available on the system and will only build the ASORA raytracing
+extension module if this is the case. When ASORA cannot be built, `pyc2ray` can still be used but only using the CPU RT
+methods. In this situation, a warning will be printed upon importing the package to inform the user that ASORA is unavailable.
 
-2. **Compile CUDA Extension Module (optional)**
+### Configure Build
+Developers may find it useful to tweak the build process. In particular, setting the appropriate build flags for the
+CUDA extension module can yield significant performance improvements. As an example, its possible to set the
+`gpu-architecture` flag of the `nvcc` compiler directly by appending the following to the above pip command:
+```
+pip install git+https://github.com/phirling/PC2R.git -v --config-settings=setup-args="-Dgpu-architecture=sm_60"
+```
+where in this example we set the architecture to `sm_60` (the default value, appropriate for e.g. a P100 GPU).
+To get a list of all available `meson` settings, clone the repository and then run `meson configure` without
+any arguments. To learn how to set these options via `pip`, please refer to the following docs of meson-python:
+[Use build config settings](https://meson-python.readthedocs.io/en/latest/how-to-guides/config-settings.html)
+and [Passing arguments to Meson](https://meson-python.readthedocs.io/en/latest/how-to-guides/meson-args.html#how-to-guides-meson-args).
 
-If you wish to use the ASORA raytracing library, you also need to compile the C++/CUDA extension.
-Head to `src/octa/` and edit the makefile using the appropriate include paths. To find the include path
-for numpy, open a python interpreter and run `np.get_include()`.
-Then, run `make` and, assuming the build is successful, copy the `libocta.so` file to `pyc2ray/lib/`.
-
-The `pyc2ray` package can then be used, assuming the pyc2ray/ directory is in the python path.
+### Run a Test
+To see if the package works as expected, a series of tests are available in the `test` directory. In particular, we recommend
+running
+```
+python 2_multisource.py --gpu --plot
+```
+Where the `--gpu` flag can be omitted to use the CPU (serial) raytracing module. After 10 timesteps (which should take
+less than a minute to run), you should see a dice-like pattern of 5 ionized regions.
 
 ### Usage
 A detailed documentation isn't yet available, but example scripts can be found in the `example/` directory
 of this repository.
 
 The general usage principle of pyc2ray is that:
-1. A full C2Ray simulation can be configured and run using the `pyc2ray.C2Ray()` class along with a parameter file.
+1. A full C2Ray simulation can be configured and run using subclasses of the `pyc2ray.C2Ray()` class along with a parameter file.
 2. The individual components can also be used in a standalone way as module functions.
 
-Bear in mind that the object-oriented usage (no. 1) is the reference implementation and that
-missing documentation and possibly even errors may happen when using the modules individually, at least during development.
 
 ## Directories Guide
 * `pyc2ray`: Python package directory
 * `examples`: Contains example scripts that showcase the usage of pyc2ray
 * `src`: Sources for the extension modules:
     * `c2ray`: Fortran sources adapted from the original C2Ray source code
-    * `octa`: C++/CUDA sources for the octa library
+    * `octa`: C++/CUDA sources for the ASORA library
 * `test`: Scripts to be run during development to check that the code produces the same output as a given benchmark
-
-All other directories are debugging/development files and are not part of the final project.

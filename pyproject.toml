@@ -8,10 +8,11 @@ build-backend = "mesonpy"
 
 [project]
 name = "pyc2ray"
-description = "C2Ray Radiative Transfer code, wrapped in Python"
-version = "0.0.1"
+description = "Python-wrapped and Accelerated version of C2Ray"
+version = "0.1.0"
 dependencies = [
     "numpy",
+    "scipy,
     "tools21cm"]
 maintainers = [
     {name = "Patrick Hirling & Michele Bianco"},
