@@ -1,12 +1,12 @@
 CXX=g++
 NVCC=nvcc
-PYTHONINC+=-I/usr/include/python3.10 -I/usr/include/python3.6m
-NUMPYINC+=-I/home/phirling/miniconda3/envs/astro/lib/python3.10/site-packages/numpy/core/include -I/users/phirling/miniconda3/envs/ion/lib/python3.10/site-packages/numpy/core/include
+PYTHONINC+=-I/project/c31/codes/miniconda3/include/python3.9
+NUMPYINC+=-I/users/mibianco/codes/pyC2Ray/pyc2ray-env/lib/python3.9/site-packages/numpy/core/include
 
 # Include Paths for both local and piz daint
 INC+=$(PYTHONINC) $(NUMPYINC)
 CXXFLAGS+=-std=c++14 -O2 -pedantic -fPIC -D PERIODIC -D RATES #-Wall -Wextra -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-overflow=5 -Wswitch-default -Wundef -Werror -Wno-unused
-CUDAFLAGS+=-std=c++14 -O2  -Xcompiler -fPIC -D PERIODIC -D LOCALRATES #-Wall -Wextra -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-overflow=5 -Wswitch-default -Wundef -Werror -Wno-unused
+CUDAFLAGS+=-std=c++14 -O2  -Xcompiler -fPIC -D PERIODIC -D LOCALRATES --gpu-architecture=sm_60 #-Wall -Wextra -Wold-style-cast -Woverloaded-virtual -Wredundant-decls -Wshadow -Wsign-conversion -Wsign-promo -Wstrict-overflow=5 -Wswitch-default -Wundef -Werror -Wno-unused
 
 all: libocta.so
 

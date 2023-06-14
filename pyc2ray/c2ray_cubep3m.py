@@ -4,6 +4,7 @@ import tools21cm as t2c
 from astropy import units as u
 from astropy import constants as c
 import numpy as np
+import h5py
 
 __all__ = ['C2Ray_CubeP3M']
 
@@ -67,20 +68,20 @@ class C2Ray_CubeP3M(C2Ray):
         # TODO: automatic selection of low mass or high mass. For the moment only high mass
         mass2phot = msun2g * self.fgamma_hm * self.cosmology.Ob0 / (self.mean_molecular * c.m_p.cgs.value * self.ts * self.cosmology.Om0)    
         
-        src = t2c.SourceFile(filename=file, mass=mass)
-
-        if self.gpu: 
-            # pyc2ray_octa
-            srcpos = src.sources_list[:, :3].T.astype('int64')
-            srcpos = np.ravel(srcpos,order='F')
-            normflux = src.sources_list[:, -1].astype('float32') * mass2phot / S_star_ref
+        if file.endswith('.hdf5'):
+            f = h5py.File(file, 'r')
+            srcpos = f['sources_positions'][:].T
+            assert srcpos.shape[0] == 3
+            normflux = f['sources_mass'][:] * mass2phot / S_star_ref
+            f.close()
         else:
-            # pyc2ray
-            srcpos = src.sources_list[:, :3].T.astype('int32')
-            normflux = src.sources_list[:, -1].astype('float64') * mass2phot / S_star_ref
+            # use original C2Ray source file
+            src = t2c.SourceFile(filename=file, mass=mass)
+            srcpos = src.sources_list[:, :3].T
+            normflux = src.sources_list[:, -1] * mass2phot / S_star_ref
 
         self.printlog('\n---- Reading source file with total of %d ionizing source:\n%s' %(np.count_nonzero(normflux), file))
-        self.printlog(' min, max source mass : %.3e  %.3e [Msun] and min, mean, max number of ionising sources : %.3e  %.3e  %.3e [1/s]' %(src.sources_list[:, -1].min(), src.sources_list[:, -1].max(), normflux.min()*S_star_ref, normflux.mean()*S_star_ref, normflux.max()*S_star_ref))
+        self.printlog(' min, max source mass : %.3e  %.3e [Msun] and min, mean, max number of ionising sources : %.3e  %.3e  %.3e [1/s]' %(normflux.min()/mass2phot*S_star_ref, normflux.max()/mass2phot*S_star_ref, normflux.min()*S_star_ref, normflux.mean()*S_star_ref, normflux.max()*S_star_ref))
         return srcpos, normflux
     
     def read_density(self, z):
@@ -128,8 +129,8 @@ class C2Ray_CubeP3M(C2Ray):
             Redshift (used to name the file)
         """
         suffix = f"_{z:.3f}.dat"
-        t2c.save_cbin(filename=self.results_basename + "xfrac" + suffix, data=self.xh)
-        t2c.save_cbin(filename=self.results_basename + "IonRates" + suffix, data=self.phi_ion)
+        t2c.save_cbin(filename=self.results_basename + "xfrac" + suffix, data=self.xh, bits=64, order='F')
+        t2c.save_cbin(filename=self.results_basename + "IonRates" + suffix, data=self.phi_ion, bits=32, order='F')
 
         self.printlog('\n--- Reionization History ----')
         self.printlog(' min, mean, max xHII : %.3e  %.3e  %.3e' %(self.xh.min(), self.xh.mean(), self.xh.max()))
@@ -163,12 +164,11 @@ class C2Ray_CubeP3M(C2Ray):
             # get fields at the resuming redshift
             self.ndens = t2c.DensityFile(filename='%scoarser_densities/%.3fn_all.dat' %(self.inputs_basename, self.prev_zdens)).cgs_density / (self.mean_molecular * c.m_p.cgs.value)* (1+self.zred)**3
             #self.ndens = self.read_density(z=self.zred)
-            self.xh = t2c.read_cbin('%sxfrac_%.3f.dat' %(self.results_basename, self.zred))
+            self.xh = t2c.read_cbin(filename='%sxfrac_%.3f.dat' %(self.results_basename, self.zred), bits=64, order='F')
             # TODO: implement heating
             temp0 = self._ld['Material']['temp0']
             self.temp = temp0 * np.ones(self.shape, order='F')
-            
-            self.phi_ion = t2c.read_cbin('%sIonRates_%.3f.dat' %(self.results_basename, self.zred))
+            self.phi_ion = t2c.read_cbin(filename='%sIonRates_%.3f.dat' %(self.results_basename, self.zred), bits=32, order='F')
         else:
             xh0 = self._ld['Material']['xh0']
             temp0 = self._ld['Material']['temp0']
@@ -187,17 +187,17 @@ class C2Ray_CubeP3M(C2Ray):
         self.inputs_basename = self._ld['Output']['inputs_basename']
 
         self.logfile = self.results_basename + self._ld['Output']['logfile']
+        title = '                 _________   ____            \n    ____  __  __/ ____/__ \ / __ \____ ___  __\n   / __ \/ / / / /    __/ // /_/ / __ `/ / / /\n  / /_/ / /_/ / /___ / __// _, _/ /_/ / /_/ / \n / .___/\__, /\____//____/_/ |_|\__,_/\__, /  \n/_/    /____/                        /____/   \n'
         if(self.resume):
             with open(self.logfile,"r") as f: 
                 log = f.readlines()
             with open(self.logfile,"w") as f: 
-                log.append("\n\n Resume pyC2Ray. \n\n")
+                log.append("\n\nResuming"+title[8:]+"\n\n")
                 f.write(''.join(log))
         else:
             with open(self.logfile,"w") as f: 
-                title = '                 _________   ____            \n    ____  __  __/ ____/__ \ / __ \____ ___  __\n   / __ \/ / / / /    __/ // /_/ / __ `/ / / /\n  / /_/ / /_/ / /___ / __// _, _/ /_/ / /_/ / \n / .___/\__, /\____//____/_/ |_|\__,_/\__, /  \n/_/    /____/                        /____/   \n'
                 # Clear file and write header line
-                f.write(title+"\n\nLog file for pyC2Ray. \n\n") 
+                f.write(title+"\nLog file for pyC2Ray.\n\n") 
 
     def _sources_init(self):
         """Initialize settings to read source files
