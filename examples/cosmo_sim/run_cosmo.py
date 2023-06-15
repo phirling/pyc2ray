@@ -1,6 +1,4 @@
-import sys
-sys.path.append("/users/mibianco/codes/pyC2Ray/PC2R")
-import numpy as np, time
+import sys, numpy as np, time
 import pyc2ray as pc2r
 
 from astropy import units as u
