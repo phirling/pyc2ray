@@ -3,6 +3,7 @@ from .utils import printlog
 from .utils.sourceutils import format_sources
 from .load_extensions import load_c2ray, load_asora
 from .asora_core import cuda_is_init
+import time
 
 # Load extension modules
 libc2ray = load_c2ray()
@@ -148,7 +149,8 @@ def evolve3D(dt,dr,
     # -----------------------------------------------------------
     # Start Evolve step, Iterate until convergence in <x> and <y>
     # -----------------------------------------------------------
-    printlog(f"Convergence Criterion (Number of points): {conv_criterion : n}",logfile,quiet)
+    printlog(f"Running on {NumSrc:n} source(s), total normalized ionizing flux: {src_flux.sum():.2e}",logfile,quiet)
+    printlog(f"Convergence Criterion (Number of points): {conv_criterion : n}",logfile,quiet,end='\n\n')
 
     while not converged:
         niter += 1
@@ -156,6 +158,8 @@ def evolve3D(dt,dr,
         # --------------------
         # (1): Raytracing Step
         # --------------------
+        trt0 = time.time()
+        printlog("Doing Raytracing...",logfile,quiet,' ')
         # Set rates to 0. When using ASORA, this is done internally by the library (directly on the GPU)
         if not use_gpu:
             phi_ion = np.zeros((N,N,N),order='F')
@@ -168,17 +172,22 @@ def evolve3D(dt,dr,
         else:
             # Use CPU raytracing with subbox optimization
             nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,r_RT,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,photo_thin_table,minlogtau,dlogtau)
-            printlog(f"Average number of subboxes: {nsubbox/NumSrc:n}, Total photon loss: {photonloss:.3e}",logfile,quiet)
+
+        printlog(f"took {(time.time()-trt0) : .1f} s.", logfile,quiet)
 
         # Since chemistry (ODE solving) is done on the CPU in Fortran, flattened CUDA arrays need to be reshaped
         if use_gpu:
             phi_ion = np.reshape(phi_ion_flat, (N,N,N))
-        
+        else:
+            printlog(f"Average number of subboxes: {nsubbox/NumSrc:n}, Total photon loss: {photonloss:.3e}",logfile,quiet)
         # ---------------------
         # (2): ODE Solving Step
         # ---------------------
+        tch0 = time.time()
+        printlog("Doing Chemistry...",logfile,quiet,' ')
         # Apply the global rates to compute the updated ionization fraction
         conv_flag = libc2ray.chemistry.global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c)
+        printlog(f"took {(time.time()-tch0) : .1f} s.", logfile,quiet)
 
         # ----------------------------
         # (3): Test Global Convergence
@@ -210,5 +219,6 @@ def evolve3D(dt,dr,
             xh_av_flat = np.ravel(xh_av)
 
     # When converged, return the updated ionization fractions at the end of the timestep
+    printlog("Multiple source convergence reached.", logfile,quiet)
     xh_new = xh_intermed
     return xh_new, phi_ion
