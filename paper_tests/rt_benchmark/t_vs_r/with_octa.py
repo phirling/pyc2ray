@@ -49,13 +49,13 @@ mean_phi = []
 max_phi = []
 
 # do empty rt
-phi_ion = pc2r.raytracing.do_all_sources_octa(dr, normflux, srcpos, 20, ndens, xh_av, sig, minlogtau, dlogtau,NumTau)
+phi_ion = pc2r.raytracing.do_all_sources(dr,src_flux,src_pos,5,True,6,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
 
 # Raytrace
 for r in radii:
     print(f"Doing r = {r:.1f}")
     t1 = time.perf_counter()
-    phi_ion = pc2r.raytracing.do_all_sources_octa(dr, normflux, srcpos, r, ndens, xh_av, sig, minlogtau, dlogtau,NumTau)
+    phi_ion = pc2r.raytracing.do_all_sources(dr,src_flux,src_pos,r,True,r+1,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
     t2 = time.perf_counter()
     timings.append(t2-t1)
     mean_phi.append(phi_ion.mean())

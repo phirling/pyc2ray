@@ -12,13 +12,14 @@ N = 400                         # Mesh size
 boxsize = 14 * kpc              # Box size in cgs
 dr = boxsize / N                # Cell size in cgs
 sig = 6.30e-18                  # HI cross section at its ionzing frequency in cgs
+use_asora = True
 
 # Example grids
 ndens = 1e-3 * np.ones((N,N,N),order='F')       # Number density of Hydrogen in cgs
 xh_av = 1.2e-3 * np.ones((N,N,N),order='F')     # Current time-averaged ionized fraction of hydrogen
 
 # Read example sources
-src_pos, src_flux = pc2r.read_test_sources("sources_more.txt", 10)
+src_pos, src_flux = pc2r.read_test_sources("sources_more.txt", 1000)
 
 # Set up optical depth table
 minlogtau = -20
@@ -34,19 +35,25 @@ pl_index = 2.8
 radsource = pc2r.BlackBodySource(Teff, grey, freq0, pl_index)
 photo_thin_table = radsource.make_photo_table(tau, freq0, 10*freq0, 1e48)
 
-radii = np.linspace(10,200,20)
+if use_asora:
+    # Init GPU
+    pc2r.device_init(N)
+    pc2r.photo_table_to_device(photo_thin_table)
+
+radii = np.linspace(40,200,20)
 timings = []
 mean_phi = []
 max_phi = []
 
 # do empty rt
-phi_ion = pc2r.raytracing.do_all_sources(dr,src_flux,src_pos,5,False,6,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
+phi_ion = pc2r.raytracing.do_all_sources(dr,src_flux,src_pos,5,use_asora,6,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
+
 
 # Raytrace
 for r in radii:
     print(f"Doing r = {r:.1f}")
     t1 = time.perf_counter()
-    phi_ion = pc2r.raytracing.do_all_sources(dr,src_flux,src_pos,r,False,r+1,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
+    phi_ion = pc2r.raytracing.do_all_sources(dr,src_flux,src_pos,r,use_asora,r+1,1e-2,ndens,xh_av,photo_thin_table,minlogtau,dlogtau,sig)
     t2 = time.perf_counter()
     timings.append(t2-t1)
     mean_phi.append(phi_ion.mean())

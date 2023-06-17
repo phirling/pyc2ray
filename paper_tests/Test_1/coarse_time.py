@@ -15,7 +15,7 @@ num_steps_between_slices = 1        # Number of timesteps between redshift slice
 t_evol = 5e8 # years
 paramfile = "parameters.yml"        # Name of the parameter file
 N = 256                             # Mesh size
-use_octa = False                    # Determines which raytracing algorithm to use
+use_octa = True                    # Determines which raytracing algorithm to use
 
 # Raytracing Parameters
 max_subbox = 1000                   # Maximum subbox when using C2Ray raytracing
@@ -25,7 +25,7 @@ r_RT = 128                            # When using C2Ray raytracing, sets the su
 sim = pc2r.C2Ray_Test(paramfile, N, use_octa)
 
 # Generate redshift list (test case)
-zred_array = sim.generate_redshift_array(numzred,t_evol/numzred)
+zred_array = sim.generate_redshift_array(numzred+1,t_evol/numzred)
 
 # Read sources
 srcpos, srcstrength = sim.read_sources("source.txt",1)
@@ -33,8 +33,13 @@ srcpos, srcstrength = sim.read_sources("source.txt",1)
 # Measure time
 tinit = time.time()
 
+import pickle as pkl
+with open("results_fine/xfrac_5.024.pkl","rb") as f:
+    sim.xh = pkl.load(f)
+
 # Loop over redshifts
-for k in range(len(zred_array)-1):
+#for k in range(len(zred_array)-1):
+for k in range(9,len(zred_array)-1):
     zi = zred_array[k]       # Start redshift
     zf = zred_array[k+1]     # End redshift
 

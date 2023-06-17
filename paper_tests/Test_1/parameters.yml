@@ -51,6 +51,8 @@ CGS:
 # Element abundances
 # ------------------
 Abundances:
+  # Hydrogen Abundance
+  abu_h: 0.926
   # Helium Abundance
   abu_he: 0.074    # 1 abu_he: 0.08 #  for EoR KP sims
   # Carbon Abundance
