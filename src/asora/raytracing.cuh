@@ -36,7 +36,7 @@ extern double * phi_dev;
 extern double * photo_thin_table_dev;
 
 // Raytrace all sources and compute photoionization rates
-void do_all_sources_octa_gpu(
+void do_all_sources_gpu(
     int* srcpos,
     double* srcstrength,
     const double & R,
@@ -53,7 +53,7 @@ void do_all_sources_octa_gpu(
     const int & NumTau);
 
 // Raytracing kernel, called by do_all_sources
-__global__ void evolve0D_gpu_new(
+__global__ void evolve0D_gpu(
     const int q,
     const int i0,
     const int j0,

@@ -127,7 +127,7 @@ void device_close()
 // ========================================================================
 // Main function: raytrace all sources and add up ionization rates
 // ========================================================================
-void do_all_sources_octa_gpu(
+void do_all_sources_gpu(
     int* srcpos,
     double* srcstrength,
     const double & R,
@@ -171,7 +171,7 @@ void do_all_sources_octa_gpu(
         #endif
 
         // Copy current ionization fraction to the device
-        // cudaMemcpy(n_dev,ndens,meshsize,cudaMemcpyHostToDevice);  < --- !! density array is not modified, octa assumes that it has been copied to the device before
+        // cudaMemcpy(n_dev,ndens,meshsize,cudaMemcpyHostToDevice);  < --- !! density array is not modified, asora assumes that it has been copied to the device before
         cudaMemcpy(x_dev,xh_av,meshsize,cudaMemcpyHostToDevice);
 
         // Source position & strength variables
@@ -212,7 +212,7 @@ void do_all_sources_octa_gpu(
                 gs.y = grl;
 
                 // Raytracing kernel: see below
-                evolve0D_gpu_new<<<gs,bs>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
+                evolve0D_gpu<<<gs,bs>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
 
                 // Synchronize GPU
                 cudaDeviceSynchronize();
@@ -240,7 +240,7 @@ void do_all_sources_octa_gpu(
 // Raytracing kernel, adapted from C2Ray. Calculates in/out column density
 // to the current cell and finds the photoionization rate
 // ========================================================================
-__global__ void evolve0D_gpu_new(
+__global__ void evolve0D_gpu(
     const int q,
     const int i0,
     const int j0,

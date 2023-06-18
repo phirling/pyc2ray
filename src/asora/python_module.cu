@@ -5,9 +5,9 @@
 #include "raytracing.cuh"
 
 // ===========================================================================
-// OCTA Python C-extension module
+// ASORA Python C-extension module
 // Mostly boilerplate code, this file contains the wrappers for python
-// to access the C++ functions of the OCTA library. Care has to be taken
+// to access the C++ functions of the ASORA library. Care has to be taken
 // mostly with the numpy array arguments, since the underlying raw C pointer
 // is passed directly to the C++ functions without additional type checking.
 // ===========================================================================
@@ -18,7 +18,7 @@ extern "C"
     // Raytrace all sources and compute photoionization rates
     // ========================================================================
     static PyObject *
-    octa_do_all_sources(PyObject *self, PyObject *args)
+    asora_do_all_sources(PyObject *self, PyObject *args)
     {
         PyArrayObject * srcpos;
         PyArrayObject * srcflux;
@@ -72,7 +72,7 @@ extern "C"
         double * phi_ion_data = (double*)PyArray_DATA(phi_ion);
         double * xh_av_data = (double*)PyArray_DATA(xh_av);
 
-        do_all_sources_octa_gpu(srcpos_data,srcflux_data,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1,minlogtau,dlogtau,NumTau);
+        do_all_sources_gpu(srcpos_data,srcflux_data,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1,minlogtau,dlogtau,NumTau);
 
         return Py_None;
     }
@@ -81,7 +81,7 @@ extern "C"
     // Allocate GPU memory for grid data
     // ========================================================================
     static PyObject *
-    octa_device_init(PyObject *self, PyObject *args)
+    asora_device_init(PyObject *self, PyObject *args)
     {
         int N;
         if (!PyArg_ParseTuple(args,"i",&N))
@@ -94,7 +94,7 @@ extern "C"
     // Deallocate GPU memory
     // ========================================================================
     static PyObject *
-    octa_device_close(PyObject *self, PyObject *args)
+    asora_device_close(PyObject *self, PyObject *args)
     {
         device_close();
         return Py_None;
@@ -104,7 +104,7 @@ extern "C"
     // Copy density grid to GPU
     // ========================================================================
     static PyObject *
-    octa_density_to_device(PyObject *self, PyObject *args)
+    asora_density_to_device(PyObject *self, PyObject *args)
     {
         int N;
         PyArrayObject * ndens;
@@ -121,7 +121,7 @@ extern "C"
     // Copy radiation table to GPU
     // ========================================================================
     static PyObject *
-    octa_photo_table_to_device(PyObject *self, PyObject *args)
+    asora_photo_table_to_device(PyObject *self, PyObject *args)
     {
         int NumTau;
         PyArrayObject * table;
@@ -137,28 +137,28 @@ extern "C"
     // ========================================================================
     // Define module functions and initialization function
     // ========================================================================
-    static PyMethodDef octaMethods[] = {
-        {"do_all_sources",  octa_do_all_sources, METH_VARARGS,"Do OCTA raytracing (GPU)"},
-        {"device_init",  octa_device_init, METH_VARARGS,"Free GPU memory"},
-        {"device_close",  octa_device_close, METH_VARARGS,"Free GPU memory"},
-        {"density_to_device",  octa_density_to_device, METH_VARARGS,"Copy density field to GPU"},
-        {"photo_table_to_device",  octa_photo_table_to_device, METH_VARARGS,"Copy radiation table to GPU"},
+    static PyMethodDef asoraMethods[] = {
+        {"do_all_sources",  asora_do_all_sources, METH_VARARGS,"Do OCTA raytracing (GPU)"},
+        {"device_init",  asora_device_init, METH_VARARGS,"Free GPU memory"},
+        {"device_close",  asora_device_close, METH_VARARGS,"Free GPU memory"},
+        {"density_to_device",  asora_density_to_device, METH_VARARGS,"Copy density field to GPU"},
+        {"photo_table_to_device",  asora_photo_table_to_device, METH_VARARGS,"Copy radiation table to GPU"},
         {NULL, NULL, 0, NULL}        /* Sentinel */
     };
 
-    static struct PyModuleDef octamodule = {
+    static struct PyModuleDef asoramodule = {
         PyModuleDef_HEAD_INIT,
-        "libocta",   /* name of module */
+        "libasora",   /* name of module */
         "CUDA C++ implementation of the short-characteristics RT", /* module documentation, may be NULL */
         -1,       /* size of per-interpreter state of the module,
                     or -1 if the module keeps state in global variables. */
-        octaMethods
+        asoraMethods
     };
 
     PyMODINIT_FUNC
-    PyInit_libocta(void)
+    PyInit_libasora(void)
     {   
-        PyObject* module = PyModule_Create(&octamodule);
+        PyObject* module = PyModule_Create(&asoramodule);
         import_array();
         return module;
     }
