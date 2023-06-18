@@ -8,6 +8,7 @@
 // ========================================================================
 
 // Modulo function with Fortran convention
+inline int modulo(const int & a,const int & b);
 inline __device__ int modulo_gpu(const int & a,const int & b);
 
 // Device sign function
@@ -79,7 +80,9 @@ __global__ void evolve0D_gpu_new(
     const double* photo_table,
     const double minlogtau,
     const double dlogtau,
-    const int NumTau
+    const int NumTau,
+    const int last_l,
+    const int last_r
 );
 
 // Short-characteristics interpolation function from C2Ray

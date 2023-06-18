@@ -20,6 +20,7 @@
 // ========================================================================
 
 // Fortran-type modulo function (C modulo is signed)
+inline int modulo(const int & a,const int & b) { return (a%b+b)%b; }
 inline __device__ int modulo_gpu(const int & a,const int & b) { return (a%b+b)%b; }
 
 // Sign function on the device
@@ -178,6 +179,14 @@ void do_all_sources_octa_gpu(
         int i0,j0,k0;
         double strength;
 
+        // Since the grid is periodic, we limit the maximum size of the raytraced region to a cube as large as the mesh around the source.
+        // See line 93 of evolve_source in C2Ray, this size will depend on if the mesh is even or odd.
+        // Basically the idea is that you never touch a cell which is outside a cube of length ~N centered on the source
+        int last_r = m1/2 - 1 + modulo(m1,2);
+        int last_l = -m1/2;
+
+        //std::cout << "lasts: " << last_l << "  " << last_r << std::endl;
+
         for (int ns = 0; ns < NumSrc; ns++)
         {   
             // Set source position & strength
@@ -196,12 +205,15 @@ void do_all_sources_octa_gpu(
             for (int q=0 ; q <= max_q; q++)
             {   
                 // Grid size for the current shell and block size
+                // Since we limit the actual indices of the cells (see line 275) the grid size could be adjusted.
+                // This is a possible future optimization
                 int grl = (2*q + 1) / bl + 1;
+                //int grl = min((2*q + 1) / bl + 1 , m1/bl + 1);
                 gs.x = grl;
                 gs.y = grl;
 
                 // Raytracing kernel: see below
-                evolve0D_gpu_new<<<gs,bs>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau);
+                evolve0D_gpu_new<<<gs,bs>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
 
                 // Synchronize GPU
                 cudaDeviceSynchronize();
@@ -245,7 +257,9 @@ __global__ void evolve0D_gpu_new(
     const double* photo_table,
     const double minlogtau,
     const double dlogtau,
-    const int NumTau
+    const int NumTau,
+    const int last_l,
+    const int last_r
 )
 {
     // x and y coordinates are cartesian
@@ -260,14 +274,19 @@ __global__ void evolve0D_gpu_new(
     else
         {sgn = -1; mq = q-1;}
 
-    // Only proceed if the point is on the octahedron (see Fig. ?? in paper (TODO))
-    if (abs(i) + abs(j) <= mq)
-    {
-        int k = k0 + sgn*q - sgn*(abs(i) + abs(j));
+    int k = sgn*q - sgn*(abs(i) + abs(j));
 
+    // We only treat the cell if it respects two conditions:
+    // 1. It must be part of the shell (see figure in appendix A of the paper)
+    // 2. It must be within the maximum box size arount the source (see last_l and last_r def above) <- This is also important to avoid race conditions at the border
+    // TODO: in the future, it may be an interesting optimization to limit the number of threads launched in the first place,
+    // rather than doing this "brute force" approach where about half of the threads don't pass this "if" check and immediately return
+    if (abs(i) + abs(j) <= mq && (i >= last_l) && (i <= last_r) && (j >= last_l) && (j <= last_r) && (k >= last_l) && (k <= last_r))
+    {
         // Center to source
         i += i0;
         j += j0;
+        k += k0;
 
         int pos[3];
         double path;
@@ -290,6 +309,8 @@ __global__ void evolve0D_gpu_new(
             pos[0] = modulo_gpu(i,m1);
             pos[1] = modulo_gpu(j,m1);
             pos[2] = modulo_gpu(k,m1);
+
+            //printf("pos = %i %i %i \n",pos[0]-i0,pos[1]-j0,pos[2]-k0);
 
             // Get local ionization fraction & Hydrogen density
             xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
