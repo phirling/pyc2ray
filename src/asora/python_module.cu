@@ -3,6 +3,7 @@
 #include <Python.h>
 #include <numpy/arrayobject.h>
 #include "raytracing.cuh"
+#include "memory.cuh"
 
 // ===========================================================================
 // ASORA Python C-extension module

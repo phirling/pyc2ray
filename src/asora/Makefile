@@ -10,14 +10,17 @@ CUDAFLAGS+=-std=c++14 -O2  -Xcompiler -fPIC -D PERIODIC -D LOCALRATES --gpu-arch
 
 all: libasora.so
 
-libasora.so: rates.o raytracing.o python_module.o
-	$(NVCC) $(CUDAFLAGS) $(INC) -shared -o libasora.so rates.o raytracing.o python_module.o
+libasora.so: memory.o rates.o raytracing.o python_module.o
+	$(NVCC) $(CUDAFLAGS) $(INC) -shared -o libasora.so memory.o rates.o raytracing.o python_module.o
 
 raytracing.o: raytracing.cu
 	$(NVCC) $(CUDAFLAGS) $(INC) -dc raytracing.cu
 
 rates.o: rates.cu
 	$(NVCC) $(CUDAFLAGS) $(INC) -dc rates.cu
+
+memory.o: memory.cu
+	$(NVCC) $(CUDAFLAGS) $(INC) -dc memory.cu
 
 python_module.o: python_module.cu
 	$(NVCC) $(CUDAFLAGS) $(INC) -c python_module.cu
