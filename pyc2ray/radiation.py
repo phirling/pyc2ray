@@ -3,6 +3,8 @@ from scipy.integrate import quad,quad_vec
 import astropy.constants as ac
 
 h_over_k = (ac.h/(ac.k_B)).cgs.value
+# h_over_k = 6.6260755e-27 / 1.381e-16 For detailed comparisons with C2Ray, use the same exact value for the constants
+
 two_pi_over_c_square = 2*np.pi/ac.c.cgs.value**2
 
 __all__ = ['BlackBodySource','make_tau_table']

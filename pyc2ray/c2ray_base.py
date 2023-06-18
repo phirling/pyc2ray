@@ -67,13 +67,15 @@ from .radiation import BlackBodySource, make_tau_table
 # ======================================================================
 
 # Conversion Factors.
-ev2k = 1.0/8.617e-05         # eV to Kelvin
-pc = (1*u.pc).to('cm').value # parsec in cm     3.086e18 #
-kpc = 1e3*pc                 # kiloparsec in cm
-Mpc = 1e6*pc                 # megaparsec in cm
-YEAR = (1*u.yr).to('s').value #3.15576E+07
-ev2fr = 0.241838e15
-msun2g = (1*u.Msun).to('g').value  # solar mass to grams
+# When doing direct comparisons with C2Ray, the difference between astropy.constants and the C2Ray values
+# may be visible, so they are kept here for reference (just replace them)
+pc = (1*u.pc).to('cm').value            # C2Ray value: 3.086e18
+YEAR = (1*u.yr).to('s').value           # C2Ray value: 3.15576E+07
+ev2fr = 0.241838e15                     # eV to Frequency (Hz)
+ev2k = 1.0/8.617e-05                    # eV to Kelvin
+kpc = 1e3*pc                            # kiloparsec in cm
+Mpc = 1e6*pc                            # megaparsec in cm
+msun2g = (1*u.Msun).to('g').value       # solar mass to grams
 
 
 class C2Ray:
