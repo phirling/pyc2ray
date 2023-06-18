@@ -43,6 +43,8 @@ benchmark_daint/
 
 # Mac OS files
 **/.DS_STORE
+**/.DS_Store
+**/._.DS_Store
 
 # Local test scripts
 test_package.py

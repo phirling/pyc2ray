@@ -68,10 +68,10 @@ from .radiation import BlackBodySource, make_tau_table
 
 # Conversion Factors.
 ev2k = 1.0/8.617e-05         # eV to Kelvin
-pc = (1*u.pc).to('cm').value # parsec in cm
+pc = (1*u.pc).to('cm').value # parsec in cm     3.086e18 #
 kpc = 1e3*pc                 # kiloparsec in cm
 Mpc = 1e6*pc                 # megaparsec in cm
-YEAR = (1*u.yr).to('s').value
+YEAR = (1*u.yr).to('s').value #3.15576E+07
 ev2fr = 0.241838e15
 msun2g = (1*u.Msun).to('g').value  # solar mass to grams
 
@@ -260,6 +260,8 @@ class C2Ray:
         and stores them as attributes
         """
         self.eth0 = self._ld['CGS']['eth0']
+        self.ethe0 = self._ld['CGS']['ethe0']
+        self.ethe1 = self._ld['CGS']['ethe1']
         self.bh00 = self._ld['CGS']['bh00']
         self.fh0 = self._ld['CGS']['fh0']
         self.xih0 = self._ld['CGS']['xih0']
@@ -303,13 +305,16 @@ class C2Ray:
         # remaining NumTau points are log-spaced from minlogtau to maxlogtau (same as in C2Ray)
         self.tau, self.dlogtau = make_tau_table(self.minlogtau,self.maxlogtau,self.NumTau)
 
+        ion_freq_HI = ev2fr * self.eth0
+        ion_freq_HeII = ev2fr * self.ethe1
+
+        freq_min = ion_freq_HI
+        freq_max = 10*ion_freq_HeII
+
         # Initialize Black-Body Source
         self.bb_Teff = self._ld['Photo']['Teff']
         self.grey = self._ld['Photo']['grey']
         self.cs_pl_idx_h = self._ld['Photo']['cross_section_pl_index']
-        self.printlog(f"Using Black-Body sources with effective temperature T = {self.bb_Teff :.1e} K")
-
-        ion_freq_HI = ev2fr * self.eth0
         radsource = BlackBodySource(self.bb_Teff, self.grey, ion_freq_HI, self.cs_pl_idx_h)
 
         if self.grey:
@@ -318,7 +323,11 @@ class C2Ray:
             self.printlog(f"Using power-law opacity with {self.NumTau:n} table points between tau=10^({self.minlogtau:n}) and tau=10^({self.maxlogtau:n})")
 
         # Integrate table. TODO: make this more customizeable
-        self.photo_thin_table = radsource.make_photo_table(self.tau,ion_freq_HI,10*ion_freq_HI,1e48)
+        self.photo_thin_table = radsource.make_photo_table(self.tau,freq_min,freq_max,1e48)
+        
+        self.printlog(f"Using Black-Body sources with effective temperature T = {radsource.temp :.1e} K")
+        self.printlog(f"Radius = {(radsource.R_star/c.R_sun.to('cm')).value : .3e} rsun")
+        self.printlog(f"Between frequencies {freq_min:.3e} and {freq_max:.3e}")
 
         # Copy radiation table to GPU
         if self.gpu:
