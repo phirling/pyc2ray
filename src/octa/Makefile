@@ -10,14 +10,17 @@ CUDAFLAGS+=-std=c++14 -O2  -Xcompiler -fPIC -D PERIODIC -D LOCALRATES --gpu-arch
 
 all: libocta.so
 
-libocta.so: raytracing_gpu.o rtmodule.o
-	$(NVCC) $(CUDAFLAGS) $(INC) -shared -o libocta.so raytracing_gpu.o rtmodule.o
+libocta.so: rates.o raytracing.o python_module.o
+	$(NVCC) $(CUDAFLAGS) $(INC) -shared -o libocta.so rates.o raytracing.o python_module.o
 
-raytracing_gpu.o: raytracing_gpu.cu
-	$(NVCC) $(CUDAFLAGS) $(INC) -dc raytracing_gpu.cu
+raytracing.o: raytracing.cu
+	$(NVCC) $(CUDAFLAGS) $(INC) -dc raytracing.cu
 
-rtmodule.o: rtmodule.cpp
-	$(NVCC) $(CUDAFLAGS) $(INC) -c rtmodule.cpp
+rates.o: rates.cu
+	$(NVCC) $(CUDAFLAGS) $(INC) -dc rates.cu
+
+python_module.o: python_module.cu
+	$(NVCC) $(CUDAFLAGS) $(INC) -c python_module.cu
 
 clean:
 	rm *.so *.o

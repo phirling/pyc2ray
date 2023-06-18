@@ -2,7 +2,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <numpy/arrayobject.h>
-#include "raytracing_gpu.cuh"
+#include "raytracing.cuh"
 
 // ===========================================================================
 // OCTA Python C-extension module

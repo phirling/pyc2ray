@@ -1,6 +1,5 @@
 #pragma once
 #include <cuda_runtime.h>
-#include <vector>
 
 // ========================================================================
 // Header file for OCTA raytracing library.
@@ -16,16 +15,6 @@ inline __device__ int sign_gpu(const double & x);
 
 // Flat array index from i,j,k coordinates
 inline __device__ int mem_offst_gpu(const int & i,const int & j,const int & k,const int & N);
-
-// Photoionization rate from tables
-__device__ double photoion_rates_gpu(const double & strength,const double & coldens_in,const double & coldens_out,
-    const double & Vfact,const double & sig,const double* table,const double & minlogtau,const double & dlogtau,const int& NumTau);
-
-// Table interpolation lookup function
-__device__ double photo_lookuptable(const double*,const double &,const double &,const double &,const int &);
-
-// Photoionization rates from analytical expression (grey-opacity)
-__device__ double photoion_rates_test_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & sig);
 
 // Allocate grid memory
 void device_init(const int &);
