@@ -61,3 +61,32 @@ def find_bins(input_array, binning_array):
         right_bins.append(right_bin)
 
         return left_bins[0], right_bins[0]
+
+
+def get_source_redshifts(source_dir, z_low = None, z_high = None, bracket=False):
+        # TODO: this is temporary, waiting new release of tools21cm. Once done we can simply use t2c.get_source_redshifts
+
+        ''' 
+        Make a list of the redshifts of all the xfrac files in a directory.
+        
+        Parameters:
+                * xfrac_dir (string): the directory to look in
+                * z_low = None (float): the minimum redshift to include (if given)
+                * z_high = None (float): the maximum redshift to include (if given)
+                * bracket = False (bool): if true, also include the redshifts on the
+                        lower side of z_low and the higher side of z_high
+         
+        Returns: 
+                The redhifts of the files (numpy array of floats) '''
+
+        source_files = glob.glob(os.path.join(source_dir,'*-coarsest_wsubgrid_sources.dat'))
+
+        redshifts = []
+        for f in source_files:
+                try:
+                        z = float(f[f.rfind('/')+1:f.rfind('-coarsest_wsubgrid_sources')])
+                        redshifts.append(z)
+                except:
+                        pass
+
+        return _get_redshifts_in_range(redshifts, z_low, z_high, bracket)
