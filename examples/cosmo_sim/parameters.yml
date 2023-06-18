@@ -16,7 +16,7 @@ Grid:
   # Maybe this should be changed, as it can induce some confusion ?
   boxsize: 244.
   # boolean variable to indicate if resuming a simulation (need to change zred_0 accordingly)
-  resume: 1
+  resume: 0
 
 # --------------------------------------------------------------------
 # (Initial) properties of physical quantities in the simulation volume
@@ -42,6 +42,10 @@ CGS:
   alcpow: -0.672
   # Hydrogen ionization energy (in eV)
   eth0: 13.598
+  #Helium I ionization energy (in eV)
+  ethe0: 24.587
+  # Helium II ionization energy (in eV)
+  ethe1: 54.416
   # Hydrogen collisional ionization parameter 1
   xih0: 1.0
   # Hydrogen collisional ionization parameter 2
@@ -102,7 +106,7 @@ Cosmology:
   # Temperature of CMB in Kelvins
   cmbtemp: 2.726
   # Initial redshift of the simulation
-  zred_0: 21.062 #12.048
+  zred_0: 21.062
 
   # N.B. : Planck 18
   #  h: 0.6766

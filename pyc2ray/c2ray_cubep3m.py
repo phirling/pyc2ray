@@ -1,6 +1,7 @@
 from .c2ray_base import C2Ray, YEAR, Mpc, msun2g
 from .utils.other_utils import get_redshifts_from_output, find_bins
 import tools21cm as t2c
+from utils import get_source_redshifts
 from astropy import units as u
 from astropy import constants as c
 import numpy as np
@@ -80,7 +81,7 @@ class C2Ray_CubeP3M(C2Ray):
             srcpos = src.sources_list[:, :3].T
             normflux = src.sources_list[:, -1] * mass2phot / S_star_ref
 
-        self.printlog('\n---- Reading source file with total of %d ionizing source:\n%s' %(np.count_nonzero(normflux), file))
+        self.printlog('\n---- Reading source file with total of %d ionizing source:\n%s' %(normflux.size, file))
         self.printlog(' min, max source mass : %.3e  %.3e [Msun] and min, mean, max number of ionising sources : %.3e  %.3e  %.3e [1/s]' %(normflux.min()/mass2phot*S_star_ref, normflux.max()/mass2phot*S_star_ref, normflux.min()*S_star_ref, normflux.mean()*S_star_ref, normflux.max()*S_star_ref))
         return srcpos, normflux
     
@@ -146,14 +147,19 @@ class C2Ray_CubeP3M(C2Ray):
         """Initialize time and redshift counter
         """
         self.zred_density = t2c.get_dens_redshifts(self.inputs_basename+'coarser_densities/')[::-1]
-        self.zred_sources = t2c.get_source_redshifts(self.inputs_basename+'sources/')[::-1]
+        self.zred_sources = get_source_redshifts(self.inputs_basename+'sources/')[::-1]
+        # TODO: waiting for next tools21cm release
+        #self.zred_sources = t2c.get_source_redshifts(self.inputs_basename+'sources/')[::-1]
         if(self.resume):
             # get the resuming redshift
             self.zred_0 = np.min(get_redshifts_from_output(self.results_basename)) 
             self.age_0 = self.zred2time(self.zred_0)
             _, self.prev_zdens = find_bins(self.zred_0, self.zred_density)
             _, self.prev_zsourc = find_bins(self.zred_0, self.zred_sources)
-                    
+        else:
+            self.prev_zdens = -1
+            self.prev_zsourc = -1
+
         self.time = self.age_0
         self.zred = self.zred_0
 
