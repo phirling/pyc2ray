@@ -7,6 +7,7 @@ import argparse
 import astropy.units as u
 
 parser = argparse.ArgumentParser()
+parser.add_argument("paramfile",nargs=1,type=str)
 parser.add_argument("-resolution",type=str,default=None)
 parser.add_argument("--cpu",action='store_true')
 args = parser.parse_args()
@@ -38,8 +39,8 @@ else:
     raise ValueError("Unknown resolution")
 
 num_steps_between_slices = 1        # Number of timesteps between redshift slices
-paramfile = "parameters.yml"        # Name of the parameter file
-N = 128                             # Mesh size
+paramfile = str(args.paramfile[0])        # Name of the parameter file
+N = 256                             # Mesh size
 Lbox = 1.4e22*u.cm
 dr_kpc = Lbox.to('kpc').value/N
 print("Cell size (kpc):",dr_kpc)
@@ -57,7 +58,7 @@ r_RT = 128                            # When using C2Ray raytracing, sets the su
 sim = pc2r.C2Ray_Test(paramfile, N, use_octa)
 
 # Create density field
-halo_pos = np.array([63,63,63]) # <- source at 128 in fortran 1-indexing
+halo_pos = np.array([127,127,127]) # <- source at 128 in fortran 1-indexing
 halo_r0 = 5 # kpc
 halo_n0 = 0.015 # cm^-3
 ndens = np.empty((N,N,N))
