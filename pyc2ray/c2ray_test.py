@@ -87,6 +87,19 @@ class C2Ray_Test(C2Ray):
         with open(self.results_basename + "IonRates" + suffix,"wb") as f:
             pkl.dump(self.phi_ion,f)
 
+    def write_output_numbered(self,n):
+        """Write ionization fraction & ionization rates as pickle files with number rather than redshift
+
+        Parameters
+        ----------
+        n : int
+            Number of the file
+        """
+        suffix = f"_{n:n}.pkl"
+        with open(self.results_basename + "xfrac" + suffix,"wb") as f:
+            pkl.dump(self.xh,f)
+        with open(self.results_basename + "IonRates" + suffix,"wb") as f:
+            pkl.dump(self.phi_ion,f)
 
     def set_constant_average_density(self,ndens,z):
         """Helper function to set the density grid to a constant value
@@ -161,4 +174,8 @@ class C2Ray_Test(C2Ray):
         """
         self.results_basename = self._ld['Output']['results_basename']
         self.logfile = self.results_basename + self._ld['Output']['logfile']
-        with open(self.logfile,"w") as f: f.write("Log file for pyC2Ray. \n\n") # Clear file and write header line
+        title = '                 _________   ____            \n    ____  __  __/ ____/__ \ / __ \____ ___  __\n   / __ \/ / / / /    __/ // /_/ / __ `/ / / /\n  / /_/ / /_/ / /___ / __// _, _/ /_/ / /_/ / \n / .___/\__, /\____//____/_/ |_|\__,_/\__, /  \n/_/    /____/                        /____/   \n'
+        with open(self.logfile,"w") as f:
+            f.write("\nLog file for pyC2Ray \n\n")
+            #f.write(title + "\nLog file for pyC2Ray. \n\n") # Clear file and write header line
+        self.printlog(title)

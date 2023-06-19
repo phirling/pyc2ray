@@ -324,7 +324,7 @@ class C2Ray:
         radsource = BlackBodySource(self.bb_Teff, self.grey, ion_freq_HI, self.cs_pl_idx_h)
 
         if self.grey:
-            self.printlog(f"Using grey opacity")
+            self.printlog(f"Warning: Using grey opacity")
         else:
             self.printlog(f"Using power-law opacity with {self.NumTau:n} table points between tau=10^({self.minlogtau:n}) and tau=10^({self.maxlogtau:n})")
 
