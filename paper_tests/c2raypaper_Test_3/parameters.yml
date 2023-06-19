@@ -14,7 +14,7 @@ Grid:
   # !! As in C2Ray, when cosmological = false, this box size is
   # used "as is". When cosmological = true, it is first scaled to zred_0
   # Maybe this should be changed, as it can induce some confusion ?
-  boxsize: 0.001944467573666619 # 6e21 cm
+  boxsize: 0.004537091005222111 #0.001944467573666619 # 6e21 cm
 
 # --------------------------------------------------------------------
 # (Initial) properties of physical quantities in the simulation volume
@@ -23,7 +23,7 @@ Material:
   # Initial Temperature of the grid
   temp0: 1e4
   # Initial Ionized fraction of the grid
-  xh0: 1.2e-3
+  xh0: 2e-4 #1.2e-3
   # Constant average density, comoving value. Used only by the test case
   # this value is scaled to zred_0 (even in non-cosmological mode)
   avg_dens: 1.87e-7

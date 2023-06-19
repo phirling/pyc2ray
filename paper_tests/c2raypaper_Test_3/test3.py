@@ -27,14 +27,14 @@ if args.resolution == "fine":
     delta_time = 0.01
 elif args.resolution == "coarse":
     numzred = 11
-    delta_time = 0.1
+    delta_time = 1.5 #0.1
 else:
     raise ValueError("Unknown resolution")
 
 num_steps_between_slices = 1        # Number of timesteps between redshift slices
 paramfile = "parameters.yml"        # Name of the parameter file
 N = 128                             # Mesh size
-Lbox = 6e21*u.cm
+Lbox = 1.4e22*u.cm #6e21*u.cm
 dr_pc = Lbox.to('pc').value/N
 print("Cell size (pc):",dr_pc)
 
@@ -51,19 +51,21 @@ r_RT = 128                            # When using C2Ray raytracing, sets the su
 sim = pc2r.C2Ray_Test(paramfile, N, use_octa)
 
 # Create density field
-halo_pos = np.array([127,127,127]) # <- source at 128 in fortran 1-indexing
-halo_r0 = 91.5
-halo_n0 = 3.2
+halo_pos = np.array([63,63,63]) # <- source at 128 in fortran 1-indexing
+halo_r0 = 5000 #91.5
+halo_n0 = 0.015 #3.2
 ndens = np.empty((N,N,N))
 for i in range(0,N):
     for j in range(0,N):
         for k in range(0,N):
             r = np.sqrt((i-halo_pos[0])**2 + (j-halo_pos[1])**2 + (k-halo_pos[2])**2)
-            if r == 0: r = 0.5
+            if r == 0:
+                print("origin")
+                r = 1
             r *= dr_pc
-            ndens[i,j,k] = halo_n0 * (halo_r0 / r)**2
+            ndens[i,j,k] = halo_n0 * (halo_r0 / r)**1
 
-sim.ndens = ndens
+sim.ndens = ndens #halo_n0 * np.ones((N,N,N))
 
 # import matplotlib.pyplot as plt
 # plt.imshow(ndens[:,:,127],norm='log')
