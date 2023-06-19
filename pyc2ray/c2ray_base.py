@@ -109,9 +109,9 @@ class C2Ray:
 
         # Initialize Simulation
         self._param_init()
+        self._output_init()
         self._grid_init()
         self._cosmology_init()
-        self._output_init()
         self._redshift_init()
         self._material_init()
         self._sources_init()
@@ -293,7 +293,10 @@ class C2Ray:
 
         # Scale quantities to the initial redshift
         if self.cosmological:
+            self.printlog("Cosmology is on, scaling comoving quantities to proper ones...")
             self.dr = self.cosmology.scale_factor(self.zred_0) * self.dr_c
+        else:
+            self.printlog("Cosmology is off.")
 
     def _radiation_init(self):
         """Set up radiation tables for ionization/heating rates
@@ -342,6 +345,9 @@ class C2Ray:
         # Comoving quantities
         self.boxsize_c = self._ld['Grid']['boxsize'] * Mpc
         self.dr_c = self.boxsize_c / self.N
+
+        self.printlog(f"Welcome! Mesh size is N = {self.N:n}.")
+        self.printlog(f"Simulation Box size (comoving Mpc): {self.boxsize_c/Mpc:.3e}")
 
         # Initialize cell size to comoving size (if cosmological run, it will be scaled in cosmology_init)
         self.dr = self.dr_c
