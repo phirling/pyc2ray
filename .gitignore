@@ -50,7 +50,7 @@ benchmark_daint/
 test_package.py
 
 # Jupyter Notebooks
-*.ipynb
+#*.ipynb
 
 # Meson build directory
 builddir/
