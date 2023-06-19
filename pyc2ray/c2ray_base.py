@@ -116,6 +116,7 @@ class C2Ray:
         self._material_init()
         self._sources_init()
         self._radiation_init()
+        self.printlog("Starting simulation... \n\n")
 
     # =====================================================================================================
     # TIME-EVOLUTION METHODS
@@ -141,7 +142,6 @@ class C2Ray:
         t2 = self.cosmology.lookback_time(z2).to('s').value
         # we do t1-t2 since ti are lookback times (not ages)
         dt = (t1-t2)/num_timesteps
-        self.printlog(f"dt [years]: {dt/YEAR:.3e}")
         return dt
     
     def evolve3D(self, dt, src_flux, src_pos, r_RT, max_subbox):
@@ -206,8 +206,6 @@ class C2Ray:
             # Set cell size to current proper size
             self.dr = self.dr_c * self.cosmology.scale_factor(z_half)
 
-        self.printlog(f"dr [kpc]: {self.dr/kpc:.3e}")
-
         # Set new time and redshift (after timestep)
         self.zred = z_half
         self.time = t_after
@@ -223,7 +221,10 @@ class C2Ray:
         quiet : bool
             Whether to print only to log file or also to standard output (default)
         """
-        printlog(s,self.logfile,quiet)
+        if self.logfile is None:
+            raise RuntimeError("Please set the log file in output_ini")
+        else:
+            printlog(s,self.logfile,quiet)
 
 
     def write_output(self,z):
@@ -330,9 +331,8 @@ class C2Ray:
         # Integrate table. TODO: make this more customizeable
         self.photo_thin_table = radsource.make_photo_table(self.tau,freq_min,freq_max,1e48)
         
-        self.printlog(f"Using Black-Body sources with effective temperature T = {radsource.temp :.1e} K")
-        self.printlog(f"Radius = {(radsource.R_star/c.R_sun.to('cm')).value : .3e} rsun")
-        self.printlog(f"Between frequencies {freq_min:.3e} and {freq_max:.3e}")
+        self.printlog(f"Using Black-Body sources with effective temperature T = {radsource.temp :.1e} K and Radius {(radsource.R_star/c.R_sun.to('cm')).value : .3e} rsun")
+        self.printlog(f"Spectrum Frequency Range: {freq_min:.3e} and {freq_max:.3e}")
 
         # Copy radiation table to GPU
         if self.gpu:
