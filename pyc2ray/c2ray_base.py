@@ -116,6 +116,8 @@ class C2Ray:
         self._material_init()
         self._sources_init()
         self._radiation_init()
+        if self.gpu: self.printlog("Using ASORA Raytracing")
+        else: self.printlog("Using CPU Raytracing")
         self.printlog("Starting simulation... \n\n")
 
     # =====================================================================================================

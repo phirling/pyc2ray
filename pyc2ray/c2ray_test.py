@@ -25,6 +25,7 @@ class C2Ray_Test(C2Ray):
             Whether to use the GPU-accelerated ASORA library for raytracing
         """
         super().__init__(paramfile, Nmesh, use_gpu)
+        self.printlog('Running: "C2Ray Test"')
 
     def read_sources(self,file,numsrc,S_star_ref = 1e48):
         """ Read in a source file formatted for Test-C2Ray

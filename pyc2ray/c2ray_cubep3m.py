@@ -28,6 +28,7 @@ class C2Ray_CubeP3M(C2Ray):
             Whether to use the GPU-accelerated ASORA library for raytracing
         """
         super().__init__(paramfile, Nmesh, use_gpu)
+        self.printlog('Running: "C2Ray CubeP3M"')
 
     def read_sources(self, file, mass='hm'): # >:( trgeoip
         """Read sources from a C2Ray-formatted file
