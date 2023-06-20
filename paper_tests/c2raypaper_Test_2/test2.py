@@ -30,11 +30,9 @@ if args.resolution is None:
 if args.resolution == "fine":
     numzred = 101
     delta_time = 0.15
-    resdir = "./results_fine/"
 elif args.resolution == "coarse":
     numzred = 11
     delta_time = 1.5
-    resdir = "./results_coarse/"
 else:
     raise ValueError("Unknown resolution")
 
@@ -73,7 +71,6 @@ for i in range(0,N):
             ndens[i,j,k] = halo_n0 * (halo_r0 / r)**1
 
 sim.ndens = ndens
-sim.results_basename = resdir
 
 # Read source
 srcpos, srcstrength = sim.read_sources("source.txt",1)
