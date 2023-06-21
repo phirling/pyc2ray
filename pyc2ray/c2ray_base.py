@@ -296,7 +296,7 @@ class C2Ray:
 
         # Scale quantities to the initial redshift
         if self.cosmological:
-            self.printlog("Cosmology is on, scaling comoving quantities to proper ones...")
+            self.printlog(f"Cosmology is on, scaling comoving quantities to the initial redshift, which is z0 = {self.zred_0:.3f}...")
             self.dr = self.cosmology.scale_factor(self.zred_0) * self.dr_c
         else:
             self.printlog("Cosmology is off.")
@@ -334,7 +334,8 @@ class C2Ray:
         self.photo_thin_table = radsource.make_photo_table(self.tau,freq_min,freq_max,1e48)
         
         self.printlog(f"Using Black-Body sources with effective temperature T = {radsource.temp :.1e} K and Radius {(radsource.R_star/c.R_sun.to('cm')).value : .3e} rsun")
-        self.printlog(f"Spectrum Frequency Range: {freq_min:.3e} and {freq_max:.3e}")
+        self.printlog(f"Spectrum Frequency Range: {freq_min:.3e} to {freq_max:.3e} Hz")
+        self.printlog(f"This is Energy:           {freq_min/ev2fr:.3e} to {freq_max/ev2fr:.3e} eV")
 
         # Copy radiation table to GPU
         if self.gpu:
