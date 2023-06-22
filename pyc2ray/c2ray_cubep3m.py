@@ -1,7 +1,7 @@
 from .c2ray_base import C2Ray, YEAR, Mpc, msun2g
 from .utils.other_utils import get_redshifts_from_output, find_bins
 import tools21cm as t2c
-from utils import get_source_redshifts
+from .utils import get_source_redshifts
 from astropy import units as u
 from astropy import constants as c
 import numpy as np

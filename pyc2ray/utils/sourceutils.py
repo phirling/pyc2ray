@@ -26,9 +26,7 @@ def format_sources(source_pos, source_flux):
     source_flux_flat : 1D array
         Flattened double-float C representation of the source flux normalization factors
     """
-    # TODO: investigate why the source position is shifted by -1 (introduce error in possition of sources when compared to other simulations)
-    #source_pos_flat = np.ravel((source_pos - 1).astype('int32'),order='F')
-    source_pos_flat = np.ravel(source_pos.astype('int32'), order='F')
+    source_pos_flat = np.ravel((source_pos - 1).astype('int32'),order='F')
     source_flux_flat = source_flux.astype('float64')
 
     return source_pos_flat, source_flux_flat
