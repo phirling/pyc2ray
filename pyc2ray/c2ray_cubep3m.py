@@ -1,7 +1,7 @@
 from .c2ray_base import C2Ray, YEAR, Mpc, msun2g
 from .utils.other_utils import get_redshifts_from_output, find_bins
 import tools21cm as t2c
-from utils import get_source_redshifts
+#from utils import get_source_redshifts
 from astropy import units as u
 from astropy import constants as c
 import numpy as np
@@ -147,9 +147,9 @@ class C2Ray_CubeP3M(C2Ray):
         """Initialize time and redshift counter
         """
         self.zred_density = t2c.get_dens_redshifts(self.inputs_basename+'coarser_densities/')[::-1]
-        self.zred_sources = get_source_redshifts(self.inputs_basename+'sources/')[::-1]
+        #self.zred_sources = get_source_redshifts(self.inputs_basename+'sources/')[::-1]
         # TODO: waiting for next tools21cm release
-        #self.zred_sources = t2c.get_source_redshifts(self.inputs_basename+'sources/')[::-1]
+        self.zred_sources = t2c.get_source_redshifts(self.inputs_basename+'sources/')[::-1]
         if(self.resume):
             # get the resuming redshift
             self.zred_0 = np.min(get_redshifts_from_output(self.results_basename)) 

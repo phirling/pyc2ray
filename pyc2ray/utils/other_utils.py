@@ -12,7 +12,7 @@ def get_redshifts_from_output(output_dir, z_low=None, z_high=None, bracket=False
         except: 
             pass
     
-    return np.array(redshifts)
+    return np.sort(np.array(redshifts))
 
 def find_bins(input_array, binning_array):
     # Sort the binning array in ascending order
@@ -90,3 +90,10 @@ def get_source_redshifts(source_dir, z_low = None, z_high = None, bracket=False)
                         pass
 
         return _get_redshifts_in_range(redshifts, z_low, z_high, bracket)
+
+def get_same_values_in_array(arr1, arr2):
+    """ return values in common between two arrays in decreasing order"""
+    arr1 = np.array(arr1)
+    arr2 = np.array(arr2)
+    interp_arr = np.sort(np.array(list(set(arr1).intersection(arr2))))[::-1]
+    return interp_arr
