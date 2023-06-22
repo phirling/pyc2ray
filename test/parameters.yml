@@ -37,6 +37,10 @@ CGS:
   alcpow: -0.672
   # Hydrogen ionization energy (in eV)
   eth0: 13.598
+  # Helium I ionization energy (in eV)
+  ethe0: 24.587
+  # Helium II ionization energy (in eV)
+  ethe1: 54.416
   # Hydrogen collisional ionization parameter 1
   xih0: 1.0
   # Hydrogen collisional ionization parameter 2

@@ -1,7 +1,7 @@
 from .c2ray_base import C2Ray, YEAR, Mpc, msun2g
 from .utils.other_utils import get_redshifts_from_output, find_bins
 import tools21cm as t2c
-#from utils import get_source_redshifts
+from utils import get_source_redshifts
 from astropy import units as u
 from astropy import constants as c
 import numpy as np
@@ -28,6 +28,7 @@ class C2Ray_CubeP3M(C2Ray):
             Whether to use the GPU-accelerated ASORA library for raytracing
         """
         super().__init__(paramfile, Nmesh, use_gpu)
+        self.printlog('Running: "C2Ray CubeP3M"')
 
     def read_sources(self, file, mass='hm'): # >:( trgeoip
         """Read sources from a C2Ray-formatted file

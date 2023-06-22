@@ -10,8 +10,11 @@
 # Parameters to set up the simulation volume
 # ------------------------------------------
 Grid:
-  # Box size in Mpc
-  boxsize: 0.014
+  # Box size in comoving Mpc !! Here we don't use 1/h units
+  # !! As in C2Ray, when cosmological = false, this box size is
+  # used "as is". When cosmological = true, it is first scaled to zred_0
+  # Maybe this should be changed, as it can induce some confusion ?
+  boxsize: 0.004537091005222111 #0.001944467573666619 # 6e21 cm
 
 # --------------------------------------------------------------------
 # (Initial) properties of physical quantities in the simulation volume
@@ -20,10 +23,10 @@ Material:
   # Initial Temperature of the grid
   temp0: 1e4
   # Initial Ionized fraction of the grid
-  xh0: 1.2e-3
+  xh0: 2e-4 #1.2e-3
   # Constant average density, comoving value. Used only by the test case
   # this value is scaled to zred_0 (even in non-cosmological mode)
-  avg_dens: 1.0e-6
+  avg_dens: 1.87e-7
 
 # --------------------------------
 # Miscellaneous physical constants
@@ -63,14 +66,14 @@ Abundances:
 # Parameters governing photoionization
 # ------------------------------------
 Photo:
-  # HI cross section at its ionzing frequency
+  # HI cross section at its ionzing frequency (weighted by freq_factor)
   sigma_HI_at_ion_freq: 6.30e-18
-  # Minimum optical depth for tables
+    # Minimum optical depth for tables
   minlogtau: -20
   # Maximum optical depth for tables
   maxlogtau: 4
   # Number of table points
-  NumTau: 10000 #200000
+  NumTau: 20000
   # Effective temperature of Black Body source
   Teff: 5e4
   # Whether or not to use grey opacity (i.e. cross-section is frequency-independent)
@@ -105,8 +108,8 @@ Cosmology:
 # Output setup
 # ------------
 Output:
-  # Directory where results and log files are stored
-  results_basename: ./
+  # Directory where results and log files are stored (don't forget slash at end)
+  results_basename: ./results_coarse/
   # Name of the log file to write
   logfile: pyC2Ray.log
 
