@@ -49,7 +49,7 @@ for fname in files:
     # Create HDF5 file from the data
     with h5py.File(fname_hdf5,"w") as f:
         # Store Data
-        dset_pos = f.create_dataset("sources_positions", data=sources_pos[non_zero]+1) # +1 convention for Fortran
+        dset_pos = f.create_dataset("sources_positions", data=sources_pos[non_zero]+1) # +1 convention from Fortran to C done in t2c
         dset_mass = f.create_dataset("sources_mass", data=sources_mass[non_zero])
 
         # Store Metadata

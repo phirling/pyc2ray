@@ -136,7 +136,7 @@ def evolve3D(dt,dr,
         # Format input data for the CUDA extension module (flat arrays, C-types,etc)
         xh_av_flat = np.ravel(xh).astype('float64',copy=True)
         ndens_flat = np.ravel(ndens).astype('float64',copy=True)
-        srcpos_flat, normflux_flat = format_sources(src_pos,src_flux)
+        srcpos_flat, normflux_flat = format_sources(src_pos, src_flux)
 
         # Initialize Flat Column density & ionization rate arrays. These are used to store the
         # output of the raytracing module. TODO: python column density array is actually not needed ?
