@@ -185,7 +185,6 @@ class C2Ray_CubeP3M(C2Ray):
             self.xh = xh0 * np.ones(self.shape, order='F')
             self.temp = temp0 * np.ones(self.shape, order='F')
             self.phi_ion = np.zeros(self.shape, order='F')
-        pass
     
     def _output_init(self):
         """ Set up output & log file
@@ -195,7 +194,7 @@ class C2Ray_CubeP3M(C2Ray):
 
         self.logfile = self.results_basename + self._ld['Output']['logfile']
         title = '                 _________   ____            \n    ____  __  __/ ____/__ \ / __ \____ ___  __\n   / __ \/ / / / /    __/ // /_/ / __ `/ / / /\n  / /_/ / /_/ / /___ / __// _, _/ /_/ / /_/ / \n / .___/\__, /\____//____/_/ |_|\__,_/\__, /  \n/_/    /____/                        /____/   \n'
-        if(self.resume):
+        if(self._ld['Grid']['resume']):
             with open(self.logfile,"r") as f: 
                 log = f.readlines()
             with open(self.logfile,"w") as f: 
@@ -218,5 +217,6 @@ class C2Ray_CubeP3M(C2Ray):
         """
         super()._grid_init()
 
-        t2c.set_sim_constants(boxsize_cMpc=self._ld['Grid']['boxsize'])
+        # TODO: introduce an error due to the fact that we do not use 1/h
+        #t2c.set_sim_constants(boxsize_cMpc=self._ld['Grid']['boxsize'])
         self.resume = self._ld['Grid']['resume']
