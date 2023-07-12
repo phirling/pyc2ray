@@ -73,7 +73,7 @@ Photo:
   # Maximum optical depth for tables
   maxlogtau: 4
   # Number of table points
-  NumTau: 20000
+  NumTau: 2000
   # Effective temperature of Black Body source
   Teff: 5e4
   # Whether or not to use grey opacity (i.e. cross-section is frequency-independent)

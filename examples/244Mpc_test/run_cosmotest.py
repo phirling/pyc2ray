@@ -13,7 +13,7 @@ import tools21cm as t2c
 t2c.set_sim_constants(boxsize_cMpc=244)
 
 # Global parameters
-num_steps_between_slices = 10       # Number of timesteps between redshift slices
+num_steps_between_slices = 2       # Number of timesteps between redshift slices
 paramfile = sys.argv[1]             # Name of the parameter file
 N = 250                             # Mesh size
 use_octa = True                     # Determines which raytracing algorithm to use
@@ -23,10 +23,12 @@ max_subbox = 100                   # Maximum subbox when using C2Ray raytracing
 r_RT = 40                           # When using C2Ray raytracing, sets the subbox size. When using OCTA, sets the octahedron size
 
 # Create C2Ray object
-sim = pc2r.C2Ray_CubeP3M(paramfile=paramfile, Nmesh=N, use_gpu=use_octa)
+#sim = pc2r.C2Ray_CubeP3M(paramfile=paramfile, Nmesh=N, use_gpu=use_octa)
+sim = pc2r.C2Ray_244Test(paramfile=paramfile, Nmesh=N, use_gpu=use_octa)
 
 # Get redshift list (test case)
 zred_array = np.loadtxt(sim.inputs_basename+'redshifts.txt', dtype=float)
+zred_checkpoints = np.loadtxt(sim.inputs_basename+'redshifts_checkpoints.txt', dtype=float)
 
 # check for resume simulation
 if(sim.resume):
@@ -39,7 +41,7 @@ tinit = time.time()
 prev_i_zdens, prev_i_zsourc = -1, -1
 
 # Loop over redshifts
-for k in range(i_start, len(zred_array)-1):
+for k in range(i_start, len(zred_checkpoints)-1):
 
     zi = zred_array[k]       # Start redshift
     zf = zred_array[k+1]     # End redshift

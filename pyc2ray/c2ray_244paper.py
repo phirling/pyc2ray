@@ -7,17 +7,18 @@ from astropy import constants as c
 import numpy as np
 import h5py
 
-__all__ = ['C2Ray_CubeP3M']
+__all__ = ['C2Ray_244Test']
 
+msun2g = 1.98892e33
 # ======================================================================
 # This file contains the C2Ray_CubeP3M subclass of C2Ray, which is a
 # version used for simulations that read in N-Body data from CubeP3M
 # ======================================================================
 
-class C2Ray_CubeP3M(C2Ray):
+class C2Ray_244Test(C2Ray):
     def __init__(self, paramfile, Nmesh, use_gpu):
         """A C2Ray CubeP3M simulation
-
+        # TODO: THIS SCRIPT IS FOR THE 244 MPC/H TEST FOR THE PAPER. LATER THIS FILE WILL BE DELETED
         Parameters
         ----------
         paramfile : str
@@ -28,7 +29,7 @@ class C2Ray_CubeP3M(C2Ray):
             Whether to use the GPU-accelerated ASORA library for raytracing
         """
         super().__init__(paramfile, Nmesh, use_gpu)
-        self.printlog('Running: "C2Ray CubeP3M"')
+        self.printlog('Running: "C2Ray for 244 Mpc/h test"')
 
     def read_sources(self, file, mass='hm'): # >:( trgeoip
         """Read sources from a C2Ray-formatted file
@@ -68,7 +69,10 @@ class C2Ray_CubeP3M(C2Ray):
         S_star_ref = 1e48
         
         # TODO: automatic selection of low mass or high mass. For the moment only high mass
-        mass2phot = msun2g * self.fgamma_hm * self.cosmology.Ob0 / (self.mean_molecular * c.m_p.cgs.value * self.ts * self.cosmology.Om0)    
+        #mass2phot = msun2g * self.fgamma_hm * self.cosmology.Ob0 / (self.mean_molecular * c.m_p.cgs.value * self.ts * self.cosmology.Om0)    
+        # TODO: for some reason the difference with the orginal Fortran run is of the molecular weight
+        self.printlog('%f' %self.mean_molecular )
+        mass2phot = msun2g * self.fgamma_hm * self.cosmology.Ob0 / (c.m_p.cgs.value * self.ts * self.cosmology.Om0)    
         
         if file.endswith('.hdf5'):
             f = h5py.File(file, 'r')
@@ -83,6 +87,7 @@ class C2Ray_CubeP3M(C2Ray):
             normflux = src.sources_list[:, -1] * mass2phot / S_star_ref
 
         self.printlog('\n---- Reading source file with total of %d ionizing source:\n%s' %(normflux.size, file))
+        self.printlog(' Total Flux : %e' %np.sum(normflux*S_star_ref))
         self.printlog(' min, max source mass : %.3e  %.3e [Msun] and min, mean, max number of ionising sources : %.3e  %.3e  %.3e [1/s]' %(normflux.min()/mass2phot*S_star_ref, normflux.max()/mass2phot*S_star_ref, normflux.min()*S_star_ref, normflux.mean()*S_star_ref, normflux.max()*S_star_ref))
         return srcpos, normflux
     
@@ -108,12 +113,10 @@ class C2Ray_CubeP3M(C2Ray):
         else:
             redshift = self.zred_0
 
-        # TODO: redshift bin for the current redshift based on the density redshift for interpolation (discussed with Garrelt and he's okish)
-        # TODO: low_z, high_z = find_bins(redshift, self.zred_density)
-        # get the strictly larger and closest redshift density file
+        # redshift bin for the current redshift based on the density redshift
+        #low_z, high_z = find_bins(redshift, self.zred_density)
         high_z = self.zred_density[np.argmin(np.abs(self.zred_density[self.zred_density >= redshift] - redshift))]
 
-        
         if(high_z != self.prev_zdens):
             file = '%scoarser_densities/%.3fn_all.dat' %(self.inputs_basename, high_z)
             self.printlog(f'\n---- Reading density file:\n '+file)
