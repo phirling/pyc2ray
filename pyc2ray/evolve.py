@@ -150,8 +150,8 @@ def evolve3D(dt,dr,
     # Start Evolve step, Iterate until convergence in <x> and <y>
     # -----------------------------------------------------------
     printlog("Calling evolve3D...",logfile,quiet)
-    printlog(f"dr [Mpc]: {dr/3.086e24:.2e}",logfile,quiet)
-    printlog(f"dt [years]: {dt/3.15576E+07:.2e}",logfile,quiet)
+    printlog(f"dr [Mpc]: {dr/3.086e24:.3e}",logfile,quiet)
+    printlog(f"dt [years]: {dt/3.15576E+07:.3e}",logfile,quiet)
     printlog(f"Running on {NumSrc:n} source(s), total normalized ionizing flux: {src_flux.sum():.2e}",logfile,quiet)
     printlog(f"Mean density (cgs): {ndens.mean():.3e}, Mean ionized fraction: {xh.mean():.3e}",logfile,quiet)
     printlog(f"Convergence Criterion (Number of points): {conv_criterion : n}",logfile,quiet,end='\n\n')

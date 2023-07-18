@@ -12,9 +12,9 @@
 Grid:
   # Box size in comoving Mpc # !! Here we don't use 1/h units
   # !! As in C2Ray, when cosmological = false, this box size is used "as is". When cosmological = true, it is first scaled to zred_0. Maybe this should be changed, as it can induce some confusion ?
-  boxsize: 348.571428571 # = 244 Mpc/h
+  boxsize: 244 # Mpc/h #TODO: 348.571428571
   # boolean variable to indicate if resuming a simulation (no need to change zred_0)
-  resume: 0
+  resume: 1
 
 # --------------------------------------------------------------------
 # (Initial) properties of physical quantities in the simulation volume
@@ -87,7 +87,7 @@ Sources:
   # efficiency Low-Mass Atomically Cooling Halo (LMACH)
   fgamma_lm: 0.
   # source lifetime in Myr units
-  ts: 11.5164483408738 #20.0
+  ts: 20.0
 
 # -----------------------
 # Cosmological Parameters
@@ -130,7 +130,7 @@ Raytracing:
   # Photon loss fraction for the subbox algorithm
   loss_fraction: 1e-2
   # Maximum subbox when using C2Ray raytracing
-  max_subbox : 100 
+  max_subbox : 10
   # When using C2Ray raytracing, sets the subbox size. When using OCTA, sets the octahedron size
   # TODO: change this in the future and make it similar to C2Ray
   r_RT : 40

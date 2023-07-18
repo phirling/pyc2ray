@@ -1,7 +1,7 @@
 import sys
 import numpy as np, time
 import pyc2ray as pc2r
-
+from pyc2ray.utils.other_utils import get_redshifts_from_output
 from astropy import units as u
 
 # ======================================================================
@@ -27,12 +27,12 @@ r_RT = 40                           # When using C2Ray raytracing, sets the subb
 sim = pc2r.C2Ray_244Test(paramfile=paramfile, Nmesh=N, use_gpu=use_octa)
 
 # Get redshift list (test case)
-zred_array = np.loadtxt(sim.inputs_basename+'redshifts.txt', dtype=float)
-zred_checkpoints = np.loadtxt(sim.inputs_basename+'redshifts_checkpoints.txt', dtype=float)
+#zred_array = np.loadtxt(sim.inputs_basename+'redshifts.txt', dtype=float)
+zred_array = np.loadtxt(sim.inputs_basename+'redshifts_checkpoints.txt', dtype=float)
 
 # check for resume simulation
 if(sim.resume):
-    i_start = np.argmin(np.abs(zred_array - sim.zred_0))
+    i_start = np.argmin(np.abs(zred_array - sim.zred))
 else:
     i_start = 0
 
@@ -41,7 +41,7 @@ tinit = time.time()
 prev_i_zdens, prev_i_zsourc = -1, -1
 
 # Loop over redshifts
-for k in range(i_start, len(zred_checkpoints)-1):
+for k in range(i_start, len(zred_array)-1):
 
     zi = zred_array[k]       # Start redshift
     zf = zred_array[k+1]     # End redshift
@@ -64,12 +64,8 @@ for k in range(i_start, len(zred_checkpoints)-1):
     if(i_zsourc == prev_i_zsourc):
         pass
     else:
-        srcpos, normflux = sim.read_sources(file='%ssources_hdf5/%.3f-coarsest_wsubgrid_sources.hdf5' %(sim.inputs_basename, sim.zred_sources[i_zsourc]), mass='hm')
+        srcpos, normflux = sim.read_sources(file='%ssources_hdf5/%.3f-coarsest_wsubgrid_sources.hdf5' %(sim.inputs_basename, sim.zred_sources[i_zsourc]), mass='hm', ts=num_steps_between_slices*dt)
         prev_i_zsourc = i_zsourc
-
-    if(np.count_nonzero(normflux) == 0):
-        pc2r.printlog(f"\n --- No sources at redshift: z = {sim.zred : .3f}. Skipping redshift step --- \n", sim.logfile)
-        continue
 
     # Set redshift to current slice redshift
     sim.zred = zi
