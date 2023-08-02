@@ -60,13 +60,8 @@ for k in range(i_start, len(zred_array)-1):
     sim.read_density(z=zi)
 
     # Read source files
-    i_zsourc = np.argmin(np.abs(sim.zred_sources[sim.zred_sources > zf] - zi))
-    if(i_zsourc == prev_i_zsourc):
-        pass
-    else:
-        srcpos, normflux = sim.read_sources(file='%ssources_hdf5/%.3f-coarsest_wsubgrid_sources.hdf5' %(sim.inputs_basename, sim.zred_sources[i_zsourc]), mass='hm', ts=num_steps_between_slices*dt)
-        prev_i_zsourc = i_zsourc
-
+    srcpos, normflux = sim.read_sources(file='%ssources_hdf5/%.3f-coarsest_wsubgrid_sources.hdf5' %(sim.inputs_basename, zi), mass='hm', ts=num_steps_between_slices*dt)
+    
     # Set redshift to current slice redshift
     sim.zred = zi
 

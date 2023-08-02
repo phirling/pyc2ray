@@ -167,7 +167,7 @@ class C2Ray_244Test():
 
             # Set cell size to current proper size
             #TODO: it should be: self.dr = self.dr_c * self.cosmology.scale_factor(z_half)
-            self.dr = self.dr_c / (1 + z_half)
+            self.dr = self.dr_c / zfactor #/ (1 + z_half)
 
         # Set new time and redshift (after timestep)
         self.zred = z_half
@@ -485,7 +485,7 @@ class C2Ray_244Test():
         """
         if(self.resume):
             # get fields at the resuming redshift
-            self.ndens = t2c.DensityFile(filename='%scoarser_densities/%.3fn_all.dat' %(self.inputs_basename, self.prev_zdens)).cgs_density / (self.mean_molecular * m_p)* (1+self.zred)**3
+            self.ndens = t2c.DensityFile(filename='%scoarser_densities/%.3fn_all.dat' %(self.inputs_basename, self.prev_zdens)).cgs_density / (self.mean_molecular * m_p) * (1+self.zred)**3
             #self.ndens = self.read_density(z=self.zred)
             self.xh = t2c.read_cbin(filename='%sxfrac_%.3f.dat' %(self.results_basename, self.zred), bits=64, order='F')
             # TODO: implement heating

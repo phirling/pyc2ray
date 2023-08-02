@@ -130,7 +130,7 @@ Raytracing:
   # Photon loss fraction for the subbox algorithm
   loss_fraction: 1e-2
   # Maximum subbox when using C2Ray raytracing
-  max_subbox : 10
+  max_subbox : 40
   # When using C2Ray raytracing, sets the subbox size. When using OCTA, sets the octahedron size
   # TODO: change this in the future and make it similar to C2Ray
   r_RT : 40
