@@ -22,7 +22,7 @@ import h5py
 __all__ = ['C2Ray_244Test']
 
 pc = 3.086e18            # C2Ray value: 3.086e18
-YEAR = (1*u.yr).to('s').value           # C2Ray value: 3.15576E+07
+YEAR = 3.15576E+07 #(1*u.yr).to('s').value           # C2Ray value: 3.15576E+07
 ev2fr = 0.241838e15                     # eV to Frequency (Hz)
 ev2k = 1.0/8.617e-05                    # eV to Kelvin
 kpc = 1e3*pc                            # kiloparsec in cm
@@ -155,20 +155,21 @@ class C2Ray_244Test():
         t_half = t_now + 0.5*dt
         t_after = t_now + dt
         self.printlog(' This is time : %f\t %f' %((t_now*u.s).to('yr').value, (t_after*u.s).to('yr').value))
+
         # Increment redshift by half a time step
         z_half = self.time2zred(t_half)
 
         # Scale quantities if cosmological run
         if self.cosmological:
             # Scale density according to expansion
-            zfactor = (1+z_half) / (1+self.zred)
-            dilution_factor = zfactor**3
-            self.ndens *= dilution_factor
+            dilution_factor = (1+z_half) / (1+self.zred)
+            #dilution_factor = ( (1+z_half) / (1+self.zred) )**3
+            self.ndens *= dilution_factor**3
 
             # Set cell size to current proper size
-            #TODO: it should be: self.dr = self.dr_c * self.cosmology.scale_factor(z_half)
-            self.dr = self.dr_c / zfactor #/ (1 + z_half)
-
+            # self.dr = self.dr_c * self.cosmology.scale_factor(z_half)
+            self.dr /= dilution_factor
+            self.printlog(f"zfactor = {1./dilution_factor : .10f}")
         # Set new time and redshift (after timestep)
         self.zred = z_half
         self.time = t_after
@@ -196,7 +197,8 @@ class C2Ray_244Test():
         """
         # TODO: it should be then z_at_value(self.cosmology.age, t*u.s).value
         # in C2Ray is defined: time2zred = -1+(1.+zred_t0)*(t0/(t0+time))**(2./3.)        
-        return -1+(1.+self.zred_0)*(self.age_0/(self.age_0+t))**(2./3.)
+        #return -1+(1.+self.zred_0)*(self.age_0/(self.age_0+t))**(2./3.)
+        return -1+(1.+self.zred_0)*(self.age_0/(t))**(2./3.)
 
     def zred2time(self, z, unit='s'):
         """Calculate the age corresponding to a redshift z
@@ -210,7 +212,8 @@ class C2Ray_244Test():
         """
         # TODO : it should be then self.cosmology.age(z).to(unit).value
         # In C2Ray is defined: zred2time = t0*( ((1.0+zred_t0)/(1.0+zred1))**1.5 - 1.0 )
-        return self.age_0*(((1.0+self.zred_0)/(1.0+z))**1.5 - 1.0)
+        #return self.age_0*(((1.0+self.zred_0)/(1.0+z))**1.5 - 1.0) # C2Ray version, time is 0 at sim begin
+        return self.age_0*(((1.0+self.zred_0)/(1.0+z))**1.5) # <- Here, we want time to be actual age (age0 + t)
         
 
     # =====================================================================================================
@@ -252,11 +255,12 @@ class C2Ray_244Test():
         self.cosmological = self._ld['Cosmology']['cosmological']
         self.zred_0 = self._ld['Cosmology']['zred_0']
 
-        H0 *= 1e5/Mpc
+        #H0 *= 1e5/Mpc
 
-        self.age_0 = 2.*(1.+self.zred_0)**(-1.5)/(3.*H0*np.sqrt(Om0))
+        #self.age_0 = 2.*(1.+self.zred_0)**(-1.5)/(3.*H0*np.sqrt(Om0))
         #self.age_0 = self.zred2time(self.zred_0)
-
+        self.age_0 = 2.*(1.+self.zred_0)**(-1.5)/(3.*H0 * 1e5/Mpc *np.sqrt(Om0))
+        
         # Scale quantities to the initial redshift
         if self.cosmological:
             self.printlog(f"Cosmology is on, scaling comoving quantities to the initial redshift, which is z0 = {self.zred_0:.3f}...")

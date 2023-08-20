@@ -1,4 +1,5 @@
 import sys
+sys.path.append("../../")
 import numpy as np, time
 import pyc2ray as pc2r
 from pyc2ray.utils.other_utils import get_redshifts_from_output
@@ -75,6 +76,9 @@ for k in range(i_start, len(zred_array)-1):
 
         # Evolve the simulation: raytrace -> photoionization rates -> chemistry -> until convergence
         sim.evolve3D(dt, normflux, srcpos, r_RT, max_subbox)
+
+    # Evolve cosmology over final half time step to reach the correct time for next slice (see note in c2ray_base.py)
+    sim.cosmo_evolve(0)
 
 # Write final output
 sim.write_output(zf)
