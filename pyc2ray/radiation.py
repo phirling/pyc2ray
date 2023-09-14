@@ -2,10 +2,16 @@ import numpy as np
 from scipy.integrate import quad,quad_vec
 import astropy.constants as ac
 
-h_over_k = (ac.h/(ac.k_B)).cgs.value
-# h_over_k = 6.6260755e-27 / 1.381e-16 For detailed comparisons with C2Ray, use the same exact value for the constants
+# For detailed comparisons with C2Ray, we use the same exact value for the constants
+# This can be changed to the astropy values once consistency between the two codes has been established
 
-two_pi_over_c_square = 2*np.pi/ac.c.cgs.value**2
+#h_over_k = (ac.h/(ac.k_B)).cgs.value
+h_over_k = 6.6260755e-27 / 1.381e-16
+
+#two_pi_over_c_square = 2*np.pi/ac.c.cgs.value**2
+pi =3.141592654
+c = 2.997925e+10
+two_pi_over_c_square = 2.0*pi/(c*c)
 
 __all__ = ['BlackBodySource','make_tau_table']
 

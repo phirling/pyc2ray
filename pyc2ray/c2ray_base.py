@@ -68,9 +68,10 @@ from .radiation import BlackBodySource, make_tau_table
 
 # Conversion Factors.
 # When doing direct comparisons with C2Ray, the difference between astropy.constants and the C2Ray values
-# may be visible, so they are kept here for reference (just replace them)
-pc = (1*u.pc).to('cm').value            # C2Ray value: 3.086e18
-YEAR = (1*u.yr).to('s').value           # C2Ray value: 3.15576E+07
+# may be visible, thus we use the same exact value for the constants. This can be changed to the
+# astropy values once consistency between the two codes has been established
+pc = 3.086e18           #(1*u.pc).to('cm').value            # C2Ray value: 3.086e18
+YEAR = 3.15576E+07      #(1*u.yr).to('s').value           # C2Ray value: 3.15576E+07
 ev2fr = 0.241838e15                     # eV to Frequency (Hz)
 ev2k = 1.0/8.617e-05                    # eV to Kelvin
 kpc = 1e3*pc                            # kiloparsec in cm

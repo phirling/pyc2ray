@@ -12,6 +12,7 @@
 Grid:
   # Box size in Mpc
   boxsize: 0.014
+  resume: 0
 
 # --------------------------------------------------------------------
 # (Initial) properties of physical quantities in the simulation volume
@@ -106,7 +107,7 @@ Cosmology:
 # ------------
 Output:
   # Directory where results and log files are stored
-  results_basename: ./
+  results_basename: ./pyc2ray_results_new/
   # Name of the log file to write
   logfile: pyC2Ray.log
 
