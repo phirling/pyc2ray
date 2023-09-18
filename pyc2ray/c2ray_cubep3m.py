@@ -1,6 +1,7 @@
 from .c2ray_base import C2Ray, YEAR, Mpc, msun2g
 from .utils.other_utils import get_redshifts_from_output, find_bins
 import tools21cm as t2c
+from .utils import get_source_redshifts
 from astropy import units as u
 from astropy import constants as c
 import numpy as np
@@ -27,6 +28,7 @@ class C2Ray_CubeP3M(C2Ray):
             Whether to use the GPU-accelerated ASORA library for raytracing
         """
         super().__init__(paramfile, Nmesh, use_gpu)
+        self.printlog('Running: "C2Ray CubeP3M"')
 
     def read_sources(self, file, mass='hm'): # >:( trgeoip
         """Read sources from a C2Ray-formatted file
@@ -80,7 +82,7 @@ class C2Ray_CubeP3M(C2Ray):
             srcpos = src.sources_list[:, :3].T
             normflux = src.sources_list[:, -1] * mass2phot / S_star_ref
 
-        self.printlog('\n---- Reading source file with total of %d ionizing source:\n%s' %(np.count_nonzero(normflux), file))
+        self.printlog('\n---- Reading source file with total of %d ionizing source:\n%s' %(normflux.size, file))
         self.printlog(' min, max source mass : %.3e  %.3e [Msun] and min, mean, max number of ionising sources : %.3e  %.3e  %.3e [1/s]' %(normflux.min()/mass2phot*S_star_ref, normflux.max()/mass2phot*S_star_ref, normflux.min()*S_star_ref, normflux.mean()*S_star_ref, normflux.max()*S_star_ref))
         return srcpos, normflux
     
@@ -106,13 +108,16 @@ class C2Ray_CubeP3M(C2Ray):
         else:
             redshift = self.zred_0
 
-        # redshift bin for the current redshift based on the density redshift
-        low_z, high_z = find_bins(redshift, self.zred_density)
+        # TODO: redshift bin for the current redshift based on the density redshift for interpolation (discussed with Garrelt and he's okish)
+        # TODO: low_z, high_z = find_bins(redshift, self.zred_density)
+        # get the strictly larger and closest redshift density file
+        high_z = self.zred_density[np.argmin(np.abs(self.zred_density[self.zred_density >= redshift] - redshift))]
+
         
         if(high_z != self.prev_zdens):
             file = '%scoarser_densities/%.3fn_all.dat' %(self.inputs_basename, high_z)
             self.printlog(f'\n---- Reading density file:\n '+file)
-            self.ndens = t2c.DensityFile(filename=file).cgs_density / (self.mean_molecular * c.m_p.cgs.value)* (1+redshift)**3
+            self.ndens = t2c.DensityFile(filename=file).cgs_density / (self.mean_molecular * c.m_p.cgs.value) * (1+redshift)**3
             self.printlog(' min, mean and max density : %.3e  %.3e  %.3e [1/cm3]' %(self.ndens.min(), self.ndens.mean(), self.ndens.max()))
             self.prev_zdens = high_z
         else:
@@ -146,6 +151,8 @@ class C2Ray_CubeP3M(C2Ray):
         """Initialize time and redshift counter
         """
         self.zred_density = t2c.get_dens_redshifts(self.inputs_basename+'coarser_densities/')[::-1]
+        #self.zred_sources = get_source_redshifts(self.inputs_basename+'sources/')[::-1]
+        # TODO: waiting for next tools21cm release
         self.zred_sources = t2c.get_source_redshifts(self.inputs_basename+'sources/')[::-1]
         if(self.resume):
             # get the resuming redshift
@@ -153,7 +160,10 @@ class C2Ray_CubeP3M(C2Ray):
             self.age_0 = self.zred2time(self.zred_0)
             _, self.prev_zdens = find_bins(self.zred_0, self.zred_density)
             _, self.prev_zsourc = find_bins(self.zred_0, self.zred_sources)
-                    
+        else:
+            self.prev_zdens = -1
+            self.prev_zsourc = -1
+
         self.time = self.age_0
         self.zred = self.zred_0
 
@@ -178,7 +188,6 @@ class C2Ray_CubeP3M(C2Ray):
             self.xh = xh0 * np.ones(self.shape, order='F')
             self.temp = temp0 * np.ones(self.shape, order='F')
             self.phi_ion = np.zeros(self.shape, order='F')
-        pass
     
     def _output_init(self):
         """ Set up output & log file
@@ -188,7 +197,7 @@ class C2Ray_CubeP3M(C2Ray):
 
         self.logfile = self.results_basename + self._ld['Output']['logfile']
         title = '                 _________   ____            \n    ____  __  __/ ____/__ \ / __ \____ ___  __\n   / __ \/ / / / /    __/ // /_/ / __ `/ / / /\n  / /_/ / /_/ / /___ / __// _, _/ /_/ / /_/ / \n / .___/\__, /\____//____/_/ |_|\__,_/\__, /  \n/_/    /____/                        /____/   \n'
-        if(self.resume):
+        if(self._ld['Grid']['resume']):
             with open(self.logfile,"r") as f: 
                 log = f.readlines()
             with open(self.logfile,"w") as f: 
@@ -211,5 +220,6 @@ class C2Ray_CubeP3M(C2Ray):
         """
         super()._grid_init()
 
-        t2c.set_sim_constants(boxsize_cMpc=self._ld['Grid']['boxsize'])
+        # TODO: introduce an error due to the fact that we do not use 1/h
+        #t2c.set_sim_constants(boxsize_cMpc=self._ld['Grid']['boxsize'])
         self.resume = self._ld['Grid']['resume']

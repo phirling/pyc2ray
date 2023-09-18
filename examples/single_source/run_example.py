@@ -31,7 +31,7 @@ import argparse
 # ======================================================================
 
 parser = argparse.ArgumentParser("Single source example for pyc2ray")
-parser.add_argument("--octa",action='store_true',help="Use OCTA raytracing")
+parser.add_argument("--gpu",action='store_true',help="Use GPU raytracing")
 parser.add_argument("-r_RT",type=int,default=5,help="Subbox size (pyc2ray) or raytracing radius (OCTA)")
 args = parser.parse_args()
 
@@ -40,14 +40,14 @@ numzred = 15                        # Number of redshift slices
 num_steps_between_slices = 10       # Number of timesteps between redshift slices
 paramfile = "parameters.yml"        # Name of the parameter file
 N = 128                             # Mesh size
-use_octa = args.octa                # Determines which raytracing algorithm to use
+use_gpu = args.gpu                # Determines which raytracing algorithm to use
 
 # Raytracing Parameters
 max_subbox = 1000                   # Maximum subbox when using C2Ray raytracing
 r_RT = int(args.r_RT)               # When using C2Ray raytracing, sets the subbox size. When using OCTA, sets the octahedron size
 
 # Create C2Ray object
-sim = pc2r.C2Ray_Test(paramfile, N, use_octa)
+sim = pc2r.C2Ray_Test(paramfile, N, use_gpu)
 
 # Generate redshift list (test case)
 zred_array = sim.generate_redshift_array(numzred,1e7)

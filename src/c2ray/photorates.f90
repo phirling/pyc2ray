@@ -111,7 +111,9 @@ module photorates
             i0 = int( real_i )
             i1 = min(NumTau, i0+1)
             residual = real_i - real(i0)
-            photo_lookuptable = photo_thin_table(i0) + residual*(photo_thin_table(i1) - photo_thin_table(i0))
+            ! We increment the indices by +1 since Fortran understands the table as 1-indexed (its created in python and then passed to Fortran),
+            ! whereas in original C2Ray, the table is created EXPLICITELY as ranging from 0 to NumTau (see radiation_tables.F90).
+            photo_lookuptable = photo_thin_table(i0 + 1) + residual*(photo_thin_table(i1 + 1) - photo_thin_table(i0 + 1))
         end function photo_lookuptable
 
     end subroutine photoion_rates

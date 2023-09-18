@@ -14,7 +14,7 @@ has_cuda = add_languages('cuda',required:false)
 if not has_cuda
     warning('CUDA compiler not found, will not build ASORA library')
 else
-    add_global_arguments(['-O2','-Xcompiler','-fPIC'], language : 'cuda')
+    add_global_arguments(['-O2','-Xcompiler','-fPIC','-rdc','true'], language : 'cuda')
     add_global_arguments(['-D PERIODIC','-D LOCALRATES'], language : 'cuda')
 endif
 
@@ -50,8 +50,10 @@ pyc2ray_utils_sources = [
 
 # CUDA sources for ASORA
 asora_sources = [
-    'src/octa/raytracing_gpu.cu',
-    'src/octa/rtmodule.cu',
+    'src/asora/memory.cu',
+    'src/asora/rates.cu',
+    'src/asora/raytracing.cu',
+    'src/asora/python_module.cu',
 ]
 
 # ==================================
@@ -116,7 +118,7 @@ if has_cuda
     gpu_arch = get_option('gpu-architecture')
 
     # Build ASORA module with nvcc
-    py3.extension_module('libocta',
+    py3.extension_module('libasora',
         asora_sources,
         include_directories: inc_np,
         dependencies: py3_dep,

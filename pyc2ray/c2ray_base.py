@@ -67,13 +67,16 @@ from .radiation import BlackBodySource, make_tau_table
 # ======================================================================
 
 # Conversion Factors.
-ev2k = 1.0/8.617e-05         # eV to Kelvin
-pc = (1*u.pc).to('cm').value # parsec in cm
-kpc = 1e3*pc                 # kiloparsec in cm
-Mpc = 1e6*pc                 # megaparsec in cm
-YEAR = (1*u.yr).to('s').value
-ev2fr = 0.241838e15
-msun2g = (1*u.Msun).to('g').value  # solar mass to grams
+# When doing direct comparisons with C2Ray, the difference between astropy.constants and the C2Ray values
+# may be visible, thus we use the same exact value for the constants. This can be changed to the
+# astropy values once consistency between the two codes has been established
+pc = 3.086e18           #(1*u.pc).to('cm').value            # C2Ray value: 3.086e18
+YEAR = 3.15576E+07      #(1*u.yr).to('s').value           # C2Ray value: 3.15576E+07
+ev2fr = 0.241838e15                     # eV to Frequency (Hz)
+ev2k = 1.0/8.617e-05                    # eV to Kelvin
+kpc = 1e3*pc                            # kiloparsec in cm
+Mpc = 1e6*pc                            # megaparsec in cm
+msun2g = (1*u.Msun).to('g').value       # solar mass to grams
 
 
 class C2Ray:
@@ -107,13 +110,16 @@ class C2Ray:
 
         # Initialize Simulation
         self._param_init()
+        self._output_init()
         self._grid_init()
         self._cosmology_init()
-        self._output_init()
         self._redshift_init()
         self._material_init()
         self._sources_init()
         self._radiation_init()
+        if self.gpu: self.printlog("Using ASORA Raytracing")
+        else: self.printlog("Using CPU Raytracing")
+        self.printlog("Starting simulation... \n\n")
 
     # =====================================================================================================
     # TIME-EVOLUTION METHODS
@@ -139,7 +145,6 @@ class C2Ray:
         t2 = self.cosmology.lookback_time(z2).to('s').value
         # we do t1-t2 since ti are lookback times (not ages)
         dt = (t1-t2)/num_timesteps
-        self.printlog(f"dt [years]: {dt/YEAR:.3e}")
         return dt
     
     def evolve3D(self, dt, src_flux, src_pos, r_RT, max_subbox):
@@ -204,8 +209,6 @@ class C2Ray:
             # Set cell size to current proper size
             self.dr = self.dr_c * self.cosmology.scale_factor(z_half)
 
-        self.printlog(f"dr [kpc]: {self.dr/kpc:.3e}")
-
         # Set new time and redshift (after timestep)
         self.zred = z_half
         self.time = t_after
@@ -221,7 +224,10 @@ class C2Ray:
         quiet : bool
             Whether to print only to log file or also to standard output (default)
         """
-        printlog(s,self.logfile,quiet)
+        if self.logfile is None:
+            raise RuntimeError("Please set the log file in output_ini")
+        else:
+            printlog(s,self.logfile,quiet)
 
 
     def write_output(self,z):
@@ -260,6 +266,8 @@ class C2Ray:
         and stores them as attributes
         """
         self.eth0 = self._ld['CGS']['eth0']
+        self.ethe0 = self._ld['CGS']['ethe0']
+        self.ethe1 = self._ld['CGS']['ethe1']
         self.bh00 = self._ld['CGS']['bh00']
         self.fh0 = self._ld['CGS']['fh0']
         self.xih0 = self._ld['CGS']['xih0']
@@ -289,7 +297,10 @@ class C2Ray:
 
         # Scale quantities to the initial redshift
         if self.cosmological:
+            self.printlog(f"Cosmology is on, scaling comoving quantities to the initial redshift, which is z0 = {self.zred_0:.3f}...")
             self.dr = self.cosmology.scale_factor(self.zred_0) * self.dr_c
+        else:
+            self.printlog("Cosmology is off.")
 
     def _radiation_init(self):
         """Set up radiation tables for ionization/heating rates
@@ -303,22 +314,29 @@ class C2Ray:
         # remaining NumTau points are log-spaced from minlogtau to maxlogtau (same as in C2Ray)
         self.tau, self.dlogtau = make_tau_table(self.minlogtau,self.maxlogtau,self.NumTau)
 
+        ion_freq_HI = ev2fr * self.eth0
+        ion_freq_HeII = ev2fr * self.ethe1
+
+        freq_min = ion_freq_HI
+        freq_max = 10*ion_freq_HeII
+
         # Initialize Black-Body Source
         self.bb_Teff = self._ld['Photo']['Teff']
         self.grey = self._ld['Photo']['grey']
         self.cs_pl_idx_h = self._ld['Photo']['cross_section_pl_index']
-        self.printlog(f"Using Black-Body sources with effective temperature T = {self.bb_Teff :.1e} K")
-
-        ion_freq_HI = ev2fr * self.eth0
         radsource = BlackBodySource(self.bb_Teff, self.grey, ion_freq_HI, self.cs_pl_idx_h)
 
         if self.grey:
-            self.printlog(f"Using grey opacity")
+            self.printlog(f"Warning: Using grey opacity")
         else:
             self.printlog(f"Using power-law opacity with {self.NumTau:n} table points between tau=10^({self.minlogtau:n}) and tau=10^({self.maxlogtau:n})")
 
         # Integrate table. TODO: make this more customizeable
-        self.photo_thin_table = radsource.make_photo_table(self.tau,ion_freq_HI,10*ion_freq_HI,1e48)
+        self.photo_thin_table = radsource.make_photo_table(self.tau,freq_min,freq_max,1e48)
+        
+        self.printlog(f"Using Black-Body sources with effective temperature T = {radsource.temp :.1e} K and Radius {(radsource.R_star/c.R_sun.to('cm')).value : .3e} rsun")
+        self.printlog(f"Spectrum Frequency Range: {freq_min:.3e} to {freq_max:.3e} Hz")
+        self.printlog(f"This is Energy:           {freq_min/ev2fr:.3e} to {freq_max/ev2fr:.3e} eV")
 
         # Copy radiation table to GPU
         if self.gpu:
@@ -331,6 +349,9 @@ class C2Ray:
         # Comoving quantities
         self.boxsize_c = self._ld['Grid']['boxsize'] * Mpc
         self.dr_c = self.boxsize_c / self.N
+
+        self.printlog(f"Welcome! Mesh size is N = {self.N:n}.")
+        self.printlog(f"Simulation Box size (comoving Mpc): {self.boxsize_c/Mpc:.3e}")
 
         # Initialize cell size to comoving size (if cosmological run, it will be scaled in cosmology_init)
         self.dr = self.dr_c

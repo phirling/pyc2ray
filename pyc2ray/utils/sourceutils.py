@@ -4,7 +4,7 @@ import numpy as np
 # src/c2ray/photorates.f90.
             
 
-def format_sources(source_pos,source_flux):
+def format_sources(source_pos, source_flux):
     """Convert source data to correct shape & data type for GPU extension module
 
     The ASORA raytracing module works on flattened arrays with specific C-types.
@@ -26,12 +26,13 @@ def format_sources(source_pos,source_flux):
     source_flux_flat : 1D array
         Flattened double-float C representation of the source flux normalization factors
     """
+    # TODO: It's better to assume that user employ C/C++ convention (index from 0). Need to include a check in the case the Fortran module is called and the +1
     source_pos_flat = np.ravel((source_pos - 1).astype('int32'),order='F')
     source_flux_flat = source_flux.astype('float64')
 
     return source_pos_flat, source_flux_flat
 
-def generate_test_sourcefile(filename,N,numsrc,strength,seed=100):
+def generate_test_sourcefile(filename, N,numsrc, strength, seed=100):
     """Generate a test source file for C2Ray
 
     Generate sources of equal strength at random grid positions and write to file
@@ -66,7 +67,7 @@ def generate_test_sourcefile(filename,N,numsrc,strength,seed=100):
     with open(filename,'a') as f:
         np.savetxt(f,output,("%i %i %i %.0e %.1f"))
 
-def read_test_sources(file,numsrc,S_star_ref = 1e48):
+def read_test_sources(file, numsrc, S_star_ref=1e48):
         """ Read in a source file formatted for Test-C2Ray
 
         Read in a file that gives source positions and total ionizing flux

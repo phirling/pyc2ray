@@ -34,9 +34,9 @@ def load_asora():
     # Try once to load the library
     if _asora_lib_loaded is None:
         try:
-            from .lib import libocta # The library used to be called OCTA
+            from .lib import libasora
             _asora_lib_loaded = True
-            _asora_lib = libocta
+            _asora_lib = libasora
             return _asora_lib
         except ImportError:
             # If asora is not found, the package can still be used but we inform the user that GPU raytracing is not available

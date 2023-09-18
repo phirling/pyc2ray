@@ -15,7 +15,7 @@ Grid:
   # used "as is". When cosmological = true, it is first scaled to zred_0
   # Maybe this should be changed, as it can induce some confusion ?
   boxsize: 0.14
-
+  resume: 0
 # --------------------------------------------------------------------
 # (Initial) properties of physical quantities in the simulation volume
 # --------------------------------------------------------------------
@@ -40,6 +40,10 @@ CGS:
   alcpow: -0.672
   # Hydrogen ionization energy (in eV)
   eth0: 13.598
+  #Helium I ionization energy (in eV)
+  ethe0: 24.587
+  # Helium II ionization energy (in eV)
+  ethe1: 54.416
   # Hydrogen collisional ionization parameter 1
   xih0: 1.0
   # Hydrogen collisional ionization parameter 2
@@ -51,11 +55,13 @@ CGS:
 # Element abundances
 # ------------------
 Abundances:
+  # Hydrogen Abundance
+  abu_h: 0.926
   # Helium Abundance
   abu_he: 0.074    # 1 abu_he: 0.08 #  for EoR KP sims
   # Carbon Abundance
   abu_c: 7.1e-7
-
+  
 # ------------------------------------
 # Parameters governing photoionization
 # ------------------------------------
