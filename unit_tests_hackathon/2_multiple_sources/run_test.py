@@ -29,7 +29,7 @@ sim = pc2r.C2Ray_Test(paramfile, N, use_octa)
 zred_array = sim.generate_redshift_array(numzred,t_evol/numzred)
 
 # Read sources and convert to flux
-with open("/store/ska/sk015/cosmo_sources_sorted.pkl","rb") as f:
+with open("cosmo_sources_sorted.pkl","rb") as f:
     sources_list = pkl.load(f)
 fgamma = 10 #250
 t_s = 3*u.Myr.to('s')
@@ -38,7 +38,7 @@ srcpos = sources_list[:nsrc,:3].T
 normflux = fact*sources_list[:nsrc,3]/1e48
 
 # Set up density
-df = t2c.DensityFile("/store/ska/sk015/dens_9.938.dat")
+df = t2c.DensityFile("dens_9.938.dat")
 z = 9.938
 scaling = (1+z)**3
 m_H_cgs = 1.673533927065e-24 # Isotopic mass of hydrogen in grams
