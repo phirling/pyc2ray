@@ -1,8 +1,6 @@
 #include "raytracing.cuh"
 #include "memory.cuh"
 #include "rates.cuh"
-#include <thrust/fill.h>
-#include <thrust/device_ptr.h>
 #include <exception>
 #include <string>
 #include <iostream>
@@ -68,16 +66,10 @@ void do_all_sources_gpu(
         int bl = 8;
         dim3 bs(bl,bl);
 
-        // To efficiently fill large arrays with 0, we use the thrust library, which needs a custom pointer
-        // object to the data to work
-        thrust::device_ptr<double> cdh(cdh_dev);
-        thrust::device_ptr<double> ion(phi_dev);
-
         // Here we fill the ionization rate array with zero before raytracing all sources. The LOCALRATES flag
         // is for debugging purposes and will be removed later on
-        #if defined(LOCALRATES) || defined(RATES)
-        thrust::fill(ion,ion + m1*m1*m1,0.0);
-        #endif
+        cudaMemset(phi_dev,0,meshsize);
+
 
         // Copy current ionization fraction to the device
         // cudaMemcpy(n_dev,ndens,meshsize,cudaMemcpyHostToDevice);  < --- !! density array is not modified, asora assumes that it has been copied to the device before
@@ -107,7 +99,7 @@ void do_all_sources_gpu(
             // std::cout << "Doing source at " << i0 << " " << j0 << " " << k0 << ", strength = " << strength << std::endl;
 
             // Set column density to zero for each source
-            thrust::fill(cdh,cdh + m1*m1*m1,0.0);
+            cudaMemset(cdh_dev,0,meshsize);
             
             // OCTA loop: raytrace in octahedral shells of increasing size
             for (int q=0 ; q <= max_q; q++)
