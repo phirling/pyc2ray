@@ -12,7 +12,7 @@ __all__ = ['C2Ray_Test']
 # ======================================================================
 
 class C2Ray_Test(C2Ray):
-    def __init__(self, paramfile, Nmesh, use_gpu):
+    def __init__(self, paramfile, Nmesh, use_gpu, use_mpi):
         """A C2Ray Test-case simulation
 
         Parameters
@@ -24,7 +24,7 @@ class C2Ray_Test(C2Ray):
         use_gpu : bool
             Whether to use the GPU-accelerated ASORA library for raytracing
         """
-        super().__init__(paramfile, Nmesh, use_gpu)
+        super().__init__(paramfile, Nmesh, use_gpu, use_mpi)
         self.printlog('Running: "C2Ray Test"')
 
     def read_sources(self,file,numsrc,S_star_ref = 1e48):
