@@ -232,7 +232,7 @@ def evolve3D(dt,dr,
 def evolve3D_MPI(dt,dr,
                  src_flux,src_pos,
                  r_RT, use_gpu, use_mpi,
-                 comm, rank, nprocs,
+                 #comm, rank, nprocs,
                  max_subbox, loss_fraction,
                  temp, ndens, xh,
                  photo_thin_table, minlogtau, dlogtau,
@@ -306,6 +306,14 @@ def evolve3D_MPI(dt,dr,
         Photoionization rate of each cell due to all sources
     """
 
+    # MPI setup
+    from mpi4py import MPI  
+    #MPI.Init()
+    
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    nprocs = comm.Get_size()
+
     # Allow a call with GPU only if 1. the asora library is present and 2. the GPU memory has been allocated using device_init()
     if (use_gpu and not cuda_is_init()):
         raise RuntimeError("GPU not initialized. Please initialize it by calling device_init(N)")
@@ -361,11 +369,12 @@ def evolve3D_MPI(dt,dr,
     # Start Evolve step, Iterate until convergence in <x> and <y>
     # -----------------------------------------------------------
     printlog("Calling evolve3D on rank = %d..." %rank, logfile, quiet)
-    printlog(f"dr [Mpc]: {dr/3.086e24:.3e}",logfile,quiet)
-    printlog(f"dt [years]: {dt/3.15576E+07:.3e}",logfile,quiet)
-    printlog(f"Running on {NumSrc:n} source(s), total normalized ionizing flux: {src_flux.sum():.2e}",logfile,quiet)
-    printlog(f"Mean density (cgs): {ndens.mean():.3e}, Mean ionized fraction: {xh.mean():.3e}",logfile,quiet)
-    printlog(f"Convergence Criterion (Number of points): {conv_criterion : n}",logfile,quiet,end='\n\n')
+    if(rank == 0):
+        printlog(f"dr [Mpc]: {dr/3.086e24:.3e}",logfile,quiet)
+        printlog(f"dt [years]: {dt/3.15576E+07:.3e}",logfile,quiet)
+        printlog(f"Running on {NumSrc:n} source(s), total normalized ionizing flux: {src_flux.sum():.2e}",logfile,quiet)
+        printlog(f"Mean density (cgs): {ndens.mean():.3e}, Mean ionized fraction: {xh.mean():.3e}",logfile,quiet)
+        printlog(f"Convergence Criterion (Number of points): {conv_criterion : n}",logfile,quiet,end='\n\n')
 
     while not converged:
         niter += 1
@@ -398,7 +407,8 @@ def evolve3D_MPI(dt,dr,
         
         #if(rank == 0):
         #    all_phi_ion = np.zeros((N,N,N), dtype=np.float64)
-        comm.Reduce(phi_ion, None, root=0)
+        #comm.Reduce([phi_ion, MPI.DOUBLE], None, op=MPI.SUM, root=0)
+        comm.Reduce(phi_ion, None, op=MPI.SUM, root=MPI.ROOT)
 
         if(rank == 0):        
             # ---------------------
@@ -439,8 +449,8 @@ def evolve3D_MPI(dt,dr,
             if (use_gpu and not converged):
                 xh_av_flat = np.ravel(xh_av)
 
-    comm.Finalize()
     # When converged, return the updated ionization fractions at the end of the timestep
     printlog("Multiple source convergence reached.", logfile,quiet)
     xh_new = xh_intermed
+    comm.Finalize()
     return xh_new, phi_ion
