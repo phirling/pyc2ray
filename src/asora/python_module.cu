@@ -21,8 +21,6 @@ extern "C"
     static PyObject *
     asora_do_all_sources(PyObject *self, PyObject *args)
     {
-        PyArrayObject * srcpos;
-        PyArrayObject * srcflux;
         double R;
         PyArrayObject * coldensh_out;
         double sig;
@@ -36,9 +34,7 @@ extern "C"
         double dlogtau;
         int NumTau;
 
-        if (!PyArg_ParseTuple(args,"OOdOddOOOiiddi",
-        &srcpos,
-        &srcflux,
+        if (!PyArg_ParseTuple(args,"dOddOOOiiddi",
         &R,
         &coldensh_out,
         &sig,
@@ -54,11 +50,6 @@ extern "C"
             return NULL;
         
         // Error checking
-        if (!PyArray_Check(srcpos) || !PyArray_ISINTEGER(srcpos))
-        {
-            PyErr_SetString(PyExc_TypeError,"Srcpos must be Array of type int");
-            return NULL;
-        }
         if (!PyArray_Check(coldensh_out) || PyArray_TYPE(coldensh_out) != NPY_DOUBLE)
         {
             PyErr_SetString(PyExc_TypeError,"coldensh_out must be Array of type double");
@@ -66,14 +57,12 @@ extern "C"
         }
 
         // Get Array data
-        int * srcpos_data = (int*)PyArray_DATA(srcpos);
-        double * srcflux_data = (double*)PyArray_DATA(srcflux);
         double * coldensh_out_data = (double*)PyArray_DATA(coldensh_out);
         double * ndens_data = (double*)PyArray_DATA(ndens);
         double * phi_ion_data = (double*)PyArray_DATA(phi_ion);
         double * xh_av_data = (double*)PyArray_DATA(xh_av);
 
-        do_all_sources_gpu(srcpos_data,srcflux_data,R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1,minlogtau,dlogtau,NumTau);
+        do_all_sources_gpu(R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1,minlogtau,dlogtau,NumTau);
 
         return Py_None;
     }
@@ -136,6 +125,26 @@ extern "C"
     }
 
     // ========================================================================
+    // Copy source data to GPU
+    // ========================================================================
+    static PyObject *
+    asora_source_data_to_device(PyObject *self, PyObject *args)
+    {
+        int NumSrc;
+        PyArrayObject * pos;
+        PyArrayObject * flux;
+        if (!PyArg_ParseTuple(args,"OOi",&pos,&flux,&NumSrc))
+            return NULL;
+
+        int * pos_data = (int*)PyArray_DATA(pos);
+        double * flux_data = (double*)PyArray_DATA(flux);
+
+        source_data_to_device(pos_data,flux_data,NumSrc);
+
+        return Py_None;
+    }
+
+    // ========================================================================
     // Define module functions and initialization function
     // ========================================================================
     static PyMethodDef asoraMethods[] = {
@@ -144,6 +153,7 @@ extern "C"
         {"device_close",  asora_device_close, METH_VARARGS,"Free GPU memory"},
         {"density_to_device",  asora_density_to_device, METH_VARARGS,"Copy density field to GPU"},
         {"photo_table_to_device",  asora_photo_table_to_device, METH_VARARGS,"Copy radiation table to GPU"},
+        {"source_data_to_device",  asora_source_data_to_device, METH_VARARGS,"Copy radiation table to GPU"},
         {NULL, NULL, 0, NULL}        /* Sentinel */
     };
 

@@ -35,8 +35,6 @@ __device__ inline double weightf_gpu(const double & cd, const double & sig) { re
 // Main function: raytrace all sources and add up ionization rates
 // ========================================================================
 void do_all_sources_gpu(
-    int* srcpos,
-    double* srcstrength,
     const double & R,
     double* coldensh_out,
     const double & sig,
@@ -50,6 +48,12 @@ void do_all_sources_gpu(
     const double & dlogtau,
     const int & NumTau)
     {   
+        // TODO:
+        // 1. fix cudaFree in main code and push to main branch
+        // 2. have "src_data_to_device" method to copy source position & co to gpu inside evolve3D
+        // 3. num_src_par
+        // 4. atomic add for phi
+
         // Byte-size of grid data
         auto meshsize = m1*m1*m1*sizeof(double);
 
@@ -75,10 +79,6 @@ void do_all_sources_gpu(
         // cudaMemcpy(n_dev,ndens,meshsize,cudaMemcpyHostToDevice);  < --- !! density array is not modified, asora assumes that it has been copied to the device before
         cudaMemcpy(x_dev,xh_av,meshsize,cudaMemcpyHostToDevice);
 
-        // Source position & strength variables
-        int i0,j0,k0;
-        double strength;
-
         // Since the grid is periodic, we limit the maximum size of the raytraced region to a cube as large as the mesh around the source.
         // See line 93 of evolve_source in C2Ray, this size will depend on if the mesh is even or odd.
         // Basically the idea is that you never touch a cell which is outside a cube of length ~N centered on the source
@@ -91,10 +91,7 @@ void do_all_sources_gpu(
         {   
             // Set source position & strength
             // For compatibility with c2ray, source position is stored as: (dim0: coordinate, dim1: src number)
-            i0 = srcpos[3*ns + 0];
-            j0 = srcpos[3*ns + 1];
-            k0 = srcpos[3*ns + 2];
-            strength = srcstrength[ns];
+            
 
             // std::cout << "Doing source at " << i0 << " " << j0 << " " << k0 << ", strength = " << strength << std::endl;
 
@@ -113,7 +110,7 @@ void do_all_sources_gpu(
                 gs.y = grl;
 
                 // Raytracing kernel: see below
-                evolve0D_gpu<<<gs,bs>>>(q,i0,j0,k0,strength,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
+                evolve0D_gpu<<<gs,bs>>>(q,ns,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
 
                 // Synchronize GPU
                 cudaDeviceSynchronize();
@@ -134,6 +131,7 @@ void do_all_sources_gpu(
         auto error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
         #endif
         //TODO: check for errors
+
     }
 
 
@@ -143,10 +141,9 @@ void do_all_sources_gpu(
 // ========================================================================
 __global__ void evolve0D_gpu(
     const int q,
-    const int i0,
-    const int j0,
-    const int k0,
-    const double strength,
+    const int ns,
+    int* src_pos,
+    double* src_flux,
     double* coldensh_out,
     const double sig,
     const double dr,
@@ -183,6 +180,12 @@ __global__ void evolve0D_gpu(
     // rather than doing this "brute force" approach where about half of the threads don't pass this "if" check and immediately return
     if (abs(i) + abs(j) <= mq && (i >= last_l) && (i <= last_r) && (j >= last_l) && (j <= last_r) && (k >= last_l) && (k <= last_r))
     {
+        // Get source properties
+        int i0 = src_pos[3*ns + 0];
+        int j0 = src_pos[3*ns + 1];
+        int k0 = src_pos[3*ns + 2];
+        double strength = src_flux[ns];
+
         // Center to source
         i += i0;
         j += j0;

@@ -138,6 +138,9 @@ def evolve3D(dt,dr,
         ndens_flat = np.ravel(ndens).astype('float64',copy=True)
         srcpos_flat, normflux_flat = format_sources(src_pos, src_flux)
 
+        # Copy positions & fluxes of sources to the GPU in advance
+        libasora.source_data_to_device(srcpos_flat,normflux_flat,NumSrc)
+
         # Initialize Flat Column density & ionization rate arrays. These are used to store the
         # output of the raytracing module. TODO: python column density array is actually not needed ?
         coldensh_out_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
@@ -172,7 +175,7 @@ def evolve3D(dt,dr,
         # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
         if use_gpu:
             # Use GPU raytracing
-            libasora.do_all_sources(srcpos_flat,normflux_flat,r_RT,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
+            libasora.do_all_sources(r_RT,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
         else:
             # Use CPU raytracing with subbox optimization
             nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,r_RT,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,photo_thin_table,minlogtau,dlogtau)

@@ -22,6 +22,8 @@ double* n_dev;                  // Density
 double* x_dev;                  // Time-averaged ionized fraction
 double* phi_dev;                // Photoionization rates
 double* photo_thin_table_dev;   // Radiation table
+int * src_pos_dev;
+double * src_flux_dev;
 
 // ========================================================================
 // Initialization function to allocate device memory (pointers above)
@@ -80,6 +82,19 @@ void photo_table_to_device(double* table,const int & NumTau)
     cudaMalloc(&photo_thin_table_dev,NumTau*sizeof(double));
     cudaMemcpy(photo_thin_table_dev,table,NumTau*sizeof(double),cudaMemcpyHostToDevice);
 }
+void source_data_to_device(int* pos, double* flux, const int & NumSrc)
+{
+    cudaFree(src_pos_dev);
+    cudaFree(src_flux_dev);
+
+    cudaMalloc(&src_pos_dev,3*NumSrc*sizeof(int));
+    cudaMalloc(&src_flux_dev,NumSrc*sizeof(double));
+
+    cudaMemcpy(src_pos_dev,pos,3*NumSrc*sizeof(int),cudaMemcpyHostToDevice);
+    cudaMemcpy(src_flux_dev,flux,NumSrc*sizeof(double),cudaMemcpyHostToDevice);
+
+    std::cout << "Copied source data to device... flux of first source = " << flux[0] << std::endl;
+}
 
 // ========================================================================
 // Deallocate device memory at the end of a run
@@ -87,9 +102,11 @@ void photo_table_to_device(double* table,const int & NumTau)
 void device_close()
 {   
     printf("Deallocating device memory...\n");
-    cudaFree(&cdh_dev);
-    cudaFree(&n_dev);
-    cudaFree(&x_dev);
-    cudaFree(&phi_dev);
-    cudaFree(&photo_thin_table_dev);
+    cudaFree(cdh_dev);
+    cudaFree(n_dev);
+    cudaFree(x_dev);
+    cudaFree(phi_dev);
+    cudaFree(photo_thin_table_dev);
+    cudaFree(src_pos_dev);
+    cudaFree(src_flux_dev);
 }

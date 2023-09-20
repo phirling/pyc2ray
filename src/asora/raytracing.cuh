@@ -19,8 +19,6 @@ inline __device__ int mem_offst_gpu(const int & i,const int & j,const int & k,co
 
 // Raytrace all sources and compute photoionization rates
 void do_all_sources_gpu(
-    int* srcpos,
-    double* srcstrength,
     const double & R,
     double* coldensh_out,
     const double & sig,
@@ -37,10 +35,9 @@ void do_all_sources_gpu(
 // Raytracing kernel, called by do_all_sources
 __global__ void evolve0D_gpu(
     const int q,
-    const int i0,
-    const int j0,
-    const int k0,
-    const double strength,
+    const int ns,
+    int* src_pos,
+    double* src_flux,
     double* coldensh_out,
     const double sig,
     const double dr,
