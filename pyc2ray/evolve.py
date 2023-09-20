@@ -397,7 +397,7 @@ def evolve3D_MPI(dt,dr,
             # Use CPU raytracing with subbox optimization
             nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,r_RT,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,photo_thin_table,minlogtau,dlogtau)
 
-        printlog(f"took {(time.time()-trt0) : .1f} s.", logfile,quiet)
+        printlog(f"took {(time.time()-trt0) : .1f} s.", logfile, quiet)
 
         # Since chemistry (ODE solving) is done on the CPU in Fortran, flattened CUDA arrays need to be reshaped
         if use_gpu:
