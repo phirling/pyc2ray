@@ -10,7 +10,7 @@ try:
 except ImportError:
     from yaml import SafeLoader
 from .utils.logutils import printlog
-from .evolve import evolve3D
+from .evolve import evolve3D, evolve3D_MPI
 from .asora_core import device_init, device_close, photo_table_to_device
 from .radiation import BlackBodySource, make_tau_table
 
@@ -99,8 +99,8 @@ class C2Ray:
             self.mpi = True
 
             self.comm = MPI.COMM_WORLD
-            self.rank = comm.Get_rank()
-            self.nprocs = comm.Get_size()
+            self.rank = self.comm.Get_rank()
+            self.nprocs = self.comm.Get_size()
         else:
             self.mpi = False
 

@@ -306,9 +306,6 @@ def evolve3D_MPI(dt,dr,
         Photoionization rate of each cell due to all sources
     """
 
-
-    print(' Starting rank %d at: %s' %(rank, datetime.now().strftime('%H:%M:%S')))
-
     # Allow a call with GPU only if 1. the asora library is present and 2. the GPU memory has been allocated using device_init()
     if (use_gpu and not cuda_is_init()):
         raise RuntimeError("GPU not initialized. Please initialize it by calling device_init(N)")
@@ -363,7 +360,7 @@ def evolve3D_MPI(dt,dr,
     # -----------------------------------------------------------
     # Start Evolve step, Iterate until convergence in <x> and <y>
     # -----------------------------------------------------------
-    printlog("Calling evolve3D...",logfile,quiet)
+    printlog("Calling evolve3D on rank = %d..." %rank, logfile, quiet)
     printlog(f"dr [Mpc]: {dr/3.086e24:.3e}",logfile,quiet)
     printlog(f"dt [years]: {dt/3.15576E+07:.3e}",logfile,quiet)
     printlog(f"Running on {NumSrc:n} source(s), total normalized ionizing flux: {src_flux.sum():.2e}",logfile,quiet)
@@ -399,9 +396,9 @@ def evolve3D_MPI(dt,dr,
         else:
             printlog(f"Average number of subboxes: {nsubbox/NumSrc:n}, Total photon loss: {photonloss:.3e}",logfile,quiet)
         
-        if(rank == 0):
-            all_phi_ion = np.zeros((N,N,N), dtype=np.float64)
-        comm.Reduce(phi_ion, all_phi_ion, root=0)
+        #if(rank == 0):
+        #    all_phi_ion = np.zeros((N,N,N), dtype=np.float64)
+        comm.Reduce(phi_ion, None, root=0)
 
         if(rank == 0):        
             # ---------------------
@@ -442,6 +439,7 @@ def evolve3D_MPI(dt,dr,
             if (use_gpu and not converged):
                 xh_av_flat = np.ravel(xh_av)
 
+    comm.Finalize()
     # When converged, return the updated ionization fractions at the end of the timestep
     printlog("Multiple source convergence reached.", logfile,quiet)
     xh_new = xh_intermed
