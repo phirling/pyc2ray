@@ -103,8 +103,6 @@ void do_all_sources_gpu(
         int last_r = m1/2 - 1 + modulo(m1,2);
         int last_l = -m1/2;
 
-        int num_cells_max = 4*max_q*max_q + 2;
-        int num_pass = num_cells_max / bl + 1;
         // printf("%i cells in largest shell. Using block of length %i --> need %i passes to cover shell with excess of %i threads.",num_cells_max,bl,num_pass,bl*num_pass - num_cells_max);
 
         for (int ns = 0; ns < NumSrc; ns += NUM_SRC_PAR)
@@ -114,7 +112,7 @@ void do_all_sources_gpu(
                
             // printf("--- q = %i --- \n",q);
             // Raytracing kernel: see below
-            evolve0D_gpu<<<gs,bs>>>(max_q,num_pass,ns,NumSrc,NUM_SRC_PAR,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
+            evolve0D_gpu<<<gs,bs>>>(max_q,ns,NumSrc,NUM_SRC_PAR,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
 
             // Check for errors. TODO: make this better
             auto error = cudaGetLastError();
@@ -137,7 +135,6 @@ void do_all_sources_gpu(
 // ========================================================================
 __global__ void evolve0D_gpu(
     const int q_max,    // Is now the size of max q
-    const int Npass,
     const int ns_start,
     const int NumSrc,
     const int num_src_par,
@@ -164,6 +161,8 @@ __global__ void evolve0D_gpu(
     {
         for (int q = 0 ; q <= q_max ; q++)
         {   
+            int num_cells = 4*q*q + 2;
+            int Npass = num_cells / blockDim.x + 1;
             int s_end;
             if (q == 0) {s_end = 1;}
             //printf("nsrc = %i \n",ns);}

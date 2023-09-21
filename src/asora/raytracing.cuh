@@ -37,7 +37,6 @@ void do_all_sources_gpu(
 // Raytracing kernel, called by do_all_sources
 __global__ void evolve0D_gpu(
     const int q,
-    const int Npass,
     const int ns_start,
     const int num_src_par,
     const int NumSrc,
