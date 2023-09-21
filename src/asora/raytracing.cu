@@ -72,7 +72,7 @@ void do_all_sources_gpu(
     {   
         // TODO: atomic add for phi
         
-        int NUM_SRC_PAR = 4;
+        int NUM_SRC_PAR = 1;
 
         // Byte-size of grid data
         auto meshsize = m1*m1*m1*sizeof(double);

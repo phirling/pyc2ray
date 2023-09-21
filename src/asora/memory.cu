@@ -54,7 +54,7 @@ void device_init(const int & N)
     // Byte-size of grid data
     long unsigned int bytesize = N*N*N*sizeof(double);
     std::cout << bytesize << std::endl;
-    unsigned int NUM_SRC_PAR = 4;
+    unsigned int NUM_SRC_PAR = 1;
 
     std::cout << (3 + NUM_SRC_PAR)*bytesize/1e6 << std::endl;
     // Allocate memory
@@ -71,7 +71,7 @@ void device_init(const int & N)
         }    
     else {
         std::cout << "Succesfully allocated " << (3 + NUM_SRC_PAR)*bytesize/1e6 << " Mb of device memory for grid of size N = " << N;
-        std::cout << ", with " << NUM_SRC_PAR << " sources in parallel." << std::endl;
+        std::cout << ", with source batch size " << NUM_SRC_PAR << std::endl;
     }
 }
 
@@ -99,7 +99,7 @@ void source_data_to_device(int* pos, double* flux, const int & NumSrc)
     cudaMemcpy(src_pos_dev,pos,3*NumSrc*sizeof(int),cudaMemcpyHostToDevice);
     cudaMemcpy(src_flux_dev,flux,NumSrc*sizeof(double),cudaMemcpyHostToDevice);
 
-    std::cout << "Copied source data to device... flux of first source = " << flux[0] << std::endl;
+    std::cout << "Copied " << NumSrc << " sources to device... flux of first source = " << flux[0] << std::endl;
 }
 
 // ========================================================================
