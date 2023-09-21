@@ -38,7 +38,9 @@ void do_all_sources_gpu(
 __global__ void evolve0D_gpu(
     const int q,
     const int Npass,
-    const int ns,
+    const int ns_start,
+    const int num_src_par,
+    const int NumSrc,
     int* src_pos,
     double* src_flux,
     double* coldensh_out,

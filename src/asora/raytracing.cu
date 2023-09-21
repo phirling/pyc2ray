@@ -71,6 +71,8 @@ void do_all_sources_gpu(
     const int & NumTau)
     {   
         // TODO: atomic add for phi
+        
+        int NUM_SRC_PAR = 1;
 
         // Byte-size of grid data
         auto meshsize = m1*m1*m1*sizeof(double);
@@ -81,10 +83,10 @@ void do_all_sources_gpu(
         int max_q = std::ceil(1.73205080757 * R); //std::ceil(1.5 * m1);
 
         // Grid size is initialized to (1) but will be adapted as the octahedron grows in size.
-        dim3 gs(1);
+        dim3 gs(NUM_SRC_PAR);
 
         // Block size. Set to 128 but this can be used for performance tuning on different GPUs
-        int bl = 512;
+        int bl = 800;
         dim3 bs(bl);
 
         // Here we fill the ionization rate array with zero before raytracing all sources. The LOCALRATES flag
@@ -105,14 +107,14 @@ void do_all_sources_gpu(
         int num_pass = num_cells_max / bl + 1;
         // printf("%i cells in largest shell. Using block of length %i --> need %i passes to cover shell with excess of %i threads.",num_cells_max,bl,num_pass,bl*num_pass - num_cells_max);
 
-        for (int ns = 0; ns < NumSrc; ns++)
+        for (int ns = 0; ns < NumSrc; ns += NUM_SRC_PAR)
         {   
             // Set column density to zero for each source
             cudaMemset(cdh_dev,0,meshsize);
                
             // printf("--- q = %i --- \n",q);
             // Raytracing kernel: see below
-            evolve0D_gpu<<<gs,bs>>>(max_q,num_pass,ns,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
+            evolve0D_gpu<<<gs,bs>>>(max_q,num_pass,ns,NumSrc,NUM_SRC_PAR,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
 
             // Check for errors. TODO: make this better
             auto error = cudaGetLastError();
@@ -138,7 +140,9 @@ void do_all_sources_gpu(
 __global__ void evolve0D_gpu(
     const int q_max,    // Is now the size of max q
     const int Npass,
-    const int ns,
+    const int ns_start,
+    const int NumSrc,
+    const int num_src_par,
     int* src_pos,
     double* src_flux,
     double* coldensh_out,
@@ -156,133 +160,137 @@ __global__ void evolve0D_gpu(
     const int last_r
 )
 {   
-    for (int q = 0 ; q <= q_max ; q++)
-    {   
-        int s_end;
-        if (q == 0) {s_end = 1;}
-        else {s_end = 4*q*q + 2;}
-        int s_end_top = 2*q*(q+1) + 1;
+    int ns = ns_start + blockIdx.x * num_src_par;
+    if (ns < NumSrc)
+    {
+        for (int q = 0 ; q <= q_max ; q++)
+        {   
+            int s_end;
+            if (q == 0) {s_end = 1;}
+            else {s_end = 4*q*q + 2;}
+            int s_end_top = 2*q*(q+1) + 1;
 
-        for (int ipass = 0 ; ipass < Npass ; ipass++)
-        {
-            // "s" indexes the linear thread space
-            int s = ipass * blockDim.x +  threadIdx.x;
-            int i,j,k;
-            int sgn;
-
-            if (s < s_end)
+            for (int ipass = 0 ; ipass < Npass ; ipass++)
             {
-                if (s < s_end_top)
+                // "s" indexes the linear thread space
+                int s = ipass * blockDim.x +  threadIdx.x;
+                int i,j,k;
+                int sgn;
+
+                if (s < s_end)
                 {
-                    sgn = 1;
-                    linthrd2cart(s,q,i,j);
-                }
-                else
-                {
-                    sgn = -1;
-                    linthrd2cart(s-s_end_top,q-1,i,j);
-                }
-                k = sgn*q - sgn*(abs(i) + abs(j));
+                    if (s < s_end_top)
+                    {
+                        sgn = 1;
+                        linthrd2cart(s,q,i,j);
+                    }
+                    else
+                    {
+                        sgn = -1;
+                        linthrd2cart(s-s_end_top,q-1,i,j);
+                    }
+                    k = sgn*q - sgn*(abs(i) + abs(j));
 
-                // printf("i,j,k = %i  %i  %i \n",i,j,k);
-                if ((i >= last_l) && (i <= last_r) && (j >= last_l) && (j <= last_r) && (k >= last_l) && (k <= last_r))
-                {
-                    // Get source properties
-                    int i0 = src_pos[3*ns + 0];
-                    int j0 = src_pos[3*ns + 1];
-                    int k0 = src_pos[3*ns + 2];
-                    double strength = src_flux[ns];
+                    // printf("i,j,k = %i  %i  %i \n",i,j,k);
+                    if ((i >= last_l) && (i <= last_r) && (j >= last_l) && (j <= last_r) && (k >= last_l) && (k <= last_r))
+                    {
+                        // Get source properties
+                        int i0 = src_pos[3*ns + 0];
+                        int j0 = src_pos[3*ns + 1];
+                        int k0 = src_pos[3*ns + 2];
+                        double strength = src_flux[ns];
 
-                    // Center to source
-                    i += i0;
-                    j += j0;
-                    k += k0;
+                        // Center to source
+                        i += i0;
+                        j += j0;
+                        k += k0;
 
-                    int pos[3];
-                    double path;
-                    double coldensh_in;                                // Column density to the cell
-                    double nHI_p;                                      // Local density of neutral hydrogen in the cell
-                    double xh_av_p;                                    // Local ionization fraction of cell
+                        int pos[3];
+                        double path;
+                        double coldensh_in;                                // Column density to the cell
+                        double nHI_p;                                      // Local density of neutral hydrogen in the cell
+                        double xh_av_p;                                    // Local ionization fraction of cell
 
-                    #if defined(LOCALRATES)
-                    double xs, ys, zs;
-                    double dist2;
-                    double vol_ph;
-                    #endif
+                        #if defined(LOCALRATES)
+                        double xs, ys, zs;
+                        double dist2;
+                        double vol_ph;
+                        #endif
 
-                    // When not in periodic mode, only treat cell if its in the grid
-                    #if !defined(PERIODIC)
-                    if (in_box_gpu(i,j,k,m1))
-                    #endif
-                    {   
-                        // Map to periodic grid
-                        pos[0] = modulo_gpu(i,m1);
-                        pos[1] = modulo_gpu(j,m1);
-                        pos[2] = modulo_gpu(k,m1);
-
-                        //printf("pos = %i %i %i \n",pos[0]-i0,pos[1]-j0,pos[2]-k0);
-
-                        // Get local ionization fraction & Hydrogen density
-                        xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
-                        nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
-
-                        // Only treat cell if it hasn't been done before
-                        if (coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
+                        // When not in periodic mode, only treat cell if its in the grid
+                        #if !defined(PERIODIC)
+                        if (in_box_gpu(i,j,k,m1))
+                        #endif
                         {   
-                            // If its the source cell, just find path (no incoming column density)
-                            if (i == i0 &&
-                                j == j0 &&
-                                k == k0)
-                            {
-                                coldensh_in = 0.0;
-                                path = 0.5*dr;
+                            // Map to periodic grid
+                            pos[0] = modulo_gpu(i,m1);
+                            pos[1] = modulo_gpu(j,m1);
+                            pos[2] = modulo_gpu(k,m1);
+
+                            //printf("pos = %i %i %i \n",pos[0]-i0,pos[1]-j0,pos[2]-k0);
+
+                            // Get local ionization fraction & Hydrogen density
+                            xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
+                            nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
+
+                            // Only treat cell if it hasn't been done before
+                            if (coldensh_out[blockIdx.x + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
+                            {   
+                                // If its the source cell, just find path (no incoming column density)
+                                if (i == i0 &&
+                                    j == j0 &&
+                                    k == k0)
+                                {
+                                    coldensh_in = 0.0;
+                                    path = 0.5*dr;
+                                    #if defined(LOCALRATES)
+                                    // vol_ph = dr*dr*dr / (4*M_PI);
+                                    vol_ph = dr*dr*dr;
+                                    #endif
+                                }
+
+                                // If its another cell, do interpolation to find incoming column density
+                                else
+                                {
+                                    cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out + blockIdx.x,sig,m1);
+                                    path *= dr;
+                                    #if defined(LOCALRATES)
+                                    // Find the distance to the source
+                                    xs = dr*(i-i0);
+                                    ys = dr*(j-j0);
+                                    zs = dr*(k-k0);
+                                    dist2=xs*xs+ys*ys+zs*zs;
+                                    // vol_ph = dist2 * path;
+                                    vol_ph = dist2 * path * FOURPI;
+                                    #endif
+                                }
+
+                                // Add to column density array. TODO: is this really necessary ?
+                                coldensh_out[blockIdx.x + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
+                                
+                                // Compute photoionization rates from column density. WARNING: for now this is limited to the grey-opacity test case source
                                 #if defined(LOCALRATES)
-                                // vol_ph = dr*dr*dr / (4*M_PI);
-                                vol_ph = dr*dr*dr;
+                                if (coldensh_in <= MAX_COLDENSH)
+                                {
+                                    #if defined(GREY_NOTABLES)
+                                    double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);
+                                    #else
+                                    double phi = photoion_rates_gpu(strength,coldensh_in,coldensh_out[blockIdx.x + mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig,photo_table,minlogtau,dlogtau,NumTau);
+                                    #endif
+                                    // Divide the photo-ionization rates by the appropriate neutral density
+                                    // (part of the photon-conserving rate prescription)
+                                    phi /= nHI_p;
+
+                                    phi_ion[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
+                                }
                                 #endif
                             }
-
-                            // If its another cell, do interpolation to find incoming column density
-                            else
-                            {
-                                cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
-                                path *= dr;
-                                #if defined(LOCALRATES)
-                                // Find the distance to the source
-                                xs = dr*(i-i0);
-                                ys = dr*(j-j0);
-                                zs = dr*(k-k0);
-                                dist2=xs*xs+ys*ys+zs*zs;
-                                // vol_ph = dist2 * path;
-                                vol_ph = dist2 * path * FOURPI;
-                                #endif
-                            }
-
-                            // Add to column density array. TODO: is this really necessary ?
-                            coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
-                            
-                            // Compute photoionization rates from column density. WARNING: for now this is limited to the grey-opacity test case source
-                            #if defined(LOCALRATES)
-                            if (coldensh_in <= MAX_COLDENSH)
-                            {
-                                #if defined(GREY_NOTABLES)
-                                double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);
-                                #else
-                                double phi = photoion_rates_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig,photo_table,minlogtau,dlogtau,NumTau);
-                                #endif
-                                // Divide the photo-ionization rates by the appropriate neutral density
-                                // (part of the photon-conserving rate prescription)
-                                phi /= nHI_p;
-
-                                phi_ion[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
-                            }
-                            #endif
                         }
                     }
                 }
             }
+            __syncthreads();
         }
-        __syncthreads();
     }
 }
 

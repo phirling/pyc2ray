@@ -52,20 +52,26 @@ void device_init(const int & N)
     }
 
     // Byte-size of grid data
-    int bytesize = N*N*N*sizeof(double);
+    long unsigned int bytesize = N*N*N*sizeof(double);
+    std::cout << bytesize << std::endl;
+    unsigned int NUM_SRC_PAR = 1;
 
+    std::cout << (3 + NUM_SRC_PAR)*bytesize/1e6 << std::endl;
     // Allocate memory
-    cudaMalloc(&cdh_dev,bytesize);
+    cudaMalloc(&cdh_dev,NUM_SRC_PAR * bytesize);
     cudaMalloc(&n_dev,bytesize);
     cudaMalloc(&x_dev,bytesize);
     cudaMalloc(&phi_dev,bytesize);
 
     error = cudaGetLastError();
     if (error != cudaSuccess) {
-        std::cout << "Couldn't allocate memory" << std::endl;
-    }
+        throw std::runtime_error("Couldn't allocate memory: " + std::to_string((3 + NUM_SRC_PAR)*bytesize/1e6)
+            + std::string(cudaGetErrorName(error)) + " - "
+            + std::string(cudaGetErrorString(error)));
+        }    
     else {
-        std::cout << "Succesfully allocated " << 4*bytesize/1e6 << " Mb of device memory for grid of size N = " << N << std::endl;
+        std::cout << "Succesfully allocated " << (3 + NUM_SRC_PAR)*bytesize/1e6 << " Mb of device memory for grid of size N = " << N;
+        std::cout << ", with " << NUM_SRC_PAR << " sources in parallel." << std::endl;
     }
 }
 
