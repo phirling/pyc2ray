@@ -9,13 +9,10 @@ import astropy.units as u
 import argparse
 import sys
 
-# MPI setup
-from mpi4py import MPI
-
 parser = argparse.ArgumentParser()
-parser.add_argument("--gpu",action='store_true')
-parser.add_argument("--mpi",action='store_true')
-parser.add_argument("-numsrc",default=10,type=int,help="Number of sources to read from the test file")
+parser.add_argument("--gpu", action='store_true')
+parser.add_argument("--mpi", action='store_true')
+parser.add_argument("-numsrc", default=10, type=int, help="Number of sources to read from the test file")
 args = parser.parse_args()
 
 # Global parameters
@@ -25,12 +22,16 @@ paramfile = "parameters.yml"
 N = 250                             # Mesh size
 t_evol = 5e5
 use_octa = args.gpu
-split_src = args.mpi
+use_mpi = args.mpi
 r_RT = 100
 nsrc = int(args.numsrc)
 
-#sim = pc2r.C2Ray_Test(paramfile, N, use_octa, split_src)
-sim = pc2r.C2Ray_Test(paramfile, N, use_octa, MPI)
+# MPI setup
+if use_mpi:
+    from mpi4py import MPI
+    sim = pc2r.C2Ray_Test(paramfile, N, use_octa, MPI)
+else:
+    sim = pc2r.C2Ray_Test(paramfile, N, use_octa, split_src)
 
 # Generate redshift list (test case)
 zred_array = sim.generate_redshift_array(numzred,t_evol/numzred)
