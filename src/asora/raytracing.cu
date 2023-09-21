@@ -72,7 +72,7 @@ void do_all_sources_gpu(
     {   
         // TODO: atomic add for phi
         
-        int NUM_SRC_PAR = 1;
+        int NUM_SRC_PAR = 4;
 
         // Byte-size of grid data
         auto meshsize = m1*m1*m1*sizeof(double);
@@ -110,7 +110,7 @@ void do_all_sources_gpu(
         for (int ns = 0; ns < NumSrc; ns += NUM_SRC_PAR)
         {   
             // Set column density to zero for each source
-            cudaMemset(cdh_dev,0,meshsize);
+            cudaMemset(cdh_dev,0,NUM_SRC_PAR * meshsize);
                
             // printf("--- q = %i --- \n",q);
             // Raytracing kernel: see below
@@ -123,6 +123,7 @@ void do_all_sources_gpu(
                                         + std::string(cudaGetErrorName(error)) + " - "
                                         + std::string(cudaGetErrorString(error)));
             }
+            cudaDeviceSynchronize();
         }
         // Copy the accumulated ionization fraction back to the host and check for errors
         auto error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
@@ -157,13 +158,14 @@ __global__ void evolve0D_gpu(
     const int last_r
 )
 {   
-    int ns = ns_start + blockIdx.x * num_src_par;
+    int ns = ns_start + blockIdx.x;
     if (ns < NumSrc)
     {
         for (int q = 0 ; q <= q_max ; q++)
         {   
             int s_end;
             if (q == 0) {s_end = 1;}
+            //printf("nsrc = %i \n",ns);}
             else {s_end = 4*q*q + 2;}
             int s_end_top = 2*q*(q+1) + 1;
 
@@ -272,7 +274,8 @@ __global__ void evolve0D_gpu(
                                     // (part of the photon-conserving rate prescription)
                                     phi /= nHI_p;
 
-                                    phi_ion[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
+                                    //phi_ion[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
+                                    atomicAdd(phi_ion + mem_offst_gpu(pos[0],pos[1],pos[2],m1),phi);
                                 }                          
                             }
                         }
