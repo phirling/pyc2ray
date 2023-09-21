@@ -80,7 +80,7 @@ msun2g = (1*u.Msun).to('g').value       # solar mass to grams
 
 
 class C2Ray:
-    def __init__(self,paramfile,Nmesh,use_gpu,use_mpi):
+    def __init__(self, paramfile, Nmesh, use_gpu, use_mpi):
         """Basis class for a C2Ray Simulation
 
         Parameters
@@ -95,9 +95,7 @@ class C2Ray:
         """
         # MPI setup
         if use_mpi:
-            #from mpi4py import MPI  
-            self.mpi = True
-
+            self.mpi = use_mpi
             #self.comm = MPI.COMM_WORLD
             #self.rank = self.comm.Get_rank()
             #self.nprocs = self.comm.Get_size()
@@ -185,7 +183,7 @@ class C2Ray:
         """
         if self.mpi:
             self.xh, self.phi_ion = evolve3D_MPI(dt, self.dr, src_flux, src_pos,
-                                                 r_RT, self.gpu, self.mpi, 
+                                                 r_RT, self.gpu, self.mpi,
                                                  #self.comm, self.rank, self.nprocs, 
                                                  max_subbox, self.loss_fraction,
                                                  self.temp, self.ndens, self.xh,
@@ -194,7 +192,7 @@ class C2Ray:
                                                  self.logfile)
         else:
             self.xh, self.phi_ion = evolve3D(dt, self.dr, src_flux, src_pos,
-                                             r_RT, self.gpu, 
+                                             r_RT, self.gpu,
                                              max_subbox, self.loss_fraction,
                                              self.temp, self.ndens, self.xh,
                                              self.photo_thin_table, self.minlogtau, self.dlogtau,

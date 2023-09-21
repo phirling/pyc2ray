@@ -9,6 +9,9 @@ import astropy.units as u
 import argparse
 import sys
 
+# MPI setup
+from mpi4py import MPI
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--gpu",action='store_true')
 parser.add_argument("--mpi",action='store_true')
@@ -26,7 +29,8 @@ split_src = args.mpi
 r_RT = 100
 nsrc = int(args.numsrc)
 
-sim = pc2r.C2Ray_Test(paramfile, N, use_octa, split_src)
+#sim = pc2r.C2Ray_Test(paramfile, N, use_octa, split_src)
+sim = pc2r.C2Ray_Test(paramfile, N, use_octa, MPI)
 
 # Generate redshift list (test case)
 zred_array = sim.generate_redshift_array(numzred,t_evol/numzred)

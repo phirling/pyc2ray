@@ -4,6 +4,7 @@ from .utils.sourceutils import format_sources
 from .load_extensions import load_c2ray, load_asora
 from .asora_core import cuda_is_init
 import time
+import sys
 
 # Load extension modules
 libc2ray = load_c2ray()
@@ -184,6 +185,7 @@ def evolve3D(dt,dr,
             phi_ion = np.reshape(phi_ion_flat, (N,N,N))
         else:
             printlog(f"Average number of subboxes: {nsubbox/NumSrc:n}, Total photon loss: {photonloss:.3e}",logfile,quiet)
+            
         # ---------------------
         # (2): ODE Solving Step
         # ---------------------
@@ -305,12 +307,7 @@ def evolve3D_MPI(dt,dr,
     phi_ion : 3D-array
         Photoionization rate of each cell due to all sources
     """
-
-    # MPI setup
-    from mpi4py import MPI  
-    #MPI.Init()
-    
-    comm = MPI.COMM_WORLD
+    comm = use_mpi.COMM_WORLD
     rank = comm.Get_rank()
     nprocs = comm.Get_size()
 
@@ -351,14 +348,18 @@ def evolve3D_MPI(dt,dr,
                 i_end = int((rank+1)*perrank)
             else:
                 i_end = NumSrc
+            
+            # overwrite number of sources 
+            NumSrc = i_end - i_start
 
             srcpos_flat, normflux_flat = format_sources(src_pos[:,i_start:i_end], src_flux[i_start:i_end])
         else:
             srcpos_flat, normflux_flat = format_sources(src_pos, src_flux)
 
+        print(rank, perrank, normflux_flat.shape, normflux_flat.size)
 
-        # Initialize Flat Column density & ionization rate arrays. These are used to store the
-        # output of the raytracing module. TODO: python column density array is actually not needed ?
+        # Initialize Flat Column density & ionization rate arrays. These are used to store the output of the raytracing module. 
+        # TODO: python column density array is actually not needed ?
         coldensh_out_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
         phi_ion_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
 
@@ -404,12 +405,12 @@ def evolve3D_MPI(dt,dr,
             phi_ion = np.reshape(phi_ion_flat, (N,N,N))
         else:
             printlog(f"Average number of subboxes: {nsubbox/NumSrc:n}, Total photon loss: {photonloss:.3e}",logfile,quiet)
-        
-        #if(rank == 0):
-        #    all_phi_ion = np.zeros((N,N,N), dtype=np.float64)
-        #comm.Reduce([phi_ion, MPI.DOUBLE], None, op=MPI.SUM, root=0)
-        comm.Reduce(phi_ion, None, op=MPI.SUM, root=MPI.ROOT)
 
+        if rank == 0:
+            comm.Reduce(use_mpi.IN_PLACE, [phi_ion, use_mpi.DOUBLE], op=use_mpi.SUM, root=0)
+        else:
+            comm.Reduce([phi_ion, use_mpi.DOUBLE], None, op=use_mpi.SUM, root=0)
+        
         if(rank == 0):        
             # ---------------------
             # (2): ODE Solving Step
@@ -448,9 +449,13 @@ def evolve3D_MPI(dt,dr,
             # Finally, when using GPU, need to reshape x back for the next ASORA call
             if (use_gpu and not converged):
                 xh_av_flat = np.ravel(xh_av)
+            
+        comm.Bcast([xh_av_flat, use_mpi.DOUBLE], root=0)
+        comm.Bcast([xh_intermed, use_mpi.DOUBLE], root=0)
 
-    # When converged, return the updated ionization fractions at the end of the timestep
-    printlog("Multiple source convergence reached.", logfile,quiet)
-    xh_new = xh_intermed
-    comm.Finalize()
+    if rank ==0:
+        # When converged, return the updated ionization fractions at the end of the timestep
+        printlog("Multiple source convergence reached.", logfile,quiet)
+        xh_new = xh_intermed
+    
     return xh_new, phi_ion
