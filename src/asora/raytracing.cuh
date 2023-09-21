@@ -16,6 +16,8 @@ inline __device__ int sign_gpu(const double & x);
 // Flat array index from i,j,k coordinates
 inline __device__ int mem_offst_gpu(const int & i,const int & j,const int & k,const int & N);
 
+// Mapping from linear thread space to the cartesian coords of a q-shell in asora
+__device__ void linthrd2cart(const int &,const int &,int&,int&);
 
 // Raytrace all sources and compute photoionization rates
 void do_all_sources_gpu(
