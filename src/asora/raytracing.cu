@@ -125,10 +125,7 @@ void do_all_sources_gpu(
             }
         }
         // Copy the accumulated ionization fraction back to the host and check for errors
-        #if defined(LOCALRATES) || defined(RATES)
         auto error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
-        #endif
-        //TODO: check for errors
 
     }
 
@@ -211,11 +208,9 @@ __global__ void evolve0D_gpu(
                         double nHI_p;                                      // Local density of neutral hydrogen in the cell
                         double xh_av_p;                                    // Local ionization fraction of cell
 
-                        #if defined(LOCALRATES)
                         double xs, ys, zs;
                         double dist2;
                         double vol_ph;
-                        #endif
 
                         // When not in periodic mode, only treat cell if its in the grid
                         #if !defined(PERIODIC)
@@ -243,10 +238,8 @@ __global__ void evolve0D_gpu(
                                 {
                                     coldensh_in = 0.0;
                                     path = 0.5*dr;
-                                    #if defined(LOCALRATES)
                                     // vol_ph = dr*dr*dr / (4*M_PI);
                                     vol_ph = dr*dr*dr;
-                                    #endif
                                 }
 
                                 // If its another cell, do interpolation to find incoming column density
@@ -254,7 +247,6 @@ __global__ void evolve0D_gpu(
                                 {
                                     cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out + blockIdx.x,sig,m1);
                                     path *= dr;
-                                    #if defined(LOCALRATES)
                                     // Find the distance to the source
                                     xs = dr*(i-i0);
                                     ys = dr*(j-j0);
@@ -262,28 +254,26 @@ __global__ void evolve0D_gpu(
                                     dist2=xs*xs+ys*ys+zs*zs;
                                     // vol_ph = dist2 * path;
                                     vol_ph = dist2 * path * FOURPI;
-                                    #endif
                                 }
 
                                 // Add to column density array. TODO: is this really necessary ?
-                                coldensh_out[blockIdx.x + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
+                                double cdho = coldensh_in + nHI_p * path;
+                                coldensh_out[blockIdx.x + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = cdho;
                                 
                                 // Compute photoionization rates from column density. WARNING: for now this is limited to the grey-opacity test case source
-                                #if defined(LOCALRATES)
                                 if (coldensh_in <= MAX_COLDENSH)
                                 {
                                     #if defined(GREY_NOTABLES)
                                     double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);
                                     #else
-                                    double phi = photoion_rates_gpu(strength,coldensh_in,coldensh_out[blockIdx.x + mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig,photo_table,minlogtau,dlogtau,NumTau);
+                                    double phi = photoion_rates_gpu(strength,coldensh_in,cdho,vol_ph,sig,photo_table,minlogtau,dlogtau,NumTau);
                                     #endif
                                     // Divide the photo-ionization rates by the appropriate neutral density
                                     // (part of the photon-conserving rate prescription)
                                     phi /= nHI_p;
 
                                     phi_ion[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
-                                }
-                                #endif
+                                }                          
                             }
                         }
                     }
@@ -630,11 +620,9 @@ __global__ void evolve0D_gpu_old(
         double nHI_p;                                      // Local density of neutral hydrogen in the cell
         double xh_av_p;                                    // Local ionization fraction of cell
 
-        #if defined(LOCALRATES)
         double xs, ys, zs;
         double dist2;
         double vol_ph;
-        #endif
 
         // When not in periodic mode, only treat cell if its in the grid
         #if !defined(PERIODIC)
@@ -662,10 +650,8 @@ __global__ void evolve0D_gpu_old(
                 {
                     coldensh_in = 0.0;
                     path = 0.5*dr;
-                    #if defined(LOCALRATES)
                     // vol_ph = dr*dr*dr / (4*M_PI);
                     vol_ph = dr*dr*dr;
-                    #endif
                 }
 
                 // If its another cell, do interpolation to find incoming column density
@@ -673,7 +659,6 @@ __global__ void evolve0D_gpu_old(
                 {
                     cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out,sig,m1);
                     path *= dr;
-                    #if defined(LOCALRATES)
                     // Find the distance to the source
                     xs = dr*(i-i0);
                     ys = dr*(j-j0);
@@ -681,14 +666,12 @@ __global__ void evolve0D_gpu_old(
                     dist2=xs*xs+ys*ys+zs*zs;
                     // vol_ph = dist2 * path;
                     vol_ph = dist2 * path * FOURPI;
-                    #endif
                 }
 
                 // Add to column density array. TODO: is this really necessary ?
                 coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = coldensh_in + nHI_p * path;
                 
                 // Compute photoionization rates from column density. WARNING: for now this is limited to the grey-opacity test case source
-                #if defined(LOCALRATES)
                 if (coldensh_in <= MAX_COLDENSH)
                 {
                     #if defined(GREY_NOTABLES)
@@ -702,7 +685,6 @@ __global__ void evolve0D_gpu_old(
 
                     phi_ion[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
                 }
-                #endif
             }
         }
     }
