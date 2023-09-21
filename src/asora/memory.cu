@@ -54,7 +54,7 @@ void device_init(const int & N)
     // Byte-size of grid data
     long unsigned int bytesize = N*N*N*sizeof(double);
     std::cout << bytesize << std::endl;
-    unsigned int NUM_SRC_PAR = 1;
+    unsigned int NUM_SRC_PAR = 128;
 
     std::cout << (3 + NUM_SRC_PAR)*bytesize/1e6 << std::endl;
     // Allocate memory

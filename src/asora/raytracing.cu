@@ -72,7 +72,7 @@ void do_all_sources_gpu(
     {   
         // TODO: atomic add for phi
         
-        int NUM_SRC_PAR = 1;
+        int NUM_SRC_PAR = 128;
 
         // Byte-size of grid data
         auto meshsize = m1*m1*m1*sizeof(double);
@@ -86,7 +86,7 @@ void do_all_sources_gpu(
         dim3 gs(NUM_SRC_PAR);
 
         // Block size. Set to 128 but this can be used for performance tuning on different GPUs
-        int bl = 800;
+        int bl = 600;
         dim3 bs(bl);
 
         // Here we fill the ionization rate array with zero before raytracing all sources. The LOCALRATES flag
@@ -159,6 +159,7 @@ __global__ void evolve0D_gpu(
 )
 {   
     int ns = ns_start + blockIdx.x;
+    int cdh_offset = blockIdx.x * m1 * m1 * m1;
     if (ns < NumSrc)
     {
         for (int q = 0 ; q <= q_max ; q++)
@@ -231,7 +232,7 @@ __global__ void evolve0D_gpu(
                             nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
 
                             // Only treat cell if it hasn't been done before
-                            if (coldensh_out[blockIdx.x + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
+                            if (coldensh_out[cdh_offset + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
                             {   
                                 // If its the source cell, just find path (no incoming column density)
                                 if (i == i0 &&
@@ -247,7 +248,7 @@ __global__ void evolve0D_gpu(
                                 // If its another cell, do interpolation to find incoming column density
                                 else
                                 {
-                                    cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out + blockIdx.x,sig,m1);
+                                    cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out + cdh_offset,sig,m1);
                                     path *= dr;
                                     // Find the distance to the source
                                     xs = dr*(i-i0);
@@ -260,7 +261,7 @@ __global__ void evolve0D_gpu(
 
                                 // Add to column density array. TODO: is this really necessary ?
                                 double cdho = coldensh_in + nHI_p * path;
-                                coldensh_out[blockIdx.x + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = cdho;
+                                coldensh_out[cdh_offset + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = cdho;
                                 
                                 // Compute photoionization rates from column density. WARNING: for now this is limited to the grey-opacity test case source
                                 if (coldensh_in <= MAX_COLDENSH)
