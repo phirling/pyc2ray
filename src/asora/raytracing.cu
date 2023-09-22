@@ -53,7 +53,7 @@ void do_all_sources_gpu(
     const int & NumTau)
     {   
         // Byte-size of grid data
-        auto meshsize = m1*m1*m1*sizeof(double);
+        int meshsize = m1*m1*m1*sizeof(double);
 
         // Determine how large the octahedron should be, based on the raytracing radius. Currently,
         // this is set s.t. the radius equals the distance from the source to the middle of the faces
@@ -127,7 +127,7 @@ void do_all_sources_gpu(
                 cudaDeviceSynchronize();
 
                 // Check for errors. TODO: make this better
-                auto error = cudaGetLastError();
+                cudaError_t error = cudaGetLastError();
                 if(error != cudaSuccess) {
                     std::cout << "error at q=" << q << std::endl;
                     throw std::runtime_error("Error Launching Kernel: "
@@ -139,7 +139,7 @@ void do_all_sources_gpu(
 
         // Copy the accumulated ionization fraction back to the host and check for errors
         #if defined(LOCALRATES) || defined(RATES)
-        auto error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
+        cudaError_t error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
         #endif
         //TODO: check for errors
     }

@@ -39,7 +39,7 @@ void device_init(const int & N)
                 << std::endl;
     }
 
-    auto error = cudaGetLastError();
+    cudaError_t error = cudaGetLastError();
     if (error != cudaSuccess) {
         std::cout << "cudaGetDeviceProperties returned error code " << error
                 << ", line(" << __LINE__ << ")" << std::endl;
