@@ -30,6 +30,9 @@ inline __device__ int mem_offst_gpu(const int & i,const int & j,const int & k,co
 // Weight function for C2Ray interpolation function (see cinterp_gpu below)
 __device__ inline double weightf_gpu(const double & cd, const double & sig) { return 1.0/max(0.6,cd*sig);}
 
+// Mapping from cartesian coordinates of a cell to reduced cache memory space (here N = 2qmax + 1 in general)
+__device__ inline int cart2cache(const int & i,const int & j,const int & k,const int & N) { return N*N*int(k<0) + N*i + j; }
+
 // Mapping from linear thread space to the cartesian coords of a q-shell in asora
 __device__ void linthrd2cart(const int & s,const int & q,int& i,int& j)
 {
@@ -484,7 +487,234 @@ __device__ void cinterp_gpu(
 }
 
 
+// ========================================================================
+// Short-characteristics interpolation function, adapted from C2Ray
+// ========================================================================
+__device__ void cinterp_gpu2(
+    const int i,
+    const int j,
+    const int k,
+    const int i0,
+    const int j0,
+    const int k0,
+    const int qmax,
+    double & cdensi,
+    double & path,
+    double* coldensh_out,
+    const double sigma_HI_at_ion_freq)
+{
+    int is,js,ks;
+    int it,jt,kt;
+    int idela,jdela,kdela;
+    int im,jm,km;
+    unsigned int ip,imp,jp,jmp,kp,kmp;
+    int sgni,sgnj,sgnk;
+    double alam,xc,yc,zc,dx,dy,dz,s1,s2,s3,s4;
+    double c1,c2,c3,c4;
+    double w1,w2,w3,w4;
+    double di,dj,dk;
 
+    // Transform coordinates: origin at source location (i0,j0,k0) "s" coordinate system
+    // range [-qmax,qmax] (in reality [-q,q])
+    is = i-i0;
+    js = j-j0;
+    ks = k-k0;
+
+    // Get absolute distance to source cell [0,q]
+    idela=abs(is);
+    jdela=abs(js);
+    kdela=abs(ks);
+    
+    // Find on which side of source the point is
+    sgni=sign_gpu(is);
+    sgnj=sign_gpu(js);
+    sgnk=sign_gpu(ks);
+
+    // Transform coordinates: origin at lower left corner of cache array. "tilde" or "t" coordinate system
+    // range [0,2*qmax]
+    it = is + qmax;
+    jt = js + qmax;
+    kt = ks + qmax;
+
+    // Coordinates of "closer" cells used for the interpolation
+    im = it - sgni;
+    jm = jt - sgnj;
+    km = kt - sgnk;
+
+    // Distance to source (double)
+    di = double(is);
+    dj = double(js);
+    dk = double(ks);
+
+    // Z plane (bottom and top face) crossing
+    // we find the central (c) point (xc,xy) where the ray crosses 
+    // the z-plane below or above the destination (d) point, find the 
+    // column density there through interpolation, and add the contribution
+    // of the neutral material between the c-point and the destination
+    // point.
+    if (kdela >= jdela && kdela >= idela) {
+        // alam is the parameter which expresses distance along the line s to d
+        // add 0.5 to get to the interface of the d cell.
+        alam=(double(km-k0)+sgnk*0.5)/dk;
+            
+        xc=alam*di+double(i0); // x of crossing point on z-plane 
+        yc=alam*dj+double(j0); // y of crossing point on z-plane
+        
+        dx=2.0*abs(xc-(double(im)+0.5*sgni)); // distances from c-point to
+        dy=2.0*abs(yc-(double(jm)+0.5*sgnj)); // the corners.
+        
+        s1=(1.-dx)*(1.-dy);    // interpolation weights of
+        s2=(1.-dy)*dx;         // corner points to c-point
+        s3=(1.-dx)*dy;
+        s4=dx*dy;
+
+        ip  = i;
+        imp = im;
+        jp  = j;
+        jmp = jm;
+        kmp = km;
+        
+        // New method
+        c1 = coldensh_out[cart2cache(imp,jmp,kmp,2*qmax+1)];
+        c2 = coldensh_out[cart2cache(ip, jmp,kmp,2*qmax+1)];
+        c3 = coldensh_out[cart2cache(imp,jp, kmp,2*qmax+1)];
+        c4 = coldensh_out[cart2cache(ip, jp, kmp,2*qmax+1)];
+
+        // Old method
+        // c1=     coldensh_out[mem_offst_gpu(imp,jmp,kmp,m1)];
+        // c2=     coldensh_out[mem_offst_gpu(ip,jmp,kmp,m1)];
+        // c3=     coldensh_out[mem_offst_gpu(imp,jp,kmp,m1)];
+        // c4=     coldensh_out[mem_offst_gpu(ip,jp,kmp,m1)];
+
+        // extra weights for better fit to analytical solution
+        w1 = s1*weightf_gpu(c1,sigma_HI_at_ion_freq);
+        w2 = s2*weightf_gpu(c2,sigma_HI_at_ion_freq);
+        w3 = s3*weightf_gpu(c3,sigma_HI_at_ion_freq);
+        w4 = s4*weightf_gpu(c4,sigma_HI_at_ion_freq);
+        
+        // column density at the crossing point
+        cdensi = (c1   *w1   +c2   *w2   +c3   *w3   +c4   *w4 )/(w1+w2+w3+w4);
+
+        // Take care of diagonals
+        if (kdela == 1 && (idela == 1||jdela == 1))
+        {
+            if (idela == 1 && jdela == 1)
+            {
+                cdensi = 1.73205080757*cdensi;
+            }
+            else
+            {
+                cdensi = 1.41421356237*cdensi;
+            }
+        }
+
+        // Path length from c through d to other side cell.
+        path=sqrt((di*di+dj*dj)/(dk*dk)+1.0);
+    }
+    else if (jdela >= idela && jdela >= kdela)
+    {
+        alam=(double(jm-j0)+sgnj*0.5)/dj;
+        zc=alam*dk+double(k0);
+        xc=alam*di+double(i0);
+        dz=2.0*abs(zc-(double(km)+0.5*sgnk));
+        dx=2.0*abs(xc-(double(im)+0.5*sgni));
+        s1=(1.-dx)*(1.-dz);
+        s2=(1.-dz)*dx;
+        s3=(1.-dx)*dz;
+        s4=dx*dz;
+
+        ip  = i;
+        imp = im;
+        jmp = jm;
+        kp  = k;
+        kmp = km;
+
+        // New method
+        c1 = coldensh_out[cart2cache(imp,jmp, kmp,2*qmax+1)];
+        c2 = coldensh_out[cart2cache(ip, jmp, kmp,2*qmax+1)];
+        c3 = coldensh_out[cart2cache(imp,jmp, kp ,2*qmax+1)];
+        c4 = coldensh_out[cart2cache(ip, jmp, kp ,2*qmax+1)];
+
+        // Old method
+        // c1=  coldensh_out[mem_offst_gpu(imp,jmp,kmp,m1)];
+        // c2=  coldensh_out[mem_offst_gpu(ip,jmp,kmp,m1)];
+        // c3=  coldensh_out[mem_offst_gpu(imp,jmp,kp,m1)];
+        // c4=  coldensh_out[mem_offst_gpu(ip,jmp,kp,m1)];
+
+        // extra weights for better fit to analytical solution
+        w1=s1*weightf_gpu(c1,sigma_HI_at_ion_freq);
+        w2=s2*weightf_gpu(c2,sigma_HI_at_ion_freq);
+        w3=s3*weightf_gpu(c3,sigma_HI_at_ion_freq);
+        w4=s4*weightf_gpu(c4,sigma_HI_at_ion_freq);
+
+        cdensi=   (c1   *w1   +c2   *w2   +c3   *w3   +c4   *w4   )/(w1+w2+w3+w4);
+
+        // Take care of diagonals
+        if (jdela == 1 && (idela == 1||kdela == 1))
+        {
+            if (idela == 1 && kdela == 1)
+            {
+                cdensi = 1.73205080757*cdensi;
+            }
+            else
+            {
+                cdensi = 1.41421356237*cdensi;
+            }
+        }
+        path=sqrt((di*di+dk*dk)/(dj*dj)+1.0);
+    }
+    else
+    {
+        alam=(double(im-i0)+sgni*0.5)/di;
+        zc=alam*dk+double(k0);
+        yc=alam*dj+double(j0);
+        dz=2.0*abs(zc-(double(km)+0.5*sgnk));
+        dy=2.0*abs(yc-(double(jm)+0.5*sgnj));
+        s1=(1.-dz)*(1.-dy);
+        s2=(1.-dz)*dy;
+        s3=(1.-dy)*dz;
+        s4=dy*dz;
+
+        imp= im;
+        jp=  j;
+        jmp= jm;
+        kp=  k;
+        kmp= km;
+        
+        // New method
+        c1 = coldensh_out[cart2cache(imp,jmp,kmp,2*qmax+1)];
+        c2 = coldensh_out[cart2cache(imp,jp, kmp,2*qmax+1)];
+        c3 = coldensh_out[cart2cache(imp,jmp,kp ,2*qmax+1)];
+        c4 = coldensh_out[cart2cache(imp,jp, kp ,2*qmax+1)];
+
+        // Old method
+        // c1=  coldensh_out[mem_offst_gpu(imp,jmp,kmp,m1)];
+        // c2=  coldensh_out[mem_offst_gpu(imp,jp,kmp,m1)];
+        // c3=  coldensh_out[mem_offst_gpu(imp,jmp,kp,m1)];
+        // c4=  coldensh_out[mem_offst_gpu(imp,jp,kp,m1)];
+
+        // extra weights for better fit to analytical solution
+        w1   =s1*weightf_gpu(c1,sigma_HI_at_ion_freq);
+        w2   =s2*weightf_gpu(c2,sigma_HI_at_ion_freq);
+        w3   =s3*weightf_gpu(c3,sigma_HI_at_ion_freq);
+        w4   =s4*weightf_gpu(c4,sigma_HI_at_ion_freq);
+
+        cdensi   =(c1   *w1   +c2   *w2   +c3   *w3   +c4   *w4   )/(w1+w2+w3+w4);
+
+        if ( idela == 1  &&  ( jdela == 1 || kdela == 1 ) )
+        {
+            if ( jdela == 1  &&  kdela == 1 )
+            {
+                cdensi = 1.73205080757*cdensi;
+            }
+            else
+            {
+                cdensi = 1.41421356237*cdensi;
+            }
+        }
+        path=sqrt(1.0+(dj*dj+dk*dk)/(di*di));
+    }
+}
 
 
 
