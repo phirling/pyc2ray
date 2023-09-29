@@ -1,5 +1,5 @@
 ## Build Instructions for pyc2ray on Piz-Daint (September 2023)
-Since the automatic build system isn't fully working yet, the extension modules must be compiled and placed in correct directories manually. After cloning the repository at https://github.com/phirling/pyc2ray, create the `/lib` directory inside `/pyc2ray/` (from the root of the repository).
+Since the automatic build system isn't fully working yet, the extension modules must be compiled and placed in correct directories manually. After cloning the repository, create the `/lib` directory inside `/pyc2ray/` (from the root of the repository).
 
 **Requirements**:
 - C Compiler
