@@ -15,6 +15,7 @@ Grid:
   # used "as is". When cosmological = true, it is first scaled to zred_0
   # Maybe this should be changed, as it can induce some confusion ?
   boxsize: 0.004537091005222111
+  resume: 0
 
 # --------------------------------------------------------------------
 # (Initial) properties of physical quantities in the simulation volume
@@ -119,3 +120,6 @@ Output:
 Raytracing:
   # Photon loss fraction for the subbox algorithm
   loss_fraction: 1e-2
+  # Source batch size, i.e. number of sources handled in parallel on the GPU.
+  # Speeds up computation but increases memory usage
+  source_batch_size: 96

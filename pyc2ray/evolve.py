@@ -148,6 +148,7 @@ def evolve3D(dt,dr,
 
         # Copy density field to GPU once at the beginning of timestep (!! do_all_sources assumes this !!)
         libasora.density_to_device(ndens_flat,N)
+        printlog("Copied source data to device.",logfile,quiet)
 
     # -----------------------------------------------------------
     # Start Evolve step, Iterate until convergence in <x> and <y>

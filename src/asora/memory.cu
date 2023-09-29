@@ -92,17 +92,20 @@ void photo_table_to_device(double* table,const int & NumTau)
     cudaMemcpy(photo_thin_table_dev,table,NumTau*sizeof(double),cudaMemcpyHostToDevice);
 }
 void source_data_to_device(int* pos, double* flux, const int & NumSrc)
-{
+{   
+    // Free arrays from previous evolve call
     cudaFree(src_pos_dev);
     cudaFree(src_flux_dev);
 
+    // Allocate memory for sources of current evolve call
     cudaMalloc(&src_pos_dev,3*NumSrc*sizeof(int));
     cudaMalloc(&src_flux_dev,NumSrc*sizeof(double));
 
+    // Copy source data (positions & strengths) to device
     cudaMemcpy(src_pos_dev,pos,3*NumSrc*sizeof(int),cudaMemcpyHostToDevice);
     cudaMemcpy(src_flux_dev,flux,NumSrc*sizeof(double),cudaMemcpyHostToDevice);
 
-    std::cout << "Copied " << NumSrc << " sources to device... flux of first source = " << flux[0] << std::endl;
+    // std::cout << "Copied " << NumSrc << " sources to device... flux of first source = " << flux[0] << std::endl;
 }
 
 // ========================================================================
