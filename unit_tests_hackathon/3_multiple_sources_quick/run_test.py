@@ -21,7 +21,7 @@ paramfile = "parameters.yml"
 N = 250                             # Mesh size
 t_evol = 5e4
 use_octa = args.gpu
-r_RT = 50
+r_RT = 15
 nsrc = int(args.numsrc)
 fgamma = 0.02
 
