@@ -12,6 +12,7 @@
 #define FOURPI 12.566370614359172463991853874177    // 4π
 #define INV4PI 0.079577471545947672804111050482     // 1/4π
 #define MAX_COLDENSH 2e30                           // Column density limit (rates are set to zero above this)
+#define CUDA_BLOCK_SIZE 256                         // Size of blocks used to treat sources
 
 // ========================================================================
 // Utility Device Functions
@@ -33,7 +34,7 @@ __device__ inline double weightf_gpu(const double & cd, const double & sig) { re
 // Mapping from cartesian coordinates of a cell to reduced cache memory space (here N = 2qmax + 1 in general)
 __device__ inline int cart2cache(const int & i,const int & j,const int & k,const int & N) { return N*N*int(k<0) + N*i + j; }
 
-// Mapping from linear thread space to the cartesian coords of a q-shell in asora
+// Mapping from linear 1D indices to the cartesian coords of a q-shell in asora
 __device__ void linthrd2cart(const int & s,const int & q,int& i,int& j)
 {
     if (s == 0)
@@ -57,7 +58,7 @@ __device__ void linthrd2cart(const int & s,const int & q,int& i,int& j)
 }
 
 // ========================================================================
-// Main function: raytrace all sources and add up ionization rates
+// Raytrace all sources and add up ionization rates
 // ========================================================================
 void do_all_sources_gpu(
     const double & R,
@@ -75,7 +76,7 @@ void do_all_sources_gpu(
     {   
         // TODO: atomic add for phi
         
-        int NUM_SRC_PAR = 128;
+        int NUM_SRC_PAR = 96;
 
         // Byte-size of grid data
         auto meshsize = m1*m1*m1*sizeof(double);
@@ -88,9 +89,8 @@ void do_all_sources_gpu(
         // Grid size is initialized to (1) but will be adapted as the octahedron grows in size.
         dim3 gs(NUM_SRC_PAR);
 
-        // Block size. Set to 128 but this can be used for performance tuning on different GPUs
-        int bl = 600;
-        dim3 bs(bl);
+        // CUDA Block size
+        dim3 bs(CUDA_BLOCK_SIZE);
 
         // Here we fill the ionization rate array with zero before raytracing all sources. The LOCALRATES flag
         // is for debugging purposes and will be removed later on
@@ -110,14 +110,12 @@ void do_all_sources_gpu(
 
         for (int ns = 0; ns < NumSrc; ns += NUM_SRC_PAR)
         {   
-            // Set column density to zero for each source
-            cudaMemset(cdh_dev,0,NUM_SRC_PAR * meshsize);
+            // The column density array isn't set to zero anymore, yey
                
-            // printf("--- q = %i --- \n",q);
             // Raytracing kernel: see below
             evolve0D_gpu<<<gs,bs>>>(max_q,ns,NumSrc,NUM_SRC_PAR,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
 
-            // Check for errors. TODO: make this better
+            // Check for errors
             auto error = cudaGetLastError();
             if(error != cudaSuccess) {
                 throw std::runtime_error("Error Launching Kernel: "
@@ -158,29 +156,55 @@ __global__ void evolve0D_gpu(
     const int last_r
 )
 {   
+    /* The raytracing kernel proceeds as follows:
+    1. Select the source based on the block number (within the batch = the grid)
+    2. Loop over the asora q-cells around the source, up to q_max (loop "A")
+    3. Inside each shell, threads independently do all cells, possibly requiring multiple iterations
+    if the block size is smaller than the number of cells in the shell (loop "B")
+    4. After each shell, the threads are synchronized to ensure that causality is respected
+    */
+
+    // Source number = Start of batch + block number (each block does one source)
     int ns = ns_start + blockIdx.x;
+
+    // Offset pointer to the outgoing column density array used for interpolation (each block
+    // needs its own copy of the array)
     int cdh_offset = blockIdx.x * m1 * m1 * m1;
+
+    // Ensure the source index is valid
     if (ns < NumSrc)
-    {
+    {   
+        // (A) Loop over ASORA q-shells
         for (int q = 0 ; q <= q_max ; q++)
         {   
+            // We figure out the number of cells in the shell and determine how many passes
+            // the block needs to take to treat all of them
             int num_cells = 4*q*q + 2;
             int Npass = num_cells / blockDim.x + 1;
+
+            /* The threads have 1D indices 0,...,blocksize-1. We map these 1D indices to
+            the 3D positions of the cells inside the shell via the mapping described in the
+            paper. Since in general there are more cells than threads, there is an
+            additional loop here (B) so that all cells are treated. 
+            */
             int s_end;
             if (q == 0) {s_end = 1;}
-            //printf("nsrc = %i \n",ns);}
             else {s_end = 4*q*q + 2;}
             int s_end_top = 2*q*(q+1) + 1;
-
+            
+            // (B) Loop over cells in the shell
             for (int ipass = 0 ; ipass < Npass ; ipass++)
             {
-                // "s" indexes the linear thread space
+                // "s" is the index in the 1D-range [0,...,4q^2 + 1] that gets mapped to the cells in the shell
                 int s = ipass * blockDim.x +  threadIdx.x;
                 int i,j,k;
                 int sgn;
 
+                // Ensure the thread maps to a valid cell
                 if (s < s_end)
                 {
+                    // Determine if cell is in top or bottom part of the shell (the mapping is slightly
+                    // different due to the part that is on the same z-plane as the source)
                     if (s < s_end_top)
                     {
                         sgn = 1;
@@ -193,7 +217,7 @@ __global__ void evolve0D_gpu(
                     }
                     k = sgn*q - sgn*(abs(i) + abs(j));
 
-                    // printf("i,j,k = %i  %i  %i \n",i,j,k);
+                    // Only do cell if it is within the (shifted under periodicity) grid, i.e. at most ~N cells away from the source
                     if ((i >= last_l) && (i <= last_r) && (j >= last_l) && (j <= last_r) && (k >= last_l) && (k <= last_r))
                     {
                         // Get source properties
@@ -227,64 +251,67 @@ __global__ void evolve0D_gpu(
                             pos[1] = modulo_gpu(j,m1);
                             pos[2] = modulo_gpu(k,m1);
 
-                            //printf("pos = %i %i %i \n",pos[0]-i0,pos[1]-j0,pos[2]-k0);
-
                             // Get local ionization fraction & Hydrogen density
                             xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
                             nHI_p = ndens[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] * (1.0 - xh_av_p);
 
-                            // Only treat cell if it hasn't been done before
-                            if (coldensh_out[cdh_offset + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] == 0.0)
-                            {   
-                                // If its the source cell, just find path (no incoming column density)
-                                if (i == i0 &&
-                                    j == j0 &&
-                                    k == k0)
-                                {
-                                    coldensh_in = 0.0;
-                                    path = 0.5*dr;
-                                    // vol_ph = dr*dr*dr / (4*M_PI);
-                                    vol_ph = dr*dr*dr;
-                                }
+                            /* PH: 29.9.23
+                            There used to be a check here if the coldensh_out of the current cell was
+                            zero to "determine if it hasn't been done before". I think this isn't necessary
+                            anymore in this version and eliminates the need to set the array to zero between
+                            source batches, which for large batches is a SIGNIFICANT bottleneck. */
 
-                                // If its another cell, do interpolation to find incoming column density
-                                else
-                                {
-                                    cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out + cdh_offset,sig,m1);
-                                    path *= dr;
-                                    // Find the distance to the source
-                                    xs = dr*(i-i0);
-                                    ys = dr*(j-j0);
-                                    zs = dr*(k-k0);
-                                    dist2=xs*xs+ys*ys+zs*zs;
-                                    // vol_ph = dist2 * path;
-                                    vol_ph = dist2 * path * FOURPI;
-                                }
-
-                                // Add to column density array. TODO: is this really necessary ?
-                                double cdho = coldensh_in + nHI_p * path;
-                                coldensh_out[cdh_offset + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = cdho;
-                                
-                                // Compute photoionization rates from column density. WARNING: for now this is limited to the grey-opacity test case source
-                                if (coldensh_in <= MAX_COLDENSH)
-                                {
-                                    #if defined(GREY_NOTABLES)
-                                    double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);
-                                    #else
-                                    double phi = photoion_rates_gpu(strength,coldensh_in,cdho,vol_ph,sig,photo_table,minlogtau,dlogtau,NumTau);
-                                    #endif
-                                    // Divide the photo-ionization rates by the appropriate neutral density
-                                    // (part of the photon-conserving rate prescription)
-                                    phi /= nHI_p;
-
-                                    //phi_ion[mem_offst_gpu(pos[0],pos[1],pos[2],m1)] += phi;
-                                    atomicAdd(phi_ion + mem_offst_gpu(pos[0],pos[1],pos[2],m1),phi);
-                                }                          
+                            // If its the source cell, just find path (no incoming column density)
+                            if (i == i0 &&
+                                j == j0 &&
+                                k == k0)
+                            {
+                                coldensh_in = 0.0;
+                                path = 0.5*dr;
+                                // vol_ph = dr*dr*dr / (4*M_PI);
+                                vol_ph = dr*dr*dr;
                             }
+
+                            // If its another cell, do interpolation to find incoming column density
+                            else
+                            {
+                                cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out + cdh_offset,sig,m1);
+                                path *= dr;
+                                // Find the distance to the source
+                                xs = dr*(i-i0);
+                                ys = dr*(j-j0);
+                                zs = dr*(k-k0);
+                                dist2=xs*xs+ys*ys+zs*zs;
+                                // vol_ph = dist2 * path;
+                                vol_ph = dist2 * path * FOURPI;
+                            }
+
+                            // Compute outgoing column density and add to array for subsequent interpolations
+                            double cdho = coldensh_in + nHI_p * path;
+                            coldensh_out[cdh_offset + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = cdho;
+                            
+                            // Compute photoionization rates from column density. WARNING: for now this is limited to the grey-opacity test case source
+                            if (coldensh_in <= MAX_COLDENSH)
+                            {
+                                #if defined(GREY_NOTABLES)
+                                double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);
+                                #else
+                                double phi = photoion_rates_gpu(strength,coldensh_in,cdho,vol_ph,sig,photo_table,minlogtau,dlogtau,NumTau);
+                                #endif
+                                // Divide the photo-ionization rates by the appropriate neutral density
+                                // (part of the photon-conserving rate prescription)
+                                phi /= nHI_p;
+
+                                // Add the computed ionization rate to the array ATOMICALLY since multiple blocks could be
+                                // writing to the same cell at the same time!
+                                atomicAdd(phi_ion + mem_offst_gpu(pos[0],pos[1],pos[2],m1),phi);
+                            }                          
                         }
                     }
                 }
             }
+            // IMPORTANT: Sync threads after each shell so that the next only begins when all outgoing column densities
+            // of the current shell are available
             __syncthreads();
         }
     }
@@ -292,7 +319,7 @@ __global__ void evolve0D_gpu(
 
 
 // ========================================================================
-// Short-characteristics interpolation function, adapted from C2Ray
+// Short-characteristics interpolation function
 // ========================================================================
 __device__ void cinterp_gpu(
     const int i,
@@ -487,8 +514,31 @@ __device__ void cinterp_gpu(
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ==========================================================================================================
+// OLD OR EXPERIMENTAL CODE. KEPT AS REFERENCE BUT UNUSED
+// ==========================================================================================================
+
 // ========================================================================
-// Short-characteristics interpolation function, adapted from C2Ray
+// Modified version of cinterp using a different coordinate system, for future development
 // ========================================================================
 __device__ void cinterp_gpu2(
     const int i,
@@ -715,29 +765,6 @@ __device__ void cinterp_gpu2(
         path=sqrt(1.0+(dj*dj+dk*dk)/(di*di));
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// ==========================================================================================================
-// OLD OR EXPERIMENTAL CODE. KEPT AS REFERENCE BUT UNUSED
-// ==========================================================================================================
-
-
 
 // WIP: compute rates in a separate step ? This would require having a path and coldensh_in grid (replace cdh_out by path)
 __global__ void do_rates(
