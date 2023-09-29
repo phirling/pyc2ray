@@ -74,9 +74,10 @@ extern "C"
     asora_device_init(PyObject *self, PyObject *args)
     {
         int N;
-        if (!PyArg_ParseTuple(args,"i",&N))
+        int num_src_par;
+        if (!PyArg_ParseTuple(args,"ii",&N,&num_src_par))
             return NULL;
-        device_init(N);
+        device_init(N,num_src_par);
         return Py_None;
     }
 

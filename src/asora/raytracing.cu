@@ -74,10 +74,7 @@ void do_all_sources_gpu(
     const double & dlogtau,
     const int & NumTau)
     {   
-        // TODO: atomic add for phi
         
-        int NUM_SRC_PAR = 96;
-
         // Byte-size of grid data
         auto meshsize = m1*m1*m1*sizeof(double);
 
@@ -86,10 +83,10 @@ void do_all_sources_gpu(
         // of the octahedron. To raytrace the whole box, the octahedron bust be 1.5*N in size
         int max_q = std::ceil(1.73205080757 * R); //std::ceil(1.5 * m1);
 
-        // Grid size is initialized to (1) but will be adapted as the octahedron grows in size.
+        // CUDA Grid size: since 1 block = 1 source, this sets the number of sources treated in parallel
         dim3 gs(NUM_SRC_PAR);
 
-        // CUDA Block size
+        // CUDA Block size: more of a tuning parameter (see above), in practice anything ~128 is fine
         dim3 bs(CUDA_BLOCK_SIZE);
 
         // Here we fill the ionization rate array with zero before raytracing all sources. The LOCALRATES flag
@@ -106,13 +103,10 @@ void do_all_sources_gpu(
         int last_r = m1/2 - 1 + modulo(m1,2);
         int last_l = -m1/2;
 
-        // printf("%i cells in largest shell. Using block of length %i --> need %i passes to cover shell with excess of %i threads.",num_cells_max,bl,num_pass,bl*num_pass - num_cells_max);
-
+        // Loop over batches of sources
         for (int ns = 0; ns < NumSrc; ns += NUM_SRC_PAR)
         {   
-            // The column density array isn't set to zero anymore, yey
-               
-            // Raytracing kernel: see below
+            // Raytrace the current batch of sources in parallel
             evolve0D_gpu<<<gs,bs>>>(max_q,ns,NumSrc,NUM_SRC_PAR,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
 
             // Check for errors
@@ -122,9 +116,12 @@ void do_all_sources_gpu(
                                         + std::string(cudaGetErrorName(error)) + " - "
                                         + std::string(cudaGetErrorString(error)));
             }
+
+            // Sync device to be sure (is this required ??)
             cudaDeviceSynchronize();
         }
-        // Copy the accumulated ionization fraction back to the host and check for errors
+
+        // Copy the accumulated ionization fraction back to the host
         auto error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
 
     }

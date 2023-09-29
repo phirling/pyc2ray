@@ -1,7 +1,7 @@
 #pragma once
 
 // Allocate grid memory
-void device_init(const int &);
+void device_init(const int &, const int &);
 
 // Deallocate grid memory
 void device_close();
@@ -23,3 +23,6 @@ extern double * phi_dev;
 extern double * photo_thin_table_dev;
 extern int * src_pos_dev;
 extern double * src_flux_dev;
+
+// Number of sources done in parallel ("source batch size")
+extern int NUM_SRC_PAR;

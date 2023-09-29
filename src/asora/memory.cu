@@ -25,10 +25,12 @@ double* photo_thin_table_dev;   // Radiation table
 int * src_pos_dev;
 double * src_flux_dev;
 
+int NUM_SRC_PAR;
+
 // ========================================================================
 // Initialization function to allocate device memory (pointers above)
 // ========================================================================
-void device_init(const int & N)
+void device_init(const int & N, const int & num_src_par)
 {
     int dev_id = 0;
 
@@ -54,9 +56,10 @@ void device_init(const int & N)
     // Byte-size of grid data
     long unsigned int bytesize = N*N*N*sizeof(double);
     std::cout << bytesize << std::endl;
-    unsigned int NUM_SRC_PAR = 96;
 
-    std::cout << (3 + NUM_SRC_PAR)*bytesize/1e6 << std::endl;
+    // Set the source batch size, i.e. the number of sources done in parallel (on the same GPU)
+    NUM_SRC_PAR = num_src_par;
+
     // Allocate memory
     cudaMalloc(&cdh_dev,NUM_SRC_PAR * bytesize);
     cudaMalloc(&n_dev,bytesize);
