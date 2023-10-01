@@ -178,7 +178,7 @@ class C2Ray:
             src_flux, src_pos,
             r_RT, self.gpu, max_subbox, self.loss_fraction,
             self.temp, self.ndens, self.xh,
-            self.photo_thin_table, self.minlogtau, self.dlogtau,
+            self.photo_thin_table, self.minlogtau, self.dlogtau, self.R_max_LLS,
             self.sig, self.bh00, self.albpow, self.colh0, self.temph0, self.abu_c,
             self.logfile
             )
@@ -357,6 +357,10 @@ class C2Ray:
         # Initialize cell size to comoving size (if cosmological run, it will be scaled in cosmology_init)
         self.dr = self.dr_c
 
+        # Set R_max (LLS 3) in cell units
+        self.R_max_LLS = self._ld['Photo']['R_max_cMpc'] * self.N / self._ld['Grid']['boxsize']
+        self.printlog(f"Maximum comoving distance for photons from source (type 3 LLS): {self._ld['Photo']['R_max_cMpc'] : .3e} comoving Mpc")
+        self.printlog(f"This corresponds to                                             {self.R_max_LLS : .3f} grid cells.")
 
     # The following initialization methods are simulation kind-dependent and need to be
     # overridden in the subclasses

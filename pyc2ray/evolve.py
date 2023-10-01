@@ -36,6 +36,7 @@ def evolve3D(dt,dr,
         r_RT,use_gpu,max_subbox,loss_fraction,
         temp,ndens,xh,
         photo_thin_table,minlogtau,dlogtau,
+        R_max_LLS,
         sig,bh00,albpow,colh0,temph0,abu_c,
         logfile="pyC2Ray.log",quiet=False):
 
@@ -79,7 +80,10 @@ def evolve3D(dt,dr,
     minlogtau : float
         Base 10 log of the minimum value of the table in τ (excluding τ = 0)
     dlogtau : float
-        Step size of the logτ-table  
+        Step size of the logτ-table 
+    R_max_LLS : float
+        Value of maximum comoving distance for photons from source (type 3 LLS in original C2Ray). This value is
+        given in cell units, but doesn't need to be an integer
     sig : float
         Constant photoionization cross-section of hydrogen in cm^2. TODO: replace by general (frequency-dependent)
         case.
@@ -179,7 +183,7 @@ def evolve3D(dt,dr,
             libasora.do_all_sources(r_RT,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
         else:
             # Use CPU raytracing with subbox optimization
-            nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,r_RT,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,photo_thin_table,minlogtau,dlogtau)
+            nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,r_RT,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,photo_thin_table,minlogtau,dlogtau,R_max_LLS)
 
         printlog(f"took {(time.time()-trt0) : .1f} s.", logfile,quiet)
 
