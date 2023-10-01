@@ -22,7 +22,6 @@ __device__ void linthrd2cart(const int &,const int &,int&,int&);
 // Raytrace all sources and compute photoionization rates
 void do_all_sources_gpu(
     const double & R,
-    double* coldensh_out,
     const double & sig,
     const double & dr,
     double* ndens,

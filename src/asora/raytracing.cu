@@ -78,7 +78,6 @@ static __inline__ __device__ double atomicAdd(double *address, double val) {
 // ========================================================================
 void do_all_sources_gpu(
     const double & R,
-    double* coldensh_out,
     const double & sig,
     const double & dr,
     double* ndens,
