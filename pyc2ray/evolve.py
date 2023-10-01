@@ -124,7 +124,6 @@ def evolve3D(dt,dr,
     NumTau = photo_thin_table.shape[0]
 
     # Convergence Criteria
-    convergence_fraction=1.0e-4
     conv_criterion = min(int(convergence_fraction*NumCells), (NumSrc-1)/3)
     
     # Initialize convergence metrics
