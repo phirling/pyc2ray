@@ -33,10 +33,11 @@ __all__ = ['evolve3D']
 
 def evolve3D(dt,dr,
         src_flux,src_pos,
-        subboxsize,use_gpu,max_subbox,loss_fraction,
+        R_max_LLS,use_gpu,
+        subboxsize,max_subbox,loss_fraction,
         temp,ndens,xh,
         photo_thin_table,minlogtau,dlogtau,
-        R_max_LLS, convergence_fraction,
+        convergence_fraction,
         sig,bh00,albpow,colh0,temph0,abu_c,
         logfile="pyC2Ray.log",quiet=False):
 
@@ -55,16 +56,21 @@ def evolve3D(dt,dr,
         Array containing the total ionizing flux of each source, normalized by S_star (1e48 by default)
     src_pos : 2D-array of shape (3,numsrc)
         Array containing the 3D grid position of each source, in Fortran indexing (from 1)
+    R_max_LLS : float
+        Value of maximum comoving distance for photons from source (type 3 LLS in original C2Ray). This value is
+        given in cell units, but doesn't need to be an integer. When using ASORA, the largest q-shell is chosen
+        s.t. a sphere of radius R_max_LLS fits inside of it. When using CPU raytracing, this is a hard spherical
+        limit to the subbox algorithm.
+    use_gpu : bool
+        Whether or not to use the GPU ASORA algorithm for raytracing.
     subboxsize : int, Unused if use_gpu = True
         This sets the increment of the cubic region (subbox) that will be treated.
         Raytracing stops when either max_subbox is reached or when the photon loss is low enough. For example, if
         subboxsize = 5, the size of the cube around the source will grow as 10^3, 20^3, ...
-    use_gpu : bool
-        Whether or not to use the GPU-accelerated ASORA library for raytracing.
     max_subbox : int, Unused if use_gpu = True
-        Maximum subbox to raytrace when using CPU cubic raytracing. Has no effect when use_gpu is true
-    loss_fraction : float
-        Fraction of remaining photons below we stop ray-tracing (subbox technique). Has no effect when use_gpu is true
+        Maximum subbox to raytrace when using CPU cubic raytracing.
+    loss_fraction : float, Unused if use_gpu = True
+        Fraction of remaining photons below we stop ray-tracing (subbox technique)
     temp : 3D-array
         The initial temperature of each cell in K
     ndens : 3D-array
@@ -78,10 +84,6 @@ def evolve3D(dt,dr,
         Base 10 log of the minimum value of the table in τ (excluding τ = 0)
     dlogtau : float
         Step size of the logτ-table 
-    R_max_LLS : float
-        Value of maximum comoving distance for photons from source (type 3 LLS in original C2Ray). This value is
-        given in cell units, but doesn't need to be an integer. When using ASORA, the largest q-shell is chosen
-        s.t. a sphere of radius R_max_LLS fits inside of it.
     convergence_fraction : float
         Which fraction of the cells can be left unconverged to improve performance (usually ~ 1e-4)
     sig : float

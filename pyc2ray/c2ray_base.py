@@ -171,10 +171,11 @@ class C2Ray:
         self.xh, self.phi_ion = evolve3D(
             dt, self.dr,
             src_flux, src_pos,
-            self.subboxsize, self.gpu, self.max_subbox, self.loss_fraction,
+            self.R_max_LLS,self.gpu,
+            self.subboxsize, self.max_subbox, self.loss_fraction,
             self.temp, self.ndens, self.xh,
             self.photo_thin_table, self.minlogtau, self.dlogtau,
-            self.R_max_LLS, self.convergence_fraction,
+            self.convergence_fraction,
             self.sig, self.bh00, self.albpow, self.colh0, self.temph0, self.abu_c,
             self.logfile
             )
