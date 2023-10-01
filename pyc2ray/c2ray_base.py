@@ -148,7 +148,7 @@ class C2Ray:
         dt = (t1-t2)/num_timesteps
         return dt
     
-    def evolve3D(self, dt, src_flux, src_pos, r_RT, max_subbox):
+    def evolve3D(self, dt, src_flux, src_pos, r_RT):
         """Evolve the grid over one timestep
 
         Raytrace all sources, compute cumulative photoionization rate of each cell and
@@ -176,7 +176,7 @@ class C2Ray:
         self.xh, self.phi_ion = evolve3D(
             dt, self.dr,
             src_flux, src_pos,
-            r_RT, self.gpu, max_subbox, self.loss_fraction,
+            r_RT, self.gpu, self.max_subbox, self.loss_fraction,
             self.temp, self.ndens, self.xh,
             self.photo_thin_table, self.minlogtau, self.dlogtau,
             self.R_max_LLS, self.convergence_fraction,
@@ -283,6 +283,7 @@ class C2Ray:
         self.sig = self._ld['Photo']['sigma_HI_at_ion_freq']
         self.loss_fraction = self._ld['Raytracing']['loss_fraction']
         self.convergence_fraction = self._ld['Raytracing']['convergence_fraction']
+        self.max_subbox = self._ld['Raytracing']['max_subbox']
 
     def _cosmology_init(self):
         """ Set up cosmology from parameters (H0, Omega,..)
