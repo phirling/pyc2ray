@@ -36,10 +36,7 @@ drc = sim.dr_c
 rmax_cells = R_max_cMpc*Mpc / drc
 print("rmax internal: ",R_max_cMpc*Mpc)
 print("rmax cells: ",rmax_cells)
-r_RT = 100
 
-max_subbox = 1000
-#r_RT = 150
 
 # Measure time
 tinit = time.time()
@@ -70,7 +67,7 @@ for k in range(len(zred_array)-1):
         sim.cosmo_evolve(dt)
 
         # Evolve the simulation: raytrace -> photoionization rates -> chemistry -> until convergence
-        sim.evolve3D(dt, srcflux, srcpos, r_RT, max_subbox)
+        sim.evolve3D(dt, srcflux, srcpos)
 
 pc2r.printlog(f"Done. Final time: {time.time() - tinit : .3f} seconds",sim.logfile)
 

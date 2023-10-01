@@ -27,10 +27,6 @@ zred_array = sim.generate_redshift_array(numzred,1e7)
 numsrc = 1
 srcpos, srcflux = sim.read_sources("src.txt",numsrc)
 
-# Raytracing Parameters
-max_subbox = 1000
-r_RT = 150
-
 # Measure time
 tinit = time.time()
 

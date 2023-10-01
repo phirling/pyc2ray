@@ -126,6 +126,6 @@ Raytracing:
   max_subbox: 1000
   # Source batch size, i.e. number of sources handled in parallel on the GPU.
   # Speeds up computation but increases memory usage
-  source_batch_size: 96
+  source_batch_size: 1
   # Which fraction of the cells can be left unconverged
   convergence_fraction: 1e-4
