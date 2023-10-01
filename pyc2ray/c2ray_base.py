@@ -178,7 +178,8 @@ class C2Ray:
             src_flux, src_pos,
             r_RT, self.gpu, max_subbox, self.loss_fraction,
             self.temp, self.ndens, self.xh,
-            self.photo_thin_table, self.minlogtau, self.dlogtau, self.R_max_LLS,
+            self.photo_thin_table, self.minlogtau, self.dlogtau,
+            self.R_max_LLS, self.convergence_fraction,
             self.sig, self.bh00, self.albpow, self.colh0, self.temph0, self.abu_c,
             self.logfile
             )
@@ -281,6 +282,7 @@ class C2Ray:
         self.temph0=self.eth0*ev2k
         self.sig = self._ld['Photo']['sigma_HI_at_ion_freq']
         self.loss_fraction = self._ld['Raytracing']['loss_fraction']
+        self.convergence_fraction = self._ld['Raytracing']['convergence_fraction']
 
     def _cosmology_init(self):
         """ Set up cosmology from parameters (H0, Omega,..)

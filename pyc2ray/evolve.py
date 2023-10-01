@@ -36,7 +36,7 @@ def evolve3D(dt,dr,
         r_RT,use_gpu,max_subbox,loss_fraction,
         temp,ndens,xh,
         photo_thin_table,minlogtau,dlogtau,
-        R_max_LLS,
+        R_max_LLS, convergence_fraction,
         sig,bh00,albpow,colh0,temph0,abu_c,
         logfile="pyC2Ray.log",quiet=False):
 
@@ -84,6 +84,8 @@ def evolve3D(dt,dr,
     R_max_LLS : float
         Value of maximum comoving distance for photons from source (type 3 LLS in original C2Ray). This value is
         given in cell units, but doesn't need to be an integer
+    convergence_fraction : float
+        Which fraction of the cells can be left unconverged to improve performance (usually ~ 1e-4)
     sig : float
         Constant photoionization cross-section of hydrogen in cm^2. TODO: replace by general (frequency-dependent)
         case.
