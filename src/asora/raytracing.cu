@@ -57,6 +57,21 @@ __device__ void linthrd2cart(const int & s,const int & q,int& i,int& j)
     }
 }
 
+// When using a GPU with compute capability < 6.0, we must manually define the atomicAdd function for doubles
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 600
+static __inline__ __device__ double atomicAdd(double *address, double val) {
+unsigned long long int* address_as_ull = (unsigned long long int*)address;
+unsigned long long int old = *address_as_ull, assumed;
+if (val==0.0)
+    return __longlong_as_double(old);
+do {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val +__longlong_as_double(assumed)));
+} while (assumed != old);
+return __longlong_as_double(old);
+}
+#endif
+
 // ========================================================================
 // Raytrace all sources and add up ionization rates
 // ========================================================================
