@@ -122,7 +122,9 @@ class C2Ray:
             # Print maximum shell size for info, based on LLS (qmax is s.t. Rmax fits inside of it)
             q_max = np.ceil(1.73205080757*min(self.R_max_LLS,1.73205080757*self.N/2))
             self.printlog(f"Using ASORA Raytracing ( q_max = {q_max : n} )")
-        else: self.printlog("Using CPU Raytracing")
+        else:
+            # Print info about subbox algorithm
+            self.printlog(f"Using CPU Raytracing (subboxsize = {self.subboxsize : n}, max_subbox = {self.max_subbox : n})")
         self.printlog("Starting simulation... \n\n")
 
     # =====================================================================================================
@@ -151,7 +153,7 @@ class C2Ray:
         dt = (t1-t2)/num_timesteps
         return dt
     
-    def evolve3D(self, dt, src_flux, src_pos, r_RT):
+    def evolve3D(self, dt, src_flux, src_pos):
         """Evolve the grid over one timestep
 
         Raytrace all sources, compute cumulative photoionization rate of each cell and
@@ -165,21 +167,11 @@ class C2Ray:
             Array containing the total ionizing flux of each source, normalized by S_star (1e48 by default)
         src_pos : 2D-array of shape (3,numsrc)
             Array containing the 3D grid position of each source, in Fortran indexing (from 1)
-        r_RT : int
-            Parameter which determines the size of the raytracing volume around each source:
-            * When using CPU (cubic) RT, this sets the increment of the cubic region (subbox) that will be treated.
-            Raytracing stops when either max_subbox is reached or when the photon loss is low enough. For example, if
-            r_RT = 5, the size of the cube around the source will grow as 10^3, 20^3, ...
-            * When using GPU (octahedral) RT with ASORA, this sets the size of the octahedron such that a sphere of
-            radius r_RT fits inside the octahedron.
-        max_subbox : int
-            Maximum size of the subbox when using cubic raytracing. When using ASORA, this
-            parameter has no effect.
         """
         self.xh, self.phi_ion = evolve3D(
             dt, self.dr,
             src_flux, src_pos,
-            r_RT, self.gpu, self.max_subbox, self.loss_fraction,
+            self.subboxsize, self.gpu, self.max_subbox, self.loss_fraction,
             self.temp, self.ndens, self.xh,
             self.photo_thin_table, self.minlogtau, self.dlogtau,
             self.R_max_LLS, self.convergence_fraction,
@@ -287,6 +279,7 @@ class C2Ray:
         self.loss_fraction = self._ld['Raytracing']['loss_fraction']
         self.convergence_fraction = self._ld['Raytracing']['convergence_fraction']
         self.max_subbox = self._ld['Raytracing']['max_subbox']
+        self.subboxsize = self._ld['Raytracing']['subboxsize']
 
     def _cosmology_init(self):
         """ Set up cosmology from parameters (H0, Omega,..)

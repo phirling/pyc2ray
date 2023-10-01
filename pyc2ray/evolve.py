@@ -33,7 +33,7 @@ __all__ = ['evolve3D']
 
 def evolve3D(dt,dr,
         src_flux,src_pos,
-        r_RT,use_gpu,max_subbox,loss_fraction,
+        subboxsize,use_gpu,max_subbox,loss_fraction,
         temp,ndens,xh,
         photo_thin_table,minlogtau,dlogtau,
         R_max_LLS, convergence_fraction,
@@ -55,16 +55,13 @@ def evolve3D(dt,dr,
         Array containing the total ionizing flux of each source, normalized by S_star (1e48 by default)
     src_pos : 2D-array of shape (3,numsrc)
         Array containing the 3D grid position of each source, in Fortran indexing (from 1)
-    r_RT : int
-        Parameter which determines the size of the raytracing volume around each source:
-        * When using CPU (cubic) RT, this sets the increment of the cubic region (subbox) that will be treated.
+    subboxsize : int, Unused if use_gpu = True
+        This sets the increment of the cubic region (subbox) that will be treated.
         Raytracing stops when either max_subbox is reached or when the photon loss is low enough. For example, if
-        r_RT = 5, the size of the cube around the source will grow as 10^3, 20^3, ...
-        * When using GPU (octahedral) RT with ASORA, this sets the size of the octahedron such that a sphere of
-        radius r_RT fits inside the octahedron.
+        subboxsize = 5, the size of the cube around the source will grow as 10^3, 20^3, ...
     use_gpu : bool
         Whether or not to use the GPU-accelerated ASORA library for raytracing.
-    max_subbox : int
+    max_subbox : int, Unused if use_gpu = True
         Maximum subbox to raytrace when using CPU cubic raytracing. Has no effect when use_gpu is true
     loss_fraction : float
         Fraction of remaining photons below we stop ray-tracing (subbox technique). Has no effect when use_gpu is true
@@ -83,7 +80,8 @@ def evolve3D(dt,dr,
         Step size of the logτ-table 
     R_max_LLS : float
         Value of maximum comoving distance for photons from source (type 3 LLS in original C2Ray). This value is
-        given in cell units, but doesn't need to be an integer
+        given in cell units, but doesn't need to be an integer. When using ASORA, the largest q-shell is chosen
+        s.t. a sphere of radius R_max_LLS fits inside of it.
     convergence_fraction : float
         Which fraction of the cells can be left unconverged to improve performance (usually ~ 1e-4)
     sig : float
@@ -184,7 +182,7 @@ def evolve3D(dt,dr,
             libasora.do_all_sources(R_max_LLS,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
         else:
             # Use CPU raytracing with subbox optimization
-            nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,r_RT,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,photo_thin_table,minlogtau,dlogtau,R_max_LLS)
+            nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,photo_thin_table,minlogtau,dlogtau,R_max_LLS)
 
         printlog(f"took {(time.time()-trt0) : .1f} s.", logfile,quiet)
 
