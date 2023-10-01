@@ -306,7 +306,7 @@ __global__ void evolve0D_gpu(
                             coldensh_out[cdh_offset + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = cdho;
                             
                             // Compute photoionization rates from column density. WARNING: for now this is limited to the grey-opacity test case source
-                            if (coldensh_in <= MAX_COLDENSH && dist2/(dr*dr) < Rmax*Rmax)
+                            if (coldensh_in <= MAX_COLDENSH && dist2/(dr*dr) <= Rmax*Rmax)
                             {
                                 #if defined(GREY_NOTABLES)
                                 double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);
