@@ -118,7 +118,10 @@ class C2Ray:
         self._material_init()
         self._sources_init()
         self._radiation_init()
-        if self.gpu: self.printlog("Using ASORA Raytracing")
+        if self.gpu:
+            # Print maximum shell size for info, based on LLS (qmax is s.t. Rmax fits inside of it)
+            q_max = np.ceil(1.73205080757*min(self.R_max_LLS,1.73205080757*self.N/2))
+            self.printlog(f"Using ASORA Raytracing ( q_max = {q_max : n} )")
         else: self.printlog("Using CPU Raytracing")
         self.printlog("Starting simulation... \n\n")
 
@@ -363,7 +366,7 @@ class C2Ray:
         # Set R_max (LLS 3) in cell units
         self.R_max_LLS = self._ld['Photo']['R_max_cMpc'] * self.N / self._ld['Grid']['boxsize']
         self.printlog(f"Maximum comoving distance for photons from source (type 3 LLS): {self._ld['Photo']['R_max_cMpc'] : .3e} comoving Mpc")
-        self.printlog(f"This corresponds to                                             {self.R_max_LLS : .3f} grid cells.")
+        self.printlog(f"This corresponds to {self.R_max_LLS : .3f} grid cells.")
 
     # The following initialization methods are simulation kind-dependent and need to be
     # overridden in the subclasses

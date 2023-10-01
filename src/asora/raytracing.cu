@@ -11,6 +11,7 @@
 // ========================================================================
 #define FOURPI 12.566370614359172463991853874177    // 4π
 #define INV4PI 0.079577471545947672804111050482     // 1/4π
+#define SQRT3 1.73205080757                         // Square root of 3
 #define MAX_COLDENSH 2e30                           // Column density limit (rates are set to zero above this)
 #define CUDA_BLOCK_SIZE 256                         // Size of blocks used to treat sources
 
@@ -60,15 +61,15 @@ __device__ void linthrd2cart(const int & s,const int & q,int& i,int& j)
 // When using a GPU with compute capability < 6.0, we must manually define the atomicAdd function for doubles
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 600
 static __inline__ __device__ double atomicAdd(double *address, double val) {
-unsigned long long int* address_as_ull = (unsigned long long int*)address;
-unsigned long long int old = *address_as_ull, assumed;
-if (val==0.0)
+    unsigned long long int* address_as_ull = (unsigned long long int*)address;
+    unsigned long long int old = *address_as_ull, assumed;
+    if (val==0.0)
+        return __longlong_as_double(old);
+    do {
+        assumed = old;
+        old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val +__longlong_as_double(assumed)));
+    } while (assumed != old);
     return __longlong_as_double(old);
-do {
-    assumed = old;
-    old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val +__longlong_as_double(assumed)));
-} while (assumed != old);
-return __longlong_as_double(old);
 }
 #endif
 
@@ -93,10 +94,11 @@ void do_all_sources_gpu(
         // Byte-size of grid data
         auto meshsize = m1*m1*m1*sizeof(double);
 
-        // Determine how large the octahedron should be, based on the raytracing radius. Currently,
+        // Determine how large the octahedron should be, based on the raytracing radius.
         // this is set s.t. the radius equals the distance from the source to the middle of the faces
-        // of the octahedron. To raytrace the whole box, the octahedron bust be 1.5*N in size
-        int max_q = std::ceil(1.73205080757 * R); //std::ceil(1.5 * m1);
+        // of the octahedron. The radius is cut off at sqrt3*N/2 (half-diagonal of the whole grid)
+        // since any distance beyond that would go "outside the grid"
+        int max_q = std::ceil(SQRT3 * min(R,SQRT3*m1/2.0));
 
         // CUDA Grid size: since 1 block = 1 source, this sets the number of sources treated in parallel
         dim3 gs(NUM_SRC_PAR);
@@ -122,7 +124,7 @@ void do_all_sources_gpu(
         for (int ns = 0; ns < NumSrc; ns += NUM_SRC_PAR)
         {   
             // Raytrace the current batch of sources in parallel
-            evolve0D_gpu<<<gs,bs>>>(max_q,ns,NumSrc,NUM_SRC_PAR,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
+            evolve0D_gpu<<<gs,bs>>>(max_q,R,ns,NumSrc,NUM_SRC_PAR,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
 
             // Check for errors
             auto error = cudaGetLastError();
@@ -147,7 +149,8 @@ void do_all_sources_gpu(
 // to the current cell and finds the photoionization rate
 // ========================================================================
 __global__ void evolve0D_gpu(
-    const int q_max,    // Is now the size of max q
+    const int q_max,    // Maximum order of the shell
+    const double Rmax,  // Maximum photon radius in cell units
     const int ns_start,
     const int NumSrc,
     const int num_src_par,
@@ -303,7 +306,7 @@ __global__ void evolve0D_gpu(
                             coldensh_out[cdh_offset + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = cdho;
                             
                             // Compute photoionization rates from column density. WARNING: for now this is limited to the grey-opacity test case source
-                            if (coldensh_in <= MAX_COLDENSH)
+                            if (coldensh_in <= MAX_COLDENSH && dist2/(dr*dr) < Rmax*Rmax)
                             {
                                 #if defined(GREY_NOTABLES)
                                 double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);
@@ -423,7 +426,7 @@ __device__ void cinterp_gpu(
         {
             if (idela == 1 && jdela == 1)
             {
-                cdensi = 1.73205080757*cdensi;
+                cdensi = SQRT3*cdensi;
             }
             else
             {
@@ -470,7 +473,7 @@ __device__ void cinterp_gpu(
         {
             if (idela == 1 && kdela == 1)
             {
-                cdensi = 1.73205080757*cdensi;
+                cdensi = SQRT3*cdensi;
             }
             else
             {
@@ -514,7 +517,7 @@ __device__ void cinterp_gpu(
         {
             if ( jdela == 1  &&  kdela == 1 )
             {
-                cdensi = 1.73205080757*cdensi;
+                cdensi = SQRT3*cdensi;
             }
             else
             {
