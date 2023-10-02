@@ -118,8 +118,13 @@ class C2Ray:
         self._material_init()
         self._sources_init()
         self._radiation_init()
-        if self.gpu: self.printlog("Using ASORA Raytracing")
-        else: self.printlog("Using CPU Raytracing")
+        if self.gpu:
+            # Print maximum shell size for info, based on LLS (qmax is s.t. Rmax fits inside of it)
+            q_max = np.ceil(1.73205080757*min(self.R_max_LLS,1.73205080757*self.N/2))
+            self.printlog(f"Using ASORA Raytracing ( q_max = {q_max : n} )")
+        else:
+            # Print info about subbox algorithm
+            self.printlog(f"Using CPU Raytracing (subboxsize = {self.subboxsize : n}, max_subbox = {self.max_subbox : n})")
         self.printlog("Starting simulation... \n\n")
 
     # =====================================================================================================
