@@ -123,7 +123,7 @@ void do_all_sources_gpu(
         for (int ns = 0; ns < NumSrc; ns += NUM_SRC_PAR)
         {   
             // Raytrace the current batch of sources in parallel
-            evolve0D_gpu<<<gs,bs>>>(max_q,R,ns,NumSrc,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
+            evolve0D_gpu<<<gs,bs>>>(max_q,R,ns,NumSrc,NUM_SRC_PAR,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
 
             // Check for errors
             auto error = cudaGetLastError();
@@ -132,10 +132,11 @@ void do_all_sources_gpu(
                                         + std::string(cudaGetErrorName(error)) + " - "
                                         + std::string(cudaGetErrorString(error)));
             }
+
+            // Sync device to be sure (is this required ??)
+            cudaDeviceSynchronize();
         }
 
-        // Sync Device
-        cudaDeviceSynchronize();
         // Copy the accumulated ionization fraction back to the host
         auto error = cudaMemcpy(phi_ion,phi_dev,meshsize,cudaMemcpyDeviceToHost);
 
@@ -151,6 +152,7 @@ __global__ void evolve0D_gpu(
     const double Rmax,  // Maximum photon radius in cell units
     const int ns_start,
     const int NumSrc,
+    const int num_src_par,
     int* src_pos,
     double* src_flux,
     double* coldensh_out,
@@ -229,8 +231,6 @@ __global__ void evolve0D_gpu(
                     }
                     k = sgn*q - sgn*(abs(i) + abs(j));
 
-                    // NOTE: here, i,j,k are indices relative to source position (origin at the source)
-
                     // Only do cell if it is within the (shifted under periodicity) grid, i.e. at most ~N cells away from the source
                     if ((i >= last_l) && (i <= last_r) && (j >= last_l) && (j <= last_r) && (k >= last_l) && (k <= last_r))
                     {
@@ -239,6 +239,11 @@ __global__ void evolve0D_gpu(
                         int j0 = src_pos[3*ns + 1];
                         int k0 = src_pos[3*ns + 2];
                         double strength = src_flux[ns];
+
+                        // Center to source
+                        i += i0;
+                        j += j0;
+                        k += k0;
 
                         int pos[3];
                         double path;
@@ -252,13 +257,13 @@ __global__ void evolve0D_gpu(
 
                         // When not in periodic mode, only treat cell if its in the grid
                         #if !defined(PERIODIC)
-                        if (in_box_gpu(i+i0,j+j0,k+k0,m1))
+                        if (in_box_gpu(i,j,k,m1))
                         #endif
                         {   
-                            // Map to periodic grid (pos are the true grid positions (origin at lower left corner))
-                            pos[0] = modulo_gpu(i+i0,m1);
-                            pos[1] = modulo_gpu(j+j0,m1);
-                            pos[2] = modulo_gpu(k+k0,m1);
+                            // Map to periodic grid
+                            pos[0] = modulo_gpu(i,m1);
+                            pos[1] = modulo_gpu(j,m1);
+                            pos[2] = modulo_gpu(k,m1);
 
                             // Get local ionization fraction & Hydrogen density
                             xh_av_p = xh_av[mem_offst_gpu(pos[0],pos[1],pos[2],m1)];
@@ -271,9 +276,9 @@ __global__ void evolve0D_gpu(
                             source batches, which for large batches is a SIGNIFICANT bottleneck. */
 
                             // If its the source cell, just find path (no incoming column density)
-                            if (i == 0 &&
-                                j == 0 &&
-                                k == 0)
+                            if (i == i0 &&
+                                j == j0 &&
+                                k == k0)
                             {
                                 coldensh_in = 0.0;
                                 path = 0.5*dr;
@@ -287,7 +292,10 @@ __global__ void evolve0D_gpu(
                                 cinterp_gpu(i,j,k,i0,j0,k0,coldensh_in,path,coldensh_out + cdh_offset,sig,m1);
                                 path *= dr;
                                 // Find the distance to the source
-                                dist2 = dr*dr*(i*i + j*j + k*k);
+                                xs = dr*(i-i0);
+                                ys = dr*(j-j0);
+                                zs = dr*(k-k0);
+                                dist2=xs*xs+ys*ys+zs*zs;
                                 // vol_ph = dist2 * path;
                                 vol_ph = dist2 * path * FOURPI;
                             }
@@ -345,18 +353,16 @@ __device__ void cinterp_gpu(
     int im,jm,km;
     unsigned int ip,imp,jp,jmp,kp,kmp;
     int sgni,sgnj,sgnk;
-    double alam,dx,dy,dz,s1,s2,s3,s4;
+    double alam,xc,yc,zc,dx,dy,dz,s1,s2,s3,s4;
     double c1,c2,c3,c4;
     double w1,w2,w3,w4;
     double di,dj,dk;
-    
-    // note: i,j,k relative to source pos
 
     // calculate the distance between the source point (i0,j0,k0) and 
     // the destination point (i,j,k)
-    idel=i;
-    jdel=j;
-    kdel=k;
+    idel=i-i0;
+    jdel=j-j0;
+    kdel=k-k0;
     idela=abs(idel);
     jdela=abs(jdel);
     kdela=abs(kdel);
@@ -365,9 +371,9 @@ __device__ void cinterp_gpu(
     sgni=sign_gpu(idel);
     sgnj=sign_gpu(jdel);
     sgnk=sign_gpu(kdel);
-    im=i+i0-sgni;
-    jm=j+j0-sgnj;
-    km=k+k0-sgnk;
+    im=i-sgni;
+    jm=j-sgnj;
+    km=k-sgnk;
     di=double(idel);
     dj=double(jdel);
     dk=double(kdel);
@@ -381,22 +387,22 @@ __device__ void cinterp_gpu(
     if (kdela >= jdela && kdela >= idela) {
         // alam is the parameter which expresses distance along the line s to d
         // add 0.5 to get to the interface of the d cell.
-        alam = (double(km-k0)+sgnk*0.5)/dk;
+        alam=(double(km-k0)+sgnk*0.5)/dk;
             
-        // xc=alam*di+double(i0); // x of crossing point on z-plane 
-        // yc=alam*dj+double(j0); // y of crossing point on z-plane
+        xc=alam*di+double(i0); // x of crossing point on z-plane 
+        yc=alam*dj+double(j0); // y of crossing point on z-plane
         
-        dx = 2.0*abs(alam*di+double(i0) - (double(im)+0.5*sgni)); // distances from c-point to
-        dy = 2.0*abs(alam*dj+double(j0) - (double(jm)+0.5*sgnj)); // the corners.
+        dx=2.0*abs(xc-(double(im)+0.5*sgni)); // distances from c-point to
+        dy=2.0*abs(yc-(double(jm)+0.5*sgnj)); // the corners.
         
-        s1 = (1.-dx)*(1.-dy);    // interpolation weights of
-        s2 = (1.-dy)*dx;         // corner points to c-point
-        s3 = (1.-dx)*dy;
-        s4 = dx*dy;
+        s1=(1.-dx)*(1.-dy);    // interpolation weights of
+        s2=(1.-dy)*dx;         // corner points to c-point
+        s3=(1.-dx)*dy;
+        s4=dx*dy;
 
-        ip  = modulo_gpu(i+i0  ,m1);
+        ip  = modulo_gpu(i  ,m1);
         imp = modulo_gpu(im ,m1);
-        jp  = modulo_gpu(j+j0  ,m1);
+        jp  = modulo_gpu(j  ,m1);
         jmp = modulo_gpu(jm ,m1);
         kmp = modulo_gpu(km ,m1);
         
@@ -433,19 +439,19 @@ __device__ void cinterp_gpu(
     else if (jdela >= idela && jdela >= kdela)
     {
         alam=(double(jm-j0)+sgnj*0.5)/dj;
-        // zc=alam*dk+double(k0);
-        // xc=alam*di+double(i0);
-        dz = 2.0*abs(alam*dk+double(k0) - (double(km)+0.5*sgnk));
-        dx = 2.0*abs(alam*di+double(i0) -(double(im)+0.5*sgni));
-        s1 = (1.-dx)*(1.-dz);
-        s2 = (1.-dz)*dx;
-        s3 = (1.-dx)*dz;
-        s4 = dx*dz;
+        zc=alam*dk+double(k0);
+        xc=alam*di+double(i0);
+        dz=2.0*abs(zc-(double(km)+0.5*sgnk));
+        dx=2.0*abs(xc-(double(im)+0.5*sgni));
+        s1=(1.-dx)*(1.-dz);
+        s2=(1.-dz)*dx;
+        s3=(1.-dx)*dz;
+        s4=dx*dz;
 
-        ip  = modulo_gpu(i+i0,m1);
+        ip  = modulo_gpu(i,m1);
         imp = modulo_gpu(im,m1);
         jmp = modulo_gpu(jm,m1);
-        kp  = modulo_gpu(k+k0,m1);
+        kp  = modulo_gpu(k,m1);
         kmp = modulo_gpu(km,m1);
 
         c1=  coldensh_out[mem_offst_gpu(imp,jmp,kmp,m1)];
@@ -478,19 +484,19 @@ __device__ void cinterp_gpu(
     else
     {
         alam=(double(im-i0)+sgni*0.5)/di;
-        // zc=alam*dk+double(k0);
-        // yc=alam*dj+double(j0);
-        dz=2.0*abs(alam*dk+double(k0) - (double(km)+0.5*sgnk));
-        dy=2.0*abs(alam*dj+double(j0) -(double(jm)+0.5*sgnj));
+        zc=alam*dk+double(k0);
+        yc=alam*dj+double(j0);
+        dz=2.0*abs(zc-(double(km)+0.5*sgnk));
+        dy=2.0*abs(yc-(double(jm)+0.5*sgnj));
         s1=(1.-dz)*(1.-dy);
         s2=(1.-dz)*dy;
         s3=(1.-dy)*dz;
         s4=dy*dz;
 
         imp=modulo_gpu(im ,m1);
-        jp= modulo_gpu(j+j0  ,m1);
+        jp= modulo_gpu(j  ,m1);
         jmp=modulo_gpu(jm ,m1);
-        kp= modulo_gpu(k+k0  ,m1);
+        kp= modulo_gpu(k  ,m1);
         kmp=modulo_gpu(km ,m1);
 
         c1=  coldensh_out[mem_offst_gpu(imp,jmp,kmp,m1)];
