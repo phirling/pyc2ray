@@ -21,7 +21,6 @@ paramfile = "parameters.yml"
 N = 250                             # Mesh size
 t_evol = 5e4
 use_octa = args.gpu
-r_RT = 15
 nsrc = int(args.numsrc)
 fgamma = 0.02
 
@@ -50,7 +49,6 @@ sim.ndens = ndens
 tinit = time.time()
     
 # Loop over redshifts
-pc2r.printlog(f"Raytracing radius: {r_RT:n} grid cells (= {sim.dr_c*u.cm.to('Mpc'):.3f} comoving Mpc)",sim.logfile)
 for k in range(len(zred_array)-1):
     zi = zred_array[k]       # Start redshift
     zf = zred_array[k+1]     # End redshift
@@ -66,7 +64,7 @@ for k in range(len(zred_array)-1):
         tnow = time.time()
         pc2r.printlog(f"\n --- Timestep {t+1:n}. Redshift: z = {sim.zred : .3f} Wall clock time: {tnow - tinit : .3f} seconds --- \n",sim.logfile)
         pc2r.printlog(f"Mean density is: {sim.ndens.mean():.3e}, mean ionization fraction: {sim.xh.mean():.3e}",sim.logfile)
-        sim.evolve3D(dt, normflux, srcpos, r_RT)
+        sim.evolve3D(dt, normflux, srcpos)
 
 # Write final output
 with open(sim.results_basename + "xfrac_test_final.pkl","wb") as f:
