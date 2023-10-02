@@ -62,7 +62,7 @@ extern "C"
         double * phi_ion_data = (double*)PyArray_DATA(phi_ion);
         double * xh_av_data = (double*)PyArray_DATA(xh_av);
 
-        do_all_sources_gpu(R,coldensh_out_data,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1,minlogtau,dlogtau,NumTau);
+        do_all_sources_gpu(R,sig,dr,ndens_data,xh_av_data,phi_ion_data,NumSrc,m1,minlogtau,dlogtau,NumTau);
 
         return Py_None;
     }
