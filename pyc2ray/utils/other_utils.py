@@ -97,3 +97,24 @@ def get_same_values_in_array(arr1, arr2):
     arr2 = np.array(arr2)
     interp_arr = np.sort(np.array(list(set(arr1).intersection(arr2))))[::-1]
     return interp_arr
+
+
+def _get_redshifts_in_range(redshifts, z_low, z_high, bracket):
+        '''
+        Filter out redshifts outside of range. For internal use.
+        '''
+        redshifts = np.array(redshifts)
+        redshifts.sort()
+        if bracket:
+                if z_low < redshifts.min() or z_high > redshifts.max():
+                        raise Exception('No redshifts to bracket range.')
+                z_low = redshifts[redshifts <= z_low][-1]
+                z_high = redshifts[redshifts >= z_high][0]
+        if z_low == None:
+                z_low = redshifts.min()-1
+        if z_high == None:
+                z_high = redshifts.max()+1
+        idx = (redshifts >= z_low)*(redshifts <= z_high)
+        redshifts = redshifts[idx]
+
+        return np.array(redshifts)
