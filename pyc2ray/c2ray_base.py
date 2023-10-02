@@ -76,7 +76,7 @@ ev2fr = 0.241838e15                     # eV to Frequency (Hz)
 ev2k = 1.0/8.617e-05                    # eV to Kelvin
 kpc = 1e3*pc                            # kiloparsec in cm
 Mpc = 1e6*pc                            # megaparsec in cm
-msun2g = (1*u.Msun).to('g').value       # solar mass to grams
+msun2g = 1.98892e33 #(1*u.Msun).to('g').value       # solar mass to grams
 
 
 class C2Ray:

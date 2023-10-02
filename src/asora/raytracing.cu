@@ -94,13 +94,13 @@ void do_all_sources_gpu(
         // Byte-size of grid data
         auto meshsize = m1*m1*m1*sizeof(double);
 
-        std::cout << "R: " << R << std::endl;
+        //std::cout << "R: " << R << std::endl;
         // Determine how large the octahedron should be, based on the raytracing radius. Currently,
         // this is set s.t. the radius equals the distance from the source to the middle of the faces
         // of the octahedron. To raytrace the whole box, the octahedron bust be 1.5*N in size
         int max_q = std::ceil(SQRT3 * min(R,SQRT3*m1/2.0));
         //int max_q = std::ceil(SQRT3 * R); //std::ceil(1.5 * m1);
-        std::cout << "max_q: " << max_q << std::endl;
+        //std::cout << "max_q: " << max_q << std::endl;
 
         // CUDA Grid size: since 1 block = 1 source, this sets the number of sources treated in parallel
         dim3 gs(NUM_SRC_PAR);
