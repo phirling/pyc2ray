@@ -11,6 +11,7 @@
 // ========================================================================
 #define FOURPI 12.566370614359172463991853874177    // 4π
 #define INV4PI 0.079577471545947672804111050482     // 1/4π
+#define SQRT3 1.73205080757                         // Square root of 3
 #define MAX_COLDENSH 2e30                           // Column density limit (rates are set to zero above this)
 #define CUDA_BLOCK_SIZE 256                         // Size of blocks used to treat sources
 
@@ -93,10 +94,13 @@ void do_all_sources_gpu(
         // Byte-size of grid data
         auto meshsize = m1*m1*m1*sizeof(double);
 
+        std::cout << "R: " << R << std::endl;
         // Determine how large the octahedron should be, based on the raytracing radius. Currently,
         // this is set s.t. the radius equals the distance from the source to the middle of the faces
         // of the octahedron. To raytrace the whole box, the octahedron bust be 1.5*N in size
-        int max_q = std::ceil(1.73205080757 * R); //std::ceil(1.5 * m1);
+        int max_q = std::ceil(SQRT3 * min(R,SQRT3*m1/2.0));
+        //int max_q = std::ceil(SQRT3 * R); //std::ceil(1.5 * m1);
+        std::cout << "max_q: " << max_q << std::endl;
 
         // CUDA Grid size: since 1 block = 1 source, this sets the number of sources treated in parallel
         dim3 gs(NUM_SRC_PAR);
@@ -122,7 +126,7 @@ void do_all_sources_gpu(
         for (int ns = 0; ns < NumSrc; ns += NUM_SRC_PAR)
         {   
             // Raytrace the current batch of sources in parallel
-            evolve0D_gpu<<<gs,bs>>>(max_q,ns,NumSrc,NUM_SRC_PAR,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
+            evolve0D_gpu<<<gs,bs>>>(R,max_q,ns,NumSrc,NUM_SRC_PAR,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
 
             // Check for errors
             auto error = cudaGetLastError();
@@ -147,6 +151,7 @@ void do_all_sources_gpu(
 // to the current cell and finds the photoionization rate
 // ========================================================================
 __global__ void evolve0D_gpu(
+    const int Rmax_LLS,
     const int q_max,    // Is now the size of max q
     const int ns_start,
     const int NumSrc,
@@ -282,6 +287,7 @@ __global__ void evolve0D_gpu(
                                 path = 0.5*dr;
                                 // vol_ph = dr*dr*dr / (4*M_PI);
                                 vol_ph = dr*dr*dr;
+                                dist2 = 0.0;
                             }
 
                             // If its another cell, do interpolation to find incoming column density
@@ -303,7 +309,7 @@ __global__ void evolve0D_gpu(
                             coldensh_out[cdh_offset + mem_offst_gpu(pos[0],pos[1],pos[2],m1)] = cdho;
                             
                             // Compute photoionization rates from column density. WARNING: for now this is limited to the grey-opacity test case source
-                            if (coldensh_in <= MAX_COLDENSH)
+                            if ((coldensh_in <= MAX_COLDENSH) && (dist2/(dr*dr) <= Rmax_LLS*Rmax_LLS))
                             {
                                 #if defined(GREY_NOTABLES)
                                 double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);

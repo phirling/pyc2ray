@@ -63,7 +63,7 @@ for k in range(len(zred_array)-1):
         sim.cosmo_evolve(dt)
 
         # Evolve the simulation: raytrace -> photoionization rates -> chemistry -> until convergence
-        sim.evolve3D(dt, srcflux, srcpos, r_RT, max_subbox)
+        sim.evolve3D(dt, srcflux, srcpos, r_RT)
 
 pc2r.printlog(f"Done. Final time: {time.time() - tinit : .3f} seconds",sim.logfile)
 

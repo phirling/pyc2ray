@@ -66,7 +66,7 @@ for k in range(len(zred_array)-1):
         tnow = time.time()
         pc2r.printlog(f"\n --- Timestep {t+1:n}. Redshift: z = {sim.zred : .3f} Wall clock time: {tnow - tinit : .3f} seconds --- \n",sim.logfile)
         pc2r.printlog(f"Mean density is: {sim.ndens.mean():.3e}, mean ionization fraction: {sim.xh.mean():.3e}",sim.logfile)
-        sim.evolve3D(dt, normflux, srcpos, r_RT, 1000)
+        sim.evolve3D(dt, normflux, srcpos, r_RT)
 
 # Write final output
 with open(sim.results_basename + "xfrac_test_final.pkl","wb") as f:
