@@ -96,8 +96,12 @@ class C2Ray:
         # MPI setup
         if use_mpi:
             self.mpi = use_mpi
+            self.comm = use_mpi.COMM_WORLD
+            self.rank = self.comm.Get_rank()
+            self.nprocs = self.comm.Get_size()
         else:
             self.mpi = False
+            self.rank = 0
 
         # Read YAML parameter file and set main properties
         self._read_paramfile(paramfile)
@@ -123,9 +127,10 @@ class C2Ray:
         self._material_init()
         self._sources_init()
         self._radiation_init()
-        if self.gpu: self.printlog("Using ASORA Raytracing")
-        else: self.printlog("Using CPU Raytracing")
-        self.printlog("Starting simulation... \n\n")
+        if(self.rank == 0):
+            if self.gpu: self.printlog("Using ASORA Raytracing")
+            else: self.printlog("Using CPU Raytracing")
+            self.printlog("Starting simulation... \n\n")
 
     # =====================================================================================================
     # TIME-EVOLUTION METHODS
@@ -180,7 +185,8 @@ class C2Ray:
         """
         if self.mpi:
             self.xh, self.phi_ion = evolve3D_MPI(dt, self.dr, src_flux, src_pos,
-                                                 r_RT, self.gpu, self.mpi,
+                                                 r_RT, self.gpu, self.mpi, 
+                                                 self.comm, self.rank, self.nprocs,
                                                  max_subbox, self.loss_fraction,
                                                  self.temp, self.ndens, self.xh,
                                                  self.photo_thin_table, self.minlogtau, self.dlogtau,

@@ -31,7 +31,7 @@ if use_mpi:
     from mpi4py import MPI
     sim = pc2r.C2Ray_Test(paramfile, N, use_octa, MPI)
 else:
-    sim = pc2r.C2Ray_Test(paramfile, N, use_octa, split_src)
+    sim = pc2r.C2Ray_Test(paramfile, N, use_octa)
 
 # Generate redshift list (test case)
 zred_array = sim.generate_redshift_array(numzred,t_evol/numzred)
