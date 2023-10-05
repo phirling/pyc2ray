@@ -2,24 +2,35 @@ import sys
 sys.path.append("../../")
 import pyc2ray as pc2r
 import time
+import argparse
 
 # ======================================================================
 # t_evol = 500 Myr
-# COARSE TIME: dt = t_evol / 10 = 50 Myr
-# 1 output per timestep to have 10 points on the plot
+# COARSE TIME: dt = t_evol / 10  = 50 Myr
+# FINE TIME:   dt = t_evol / 100 = 5  Myr
 # ======================================================================
 
 # Global parameters
-numzred = 10                        # Number of redshift slices
+parser = argparse.ArgumentParser()
+parser.add_argument("-mode",type=str,default="coarse")
+parser.add_argument("--gpu",action='store_true')
+args = parser.parse_args()
+
+mode = str(args.mode)
+
+if mode == "coarse":
+    numzred = 10
+    paramfile = "parameters_coarse.yml"
+elif mode == "fine":
+    numzred = 100
+    paramfile = "parameters_fine.yml"
+else:
+    raise RuntimeError("Unknown mode")
+
 num_steps_between_slices = 1        # Number of timesteps between redshift slices
 t_evol = 5e8 # years
-paramfile = "parameters.yml"        # Name of the parameter file
 N = 256                             # Mesh size
-use_octa = True                    # Determines which raytracing algorithm to use
-
-# Raytracing Parameters
-max_subbox = 1000                   # Maximum subbox when using C2Ray raytracing
-r_RT = 128                            # When using C2Ray raytracing, sets the subbox size. When using OCTA, sets the octahedron size
+use_octa = args.gpu                   # Determines which raytracing algorithm to use
 
 # Create C2Ray object
 sim = pc2r.C2Ray_Test(paramfile, N, use_octa)
@@ -33,13 +44,8 @@ srcpos, srcstrength = sim.read_sources("source.txt",1)
 # Measure time
 tinit = time.time()
 
-import pickle as pkl
-with open("results_fine/xfrac_5.024.pkl","rb") as f:
-    sim.xh = pkl.load(f)
-
 # Loop over redshifts
-#for k in range(len(zred_array)-1):
-for k in range(9,len(zred_array)-1):
+for k in range(len(zred_array)-1):
     zi = zred_array[k]       # Start redshift
     zf = zred_array[k+1]     # End redshift
 
@@ -53,12 +59,8 @@ for k in range(9,len(zred_array)-1):
     # Write output
     sim.write_output(zi)
 
-    # Set density field (could be an actual cosmological field here)
-    # Eventually, we want a general method that sets the density, scales it
-    # sets the redshift etc (like density_ini in C2Ray). This method should
-    # also be able to read in actual density fields. For now, do all this
-    # manually.
-    sim.density_init(zi) # when cosmological is false, zi has no effect
+    # Set density (when cosmological is false, zi has no effect)
+    sim.density_init(zi)
 
     # Set redshift to current slice redshift
     sim.zred = zi
@@ -73,7 +75,7 @@ for k in range(9,len(zred_array)-1):
         sim.cosmo_evolve(dt)
 
         # Evolve the simulation: raytrace -> photoionization rates -> chemistry -> until convergence
-        sim.evolve3D(dt, srcstrength, srcpos, r_RT, max_subbox)
+        sim.evolve3D(dt, srcstrength, srcpos)
 
 # Write final output
 sim.write_output(zf)

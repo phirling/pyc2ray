@@ -41,6 +41,10 @@ CGS:
   alcpow: -0.672
   # Hydrogen ionization energy (in eV)
   eth0: 13.598
+  #Helium I ionization energy (in eV)
+  ethe0: 24.587
+  # Helium II ionization energy (in eV)
+  ethe1: 54.416
   # Hydrogen collisional ionization parameter 1
   xih0: 1.0
   # Hydrogen collisional ionization parameter 2
@@ -77,6 +81,8 @@ Photo:
   grey: 1
   # Power-law index for the frequency dependence of the photoionization cross section
   cross_section_pl_index: 2.8
+  
+  R_max_cMpc: 15.0
 
 # -----------------------
 # Cosmological Parameters
@@ -95,12 +101,6 @@ Cosmology:
   # Initial redshift of the simulation
   zred_0: 9.0
 
-  # N.B. : Planck 18
-  #  h: 0.6766
-  #  Omega0: 0.30966
-  #  Omega_B: 0.04897
-  #  cmbtemp: 2.7255
-
 # ------------
 # Output setup
 # ------------
@@ -114,8 +114,14 @@ Output:
 # Parameters for raytracing
 # -------------------------
 Raytracing:
-  # Photon loss fraction for the subbox algorithm
+  # Photon loss fraction for the subbox algorithm (not used if using ASORA)
   loss_fraction: 1e-2
+  # Size increase of subboxes around sources (not used if using ASORA)
+  subboxsize: 128
+  # Maximum subbox size for the subbox algorithm (not used if using ASORA)
+  max_subbox: 1000
   # Source batch size, i.e. number of sources handled in parallel on the GPU.
   # Speeds up computation but increases memory usage
-  source_batch_size: 96
+  source_batch_size: 1
+  # Which fraction of the cells can be left unconverged
+  convergence_fraction: 1e-4
