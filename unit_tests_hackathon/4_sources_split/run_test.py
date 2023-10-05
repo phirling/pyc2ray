@@ -16,9 +16,9 @@ parser.add_argument("-numsrc", default=10, type=int, help="Number of sources to 
 args = parser.parse_args()
 
 # Global parameters
-numzred = 5                        # Number of redshift slices
-num_steps_between_slices = 10        # Number of timesteps between redshift slices
-paramfile = "parameters.yml"
+numzred = 10                        # Number of redshift slices
+num_steps_between_slices = 2        # Number of timesteps between redshift slices
+paramfile = "/users/mibianco/codes/pyC2Ray/pyc2ray/unit_tests_hackathon/4_sources_split/parameters.yml"
 N = 250                             # Mesh size
 t_evol = 5e5
 use_octa = args.gpu
@@ -42,8 +42,8 @@ with open("/store/ska/sk015/cosmo_sources_sorted.pkl","rb") as f:
 fgamma = 10 #250
 t_s = 3*u.Myr.to('s')
 fact = fgamma*sim.cosmology.Ob0/(sim.cosmology.Om0*t_s*ac.m_p.to('Msun').value)
-srcpos = sources_list[:nsrc,:3].T
-normflux = fact*sources_list[:nsrc,3]/1e48
+#srcpos = sources_list[:nsrc,:3].T
+#normflux = fact*sources_list[:nsrc,3]/1e48
 
 # Set up density
 df = t2c.DensityFile("/store/ska/sk015/dens_9.938.dat")
@@ -59,9 +59,13 @@ tinit = time.time()
 out_i = 0
     
 # Loop over redshifts
-pc2r.printlog(f"Running on {len(normflux):n} sources...",sim.logfile)
 pc2r.printlog(f"Raytracing radius: {r_RT:n} grid cells (= {sim.dr_c*u.cm.to('Mpc'):.3f} comoving Mpc)",sim.logfile)
 for k in range(len(zred_array)-1):
+    # progressivly increas the number of soures (to test MPI)
+    srcpos = sources_list[:nsrc+k,:3].T
+    normflux = fact*sources_list[:nsrc+k,3]/1e48
+    pc2r.printlog(f"Running on {len(normflux):n} sources...",sim.logfile)
+
     zi = zred_array[k]       # Start redshift
     zf = zred_array[k+1]     # End redshift
 

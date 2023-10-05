@@ -130,6 +130,7 @@ class C2Ray:
         if(self.rank == 0):
             if self.gpu: self.printlog("Using ASORA Raytracing")
             else: self.printlog("Using CPU Raytracing")
+            if (self.mpi): self.printlog(f"Using {self.nprocs:n} MPI processors")
             self.printlog("Starting simulation... \n\n")
 
     # =====================================================================================================
@@ -184,14 +185,28 @@ class C2Ray:
             parameter has no effect.
         """
         if self.mpi:
-            self.xh, self.phi_ion = evolve3D_MPI(dt, self.dr, src_flux, src_pos,
-                                                 r_RT, self.gpu, self.mpi, 
-                                                 self.comm, self.rank, self.nprocs,
-                                                 max_subbox, self.loss_fraction,
-                                                 self.temp, self.ndens, self.xh,
-                                                 self.photo_thin_table, self.minlogtau, self.dlogtau,
-                                                 self.sig, self.bh00, self.albpow, self.colh0, self.temph0, self.abu_c,
-                                                 self.logfile)
+            NumSrc = src_flux.shape[0]
+            
+            # TODO: this is a bit ugly but it works: 
+            # if the number of sources exceed the number of MPI processors then call the evolve designed for the MPI source splitting.
+            # otherwise: all ranks are calling (independently) the evolve with no source splitting until the condition above is meet.
+            if(NumSrc >= self.nprocs):
+                self.xh, self.phi_ion = evolve3D_MPI(dt, self.dr, src_flux, src_pos,
+                                                    r_RT, self.gpu, self.mpi, 
+                                                    self.comm, self.rank, self.nprocs,
+                                                    max_subbox, self.loss_fraction,
+                                                    self.temp, self.ndens, self.xh,
+                                                    self.photo_thin_table, self.minlogtau, self.dlogtau,
+                                                    self.sig, self.bh00, self.albpow, self.colh0, self.temph0, self.abu_c,
+                                                    self.logfile)
+            else:
+                self.xh, self.phi_ion = evolve3D(dt, self.dr, src_flux, src_pos,
+                                             r_RT, self.gpu,
+                                             max_subbox, self.loss_fraction,
+                                             self.temp, self.ndens, self.xh,
+                                             self.photo_thin_table, self.minlogtau, self.dlogtau,
+                                             self.sig, self.bh00, self.albpow, self.colh0, self.temph0, self.abu_c,
+                                             self.logfile)
         else:
             self.xh, self.phi_ion = evolve3D(dt, self.dr, src_flux, src_pos,
                                              r_RT, self.gpu,
@@ -316,10 +331,10 @@ class C2Ray:
 
         # Scale quantities to the initial redshift
         if self.cosmological:
-            self.printlog(f"Cosmology is on, scaling comoving quantities to the initial redshift, which is z0 = {self.zred_0:.3f}...")
+            if(self.rank == 0): self.printlog(f"Cosmology is on, scaling comoving quantities to the initial redshift, which is z0 = {self.zred_0:.3f}...")
             self.dr = self.cosmology.scale_factor(self.zred_0) * self.dr_c
         else:
-            self.printlog("Cosmology is off.")
+            if(self.rank == 0): self.printlog("Cosmology is off.")
 
     def _radiation_init(self):
         """Set up radiation tables for ionization/heating rates
@@ -345,22 +360,24 @@ class C2Ray:
         self.cs_pl_idx_h = self._ld['Photo']['cross_section_pl_index']
         radsource = BlackBodySource(self.bb_Teff, self.grey, ion_freq_HI, self.cs_pl_idx_h)
 
-        if self.grey:
-            self.printlog(f"Warning: Using grey opacity")
-        else:
-            self.printlog(f"Using power-law opacity with {self.NumTau:n} table points between tau=10^({self.minlogtau:n}) and tau=10^({self.maxlogtau:n})")
+        if(self.rank == 0):
+            if self.grey:
+                self.printlog(f"Warning: Using grey opacity")
+            else:
+                self.printlog(f"Using power-law opacity with {self.NumTau:n} table points between tau=10^({self.minlogtau:n}) and tau=10^({self.maxlogtau:n})")
 
         # Integrate table. TODO: make this more customizeable
         self.photo_thin_table = radsource.make_photo_table(self.tau,freq_min,freq_max,1e48)
         
-        self.printlog(f"Using Black-Body sources with effective temperature T = {radsource.temp :.1e} K and Radius {(radsource.R_star/c.R_sun.to('cm')).value : .3e} rsun")
-        self.printlog(f"Spectrum Frequency Range: {freq_min:.3e} to {freq_max:.3e} Hz")
-        self.printlog(f"This is Energy:           {freq_min/ev2fr:.3e} to {freq_max/ev2fr:.3e} eV")
+        if(self.rank == 0):
+            self.printlog(f"Using Black-Body sources with effective temperature T = {radsource.temp :.1e} K and Radius {(radsource.R_star/c.R_sun.to('cm')).value : .3e} rsun")
+            self.printlog(f"Spectrum Frequency Range: {freq_min:.3e} to {freq_max:.3e} Hz")
+            self.printlog(f"This is Energy:           {freq_min/ev2fr:.3e} to {freq_max/ev2fr:.3e} eV")
 
         # Copy radiation table to GPU
         if self.gpu:
             photo_table_to_device(self.photo_thin_table)
-            self.printlog("Successfully copied radiation tables to GPU memory.")
+            if(self.rank == 0): self.printlog("Successfully copied radiation tables to GPU memory.")
 
     def _grid_init(self):
         """ Set up grid properties
@@ -369,8 +386,9 @@ class C2Ray:
         self.boxsize_c = self._ld['Grid']['boxsize'] * Mpc
         self.dr_c = self.boxsize_c / self.N
 
-        self.printlog(f"Welcome! Mesh size is N = {self.N:n}.")
-        self.printlog(f"Simulation Box size (comoving Mpc): {self.boxsize_c/Mpc:.3e}")
+        if(self.rank == 0):
+            self.printlog(f"Welcome! Mesh size is N = {self.N:n}.")
+            self.printlog(f"Simulation Box size (comoving Mpc): {self.boxsize_c/Mpc:.3e}")
 
         # Initialize cell size to comoving size (if cosmological run, it will be scaled in cosmology_init)
         self.dr = self.dr_c

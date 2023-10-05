@@ -110,7 +110,7 @@ Cosmology:
 # ------------
 Output:
   # Directory where results and log files are stored (don't forget slash at end)
-  results_basename: ./test_results/
+  results_basename: /users/mibianco/codes/pyC2Ray/pyc2ray/unit_tests_hackathon/4_sources_split/test_results/
   # Name of the log file to write
   logfile: pyC2Ray.log
 
