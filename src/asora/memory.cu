@@ -17,11 +17,12 @@
 // * The column density is NEVER copied back to the host, since it is only
 // accessed on the device when computing ionization rates.
 // ========================================================================
-double* cdh_dev;                // Outgoing column density of the cells
-double* n_dev;                  // Density
-double* x_dev;                  // Time-averaged ionized fraction
-double* phi_dev;                // Photoionization rates
-double* photo_thin_table_dev;   // Radiation table
+double* cdh_dev;                 // Outgoing column density of the cells
+double* n_dev;                   // Density
+double* x_dev;                   // Time-averaged ionized fraction
+double* phi_dev;                 // Photoionization rates
+double* photo_thin_table_dev;    // Thin Radiation table
+double* photo_thick_table_dev;   // Thick Radiation table
 int * src_pos_dev;
 double * src_flux_dev;
 
@@ -86,10 +87,14 @@ void density_to_device(double* ndens,const int & N)
     cudaMemcpy(n_dev,ndens,N*N*N*sizeof(double),cudaMemcpyHostToDevice);
 }
 
-void photo_table_to_device(double* table,const int & NumTau)
+void photo_table_to_device(double* thin_table,double* thick_table,const int & NumTau)
 {
+    // Copy thin table
     cudaMalloc(&photo_thin_table_dev,NumTau*sizeof(double));
-    cudaMemcpy(photo_thin_table_dev,table,NumTau*sizeof(double),cudaMemcpyHostToDevice);
+    cudaMemcpy(photo_thin_table_dev,thin_table,NumTau*sizeof(double),cudaMemcpyHostToDevice);
+    // Copy thick table
+    cudaMalloc(&photo_thick_table_dev,NumTau*sizeof(double));
+    cudaMemcpy(photo_thick_table_dev,thick_table,NumTau*sizeof(double),cudaMemcpyHostToDevice);
 }
 void source_data_to_device(int* pos, double* flux, const int & NumSrc)
 {   

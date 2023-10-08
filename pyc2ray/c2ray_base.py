@@ -333,7 +333,7 @@ class C2Ray:
             self.printlog(f"Using power-law opacity with {self.NumTau:n} table points between tau=10^({self.minlogtau:n}) and tau=10^({self.maxlogtau:n})")
 
         # Integrate table. TODO: make this more customizeable
-        self.photo_thin_table, self.photo_thick_table = radsource.make_photo_table(self.tau,freq_min,freq_max,1e48) # !!!!! Its actually the other way around, debugging!!!!
+        self.photo_thin_table, self.photo_thick_table = radsource.make_photo_table(self.tau,freq_min,freq_max,1e48)
         
         self.printlog(f"Using Black-Body sources with effective temperature T = {radsource.temp :.1e} K and Radius {(radsource.R_star/c.R_sun.to('cm')).value : .3e} rsun")
         self.printlog(f"Spectrum Frequency Range: {freq_min:.3e} to {freq_max:.3e} Hz")
@@ -341,7 +341,7 @@ class C2Ray:
 
         # Copy radiation table to GPU
         if self.gpu:
-            photo_table_to_device(self.photo_thin_table)
+            photo_table_to_device(self.photo_thin_table,self.photo_thick_table)
             self.printlog("Successfully copied radiation tables to GPU memory.")
 
     def _grid_init(self):

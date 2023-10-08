@@ -115,12 +115,14 @@ extern "C"
     asora_photo_table_to_device(PyObject *self, PyObject *args)
     {
         int NumTau;
-        PyArrayObject * table;
-        if (!PyArg_ParseTuple(args,"Oi",&table,&NumTau))
+        PyArrayObject * thin_table;
+        PyArrayObject * thick_table;
+        if (!PyArg_ParseTuple(args,"OOi",&thin_table,&thick_table,&NumTau))
             return NULL;
 
-        double * table_data = (double*)PyArray_DATA(table);
-        photo_table_to_device(table_data,NumTau);
+        double * thin_table_data = (double*)PyArray_DATA(thin_table);
+        double * thick_table_data = (double*)PyArray_DATA(thick_table);
+        photo_table_to_device(thin_table_data,thick_table_data,NumTau);
 
         return Py_None;
     }

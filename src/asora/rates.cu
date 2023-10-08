@@ -14,7 +14,7 @@
 // photo_table_to_device()
 // ========================================================================
 __device__ double photoion_rates_gpu(const double & strength,const double & coldens_in,const double & coldens_out,const double & Vfact,const double & sig,
-    const double* table,const double & minlogtau,const double & dlogtau,const int& NumTau)
+    const double* photo_thin_table,const double* photo_thick_table,const double & minlogtau,const double & dlogtau,const int& NumTau)
 {
     // Compute optical depth and ionization rate depending on whether the cell is optically thick or thin
     double tau_in = coldens_in * sig;
@@ -22,9 +22,22 @@ __device__ double photoion_rates_gpu(const double & strength,const double & cold
 
     double prefact = strength / Vfact;
 
-    double phi_photo_in = prefact * photo_lookuptable(table,tau_in,minlogtau,dlogtau,NumTau);
-    double phi_photo_out = prefact * photo_lookuptable(table,tau_out,minlogtau,dlogtau,NumTau);
-    return phi_photo_in - phi_photo_out;
+    // PH (08.10.23) I'm confused about the way the rates are calculated differently for thin/thick
+    // cells. The following is taken verbatim from radiation_photoionrates.F90 lines 276 - 303
+    // but without true understanding... Names are slightly different to simpify notatio
+    double phi_photo_in = prefact * photo_lookuptable(photo_thick_table,tau_in,minlogtau,dlogtau,NumTau);
+
+    if (abs(tau_out-tau_in) > TAU_PHOTO_LIMIT )
+    {
+        double phi_photo_out = prefact * photo_lookuptable(photo_thick_table,tau_out,minlogtau,dlogtau,NumTau);
+        return phi_photo_in - phi_photo_out;
+    }
+    else
+    {
+        return prefact * (tau_out-tau_in) * photo_lookuptable(photo_thin_table,tau_out,minlogtau,dlogtau,NumTau);
+    }
+    // double phi_photo_out = prefact * photo_lookuptable(photo_thick_table,tau_out,minlogtau,dlogtau,NumTau);
+    // return phi_photo_in - phi_photo_out;
 }
 
 // ========================================================================
@@ -54,7 +67,7 @@ __device__ double photoion_rates_test_gpu(const double & strength,const double &
 // Utility function to look up the integral value corresponding to an
 // optical depth τ by doing linear interpolation.
 // ========================================================================
-__device__ double photo_lookuptable(const double* photo_thin_table,const double & tau,const double & minlogtau,const double & dlogtau,const int & NumTau)
+__device__ double photo_lookuptable(const double* table,const double & tau,const double & minlogtau,const double & dlogtau,const int & NumTau)
 {
     double logtau;
     double real_i, residual;
@@ -66,5 +79,5 @@ __device__ double photo_lookuptable(const double* photo_thin_table,const double 
     i0 = int( real_i );
     i1 = min(NumTau, i0+1);
     residual = real_i - double(i0);
-    return photo_thin_table[i0] + residual*(photo_thin_table[i1] - photo_thin_table[i0]);
+    return table[i0] + residual*(table[i1] - table[i0]);
 }

@@ -126,7 +126,9 @@ void do_all_sources_gpu(
         for (int ns = 0; ns < NumSrc; ns += NUM_SRC_PAR)
         {   
             // Raytrace the current batch of sources in parallel
-            evolve0D_gpu<<<gs,bs>>>(R,max_q,ns,NumSrc,NUM_SRC_PAR,src_pos_dev,src_flux_dev,cdh_dev,sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,minlogtau,dlogtau,NumTau,last_l,last_r);
+            evolve0D_gpu<<<gs,bs>>>(R,max_q,ns,NumSrc,NUM_SRC_PAR,src_pos_dev,src_flux_dev,cdh_dev,
+                sig,dr,n_dev,x_dev,phi_dev,m1,photo_thin_table_dev,photo_thick_table_dev,
+                minlogtau,dlogtau,NumTau,last_l,last_r);
 
             // Check for errors
             auto error = cudaGetLastError();
@@ -165,7 +167,8 @@ __global__ void evolve0D_gpu(
     const double* xh_av,
     double* phi_ion,
     const int m1,
-    const double* photo_table,
+    const double* photo_thin_table,
+    const double* photo_thick_table,
     const double minlogtau,
     const double dlogtau,
     const int NumTau,
@@ -314,7 +317,7 @@ __global__ void evolve0D_gpu(
                                 #if defined(GREY_NOTABLES)
                                 double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);
                                 #else
-                                double phi = photoion_rates_gpu(strength,coldensh_in,cdho,vol_ph,sig,photo_table,minlogtau,dlogtau,NumTau);
+                                double phi = photoion_rates_gpu(strength,coldensh_in,cdho,vol_ph,sig,photo_thin_table,photo_thick_table,minlogtau,dlogtau,NumTau);
                                 #endif
                                 // Divide the photo-ionization rates by the appropriate neutral density
                                 // (part of the photon-conserving rate prescription)
@@ -955,7 +958,7 @@ __global__ void evolve0D_gpu_old(
                     #if defined(GREY_NOTABLES)
                     double phi = photoion_rates_test_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig);
                     #else
-                    double phi = photoion_rates_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig,photo_table,minlogtau,dlogtau,NumTau);
+                    double phi = photoion_rates_gpu(strength,coldensh_in,coldensh_out[mem_offst_gpu(pos[0],pos[1],pos[2],m1)],vol_ph,sig,photo_table,photo_table,minlogtau,dlogtau,NumTau);
                     #endif
                     // Divide the photo-ionization rates by the appropriate neutral density
                     // (part of the photon-conserving rate prescription)
