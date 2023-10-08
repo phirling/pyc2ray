@@ -35,7 +35,8 @@ def evolve3D(dt,dr,
         src_flux,src_pos,
         use_gpu,max_subbox,subboxsize,loss_fraction,
         temp,ndens,xh,
-        photo_thin_table,minlogtau,dlogtau,
+        photo_thin_table,photo_thick_table,
+        minlogtau,dlogtau,
         R_max_LLS, convergence_fraction,
         sig,bh00,albpow,colh0,temph0,abu_c,
         logfile="pyC2Ray.log",quiet=False):
@@ -179,7 +180,7 @@ def evolve3D(dt,dr,
             libasora.do_all_sources(R_max_LLS,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
         else:
             # Use CPU raytracing with subbox optimization
-            nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,photo_thin_table,minlogtau,dlogtau,R_max_LLS)
+            nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,photo_thin_table,photo_thick_table,minlogtau,dlogtau,R_max_LLS)
 
         printlog(f"took {(time.time()-trt0) : .1f} s.", logfile,quiet)
 

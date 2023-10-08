@@ -44,15 +44,25 @@ class BlackBodySource:
             return 1.0
         else:
             return (freq/self.freq0)**(-self.pl_index)
-        
-    def _photo_integrand_vec(self,freq,tau):
-        return self.SED(freq) * np.exp(-tau*self.cross_section_freq_dependence(freq))
+    
+    # C2Ray distinguishes between optically thin and thick cells, and calculates the rates differently
+    # for those two cases. See radiation_tables.F90, lines 345 -
+    def _photo_thick_integrand_vec(self,freq,tau):
+        itg = self.SED(freq) * np.exp(-tau*self.cross_section_freq_dependence(freq))
+        # To avoid overflow in the exponential, check
+        return np.where(tau*self.cross_section_freq_dependence(freq) < 700.0,itg,0.0)
+    
+    def _photo_thin_integrand_vec(self,freq,tau):
+        itg = self.SED(freq) * self.cross_section_freq_dependence(freq) * np.exp(-tau*self.cross_section_freq_dependence(freq))
+        return np.where(tau*self.cross_section_freq_dependence(freq) < 700.0,itg,0.0)
     
     def make_photo_table(self,tau,freq_min,freq_max,S_star_ref):
         self.normalize_SED(freq_min,freq_max,S_star_ref)
-        integrand_ = lambda f : self._photo_integrand_vec(f,tau)
-        table = quad_vec(integrand_,freq_min,freq_max,epsrel=1e-12)
-        return table[0]
+        integrand_thin = lambda f : self._photo_thin_integrand_vec(f,tau)
+        integrand_thick = lambda f : self._photo_thick_integrand_vec(f,tau)
+        table_thin = quad_vec(integrand_thin,freq_min,freq_max,epsrel=1e-12)[0]
+        table_thick = quad_vec(integrand_thick,freq_min,freq_max,epsrel=1e-12)[0]
+        return table_thin, table_thick
     
 def make_tau_table(minlogtau,maxlogtau,NumTau):
     """Utility function to create optical depth array for C2Ray

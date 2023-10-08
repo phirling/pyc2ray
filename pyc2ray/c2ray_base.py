@@ -173,7 +173,8 @@ class C2Ray:
             src_flux, src_pos,
             self.gpu, self.max_subbox,self.subboxsize,self.loss_fraction,
             self.temp, self.ndens, self.xh,
-            self.photo_thin_table, self.minlogtau, self.dlogtau,
+            self.photo_thin_table, self.photo_thick_table,
+            self.minlogtau, self.dlogtau,
             self.R_max_LLS, self.convergence_fraction,
             self.sig, self.bh00, self.albpow, self.colh0, self.temph0, self.abu_c,
             self.logfile
@@ -332,7 +333,7 @@ class C2Ray:
             self.printlog(f"Using power-law opacity with {self.NumTau:n} table points between tau=10^({self.minlogtau:n}) and tau=10^({self.maxlogtau:n})")
 
         # Integrate table. TODO: make this more customizeable
-        self.photo_thin_table = radsource.make_photo_table(self.tau,freq_min,freq_max,1e48)
+        self.photo_thin_table, self.photo_thick_table = radsource.make_photo_table(self.tau,freq_min,freq_max,1e48) # !!!!! Its actually the other way around, debugging!!!!
         
         self.printlog(f"Using Black-Body sources with effective temperature T = {radsource.temp :.1e} K and Radius {(radsource.R_star/c.R_sun.to('cm')).value : .3e} rsun")
         self.printlog(f"Spectrum Frequency Range: {freq_min:.3e} to {freq_max:.3e} Hz")
