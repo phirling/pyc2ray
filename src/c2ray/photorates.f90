@@ -60,7 +60,10 @@ module photorates
     !! IN DEVELOPMENT
     !! Photoionization rates from precalculated tables
     subroutine photoion_rates(normflux,coldens_in,coldens_out,Vfact,sig,phi_photo_cell, &
-            phi_photo_out,photo_thin_table,minlogtau,dlogtau,NumTau)
+            phi_photo_out,photo_thin_table,photo_thick_table,minlogtau,dlogtau,NumTau)
+
+        ! Optical depth below which we should use the optically thin tables
+        real(kind=real64),parameter :: tau_photo_limit = 1.0e-7
 
         ! Subroutine Arguments
         real(kind=real64), intent(in) :: normflux               ! 
@@ -74,6 +77,7 @@ module photorates
         real(kind=real64), intent(out) :: phi_photo_out         ! Photoionization rate at the output of the cell (radiation that leaves the cell), in s^-1
 
         real(kind=real64),intent(in) :: photo_thin_table(NumTau)
+        real(kind=real64),intent(in) :: photo_thick_table(NumTau)
         integer, intent(in) :: NumTau
         real(kind=real64), intent(in) :: minlogtau
         real(kind=real64), intent(in) :: dlogtau
@@ -92,14 +96,27 @@ module photorates
         tau_out = coldens_out * sig
 
         prefact = normflux / Vfact
+        
+        ! PH (08.10.23) I'm confused about the way the rates are calculated differently for thin/thick
+        ! cells. The following is taken verbatim from radiation_photoionrates.F90 lines 276 - 303
+        ! but without true understanding... Names are slightly different to simpify notation
+        phi_photo_in = prefact * photo_lookuptable(tau_in,photo_thick_table)
 
-        phi_photo_in = prefact * photo_lookuptable(tau_in)
-        phi_photo_out = prefact * photo_lookuptable(tau_out)
-        phi_photo_cell = phi_photo_in - phi_photo_out
+        if (abs(tau_out-tau_in) > tau_photo_limit ) then
+            phi_photo_out = prefact * photo_lookuptable(tau_out,photo_thick_table)
+            phi_photo_cell = phi_photo_in - phi_photo_out
+        else
+            ! write(*,*) "encountered thin cell!"
+            phi_photo_cell = prefact * (tau_out-tau_in) * photo_lookuptable(tau_in,photo_thin_table)
+            phi_photo_out = phi_photo_in - phi_photo_cell
+        endif
+
+        
 
         contains
-        real(kind=real64) function photo_lookuptable(tau)
+        real(kind=real64) function photo_lookuptable(tau,table)
             real(kind=real64),intent(in) :: tau
+            real(kind=real64),intent(in) :: table(NumTau)
             real(kind=real64) :: logtau
             real(kind=real64) :: real_i, residual
             integer :: i0, i1
@@ -113,7 +130,7 @@ module photorates
             residual = real_i - real(i0)
             ! We increment the indices by +1 since Fortran understands the table as 1-indexed (its created in python and then passed to Fortran),
             ! whereas in original C2Ray, the table is created EXPLICITELY as ranging from 0 to NumTau (see radiation_tables.F90).
-            photo_lookuptable = photo_thin_table(i0 + 1) + residual*(photo_thin_table(i1 + 1) - photo_thin_table(i0 + 1))
+            photo_lookuptable = table(i0 + 1) + residual*(table(i1 + 1) - table(i0 + 1))
         end function photo_lookuptable
 
     end subroutine photoion_rates
