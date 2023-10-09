@@ -10,6 +10,10 @@
 
 #SBATCH --time=24:00:00
 
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=patrick.hirling@epfl.ch
+
 source ~/astro_env/bin/activate
+export HDF5_USE_FILE_LOCKING='FALSE'
 
 srun python run_test.py parameters.yml
