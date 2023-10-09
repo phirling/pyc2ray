@@ -153,7 +153,7 @@ void do_all_sources_gpu(
 // to the current cell and finds the photoionization rate
 // ========================================================================
 __global__ void evolve0D_gpu(
-    const int Rmax_LLS,
+    const double Rmax_LLS,
     const int q_max,    // Is now the size of max q
     const int ns_start,
     const int NumSrc,
