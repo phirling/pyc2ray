@@ -44,7 +44,7 @@ rho_c  = pow(HubbleParam*HUBBLE*UnitTime_in_s,2)*3/(8*np.pi*G)
 
 # Parameters of the halo
 fb = 0.15                       # Baryonic fraction
-M200 = 9.5                      # Virial mass in internal units (10^10 Msol) 10^8
+M200 = 1e-2                      # Virial mass in internal units (10^10 Msol) 10^8 9.5
 c =  5 #17                          # NFW concentration
 eps = 1                      # Gravitational softening
 
@@ -56,8 +56,12 @@ r200 = c*r_s
 
 # Numerical parameters
 rmax = 1 *r200                  # Integration limit
-L = 100
+L = 10
 dr = L / N
+
+print("r_s [kpc]  = ",r_s)
+print("r200 [kpc] = ",r200)
+print("dr [kpc]   = ",dr)
 
 '''
 Recall:
