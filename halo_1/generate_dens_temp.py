@@ -8,6 +8,7 @@ import pickle as pkl
 parser = argparse.ArgumentParser("Generate density & temperature array for NFW halo centered in cartesian grid")
 parser.add_argument("-N",type=int,default=64)
 parser.add_argument("--plot",action='store_true')
+parser.add_argument("--temperature",action='store_true')
 args = parser.parse_args()
 
 N = int(args.N)
@@ -43,7 +44,7 @@ rho_c  = pow(HubbleParam*HUBBLE*UnitTime_in_s,2)*3/(8*np.pi*G)
 
 # Parameters of the halo
 fb = 0.15                       # Baryonic fraction
-M200 = 9.5                      # Virial mass in internal units (10^10 Msol)
+M200 = 9.5                      # Virial mass in internal units (10^10 Msol) 10^8
 c =  5 #17                          # NFW concentration
 eps = 1                      # Gravitational softening
 
@@ -55,6 +56,8 @@ r200 = c*r_s
 
 # Numerical parameters
 rmax = 1 *r200                  # Integration limit
+L = 100
+dr = L / N
 
 '''
 Recall:
@@ -87,31 +90,32 @@ def T(P,r):
     T = (gamma-1)*mu*mh/kb *u
     return T
 
-
 if __name__ == "__main__":
     xi = np.arange(0,N)
     halopos = np.array([N//2-1,N//2-1,N//2-1])
     X,Y,Z = np.meshgrid(xi,xi,xi)
-    R = np.sqrt((X - halopos[0])**2 + (Y - halopos[1])**2 + (Z - halopos[2])**2)
+    R = dr * np.sqrt((X - halopos[0])**2 + (Y - halopos[1])**2 + (Z - halopos[2])**2)
 
     print("Generating Density...")
     ndens = Density(R) * UnitDensity_in_cgs / (mean_molecular * m_p)
 
-    # print("Generating Pressure...")
-    # Pressure = np.empty((N,N,N))
-    # for i in tqdm(range(N)):
-    #     for j in range(N):
-    #         for k in range(N):
-    #             Pressure[i,j,k] = P(R[i,j,k],rmax)
-# 
-    # print("Generating Temperature...")
-    # Temp = T(Pressure,R)
+    if args.temperature:
+        print("Generating Pressure...")
+        Pressure = np.empty((N,N,N))
+        for i in tqdm(range(N)):
+            for j in range(N):
+                for k in range(N):
+                    Pressure[i,j,k] = P(R[i,j,k],rmax)
+
+        print("Generating Temperature...")
+        Temp = T(Pressure,R)
 
     print("Writing files...")
     with open("ndens_nfw.pkl","wb") as f:
         pkl.dump(ndens,f)
-    #with open("temp_nfw.pkl","wb") as f:
-    #    pkl.dump(Temp,f)
+    if args.temperature:
+        with open("temp_nfw.pkl","wb") as f:
+            pkl.dump(Temp,f)
 
     if args.plot:
         fig1,ax1 = plt.subplots()
