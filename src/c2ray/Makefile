@@ -1,6 +1,6 @@
 FC=gfortran
 F2PY=f2py
-CXXFLAGS+=-DUSE_SUBBOX
+CXXFLAGS+=-DUSE_SUBBOX -DNONPERIODIC
 F2PYFLAGS+=--f2cmap f2c.f2py_f2cmap $(CXXFLAGS)  #-DGREY_NOTABLES # Add -DGREY_NOTABLES to compile version with analytical formula for grey opacity rates
 FCFLAGS="-cpp"
 

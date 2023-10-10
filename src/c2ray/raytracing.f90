@@ -161,8 +161,13 @@ module raytracing
 
         ! "Lastpos" sets the range of RT. When using the subbox technique, this is used as a maximum. When not using
         ! subboxes, it is used as a fixed value.
+#ifdef NONPERIODIC
+        lastpos_r(:) = m1
+        lastpos_l(:) = 1
+#else
         lastpos_r(:)=srcpos(:,ns)+min(max_subbox,m1/2-1+mod(m1,2))
         lastpos_l(:)=srcpos(:,ns)-min(max_subbox,m1/2)
+#endif
 
         ! TODO: add OpenMP parallelization at the Fortran level.
         ! This should work with f2py, see https://stackoverflow.com/questions/46505778/f2py-with-openmp-gives-import-error-in-python
@@ -377,7 +382,12 @@ module raytracing
 
         ! Reset check on radiative transfer
         stop_rad_transfer=.false.
-
+        
+#ifdef NONPERIODIC
+        if (rtpos(1) >= 1 .and. rtpos(1) <= m1 .and. &
+        rtpos(2) >= 1 .and. rtpos(2) <= m1 .and. &
+        rtpos(3) >= 1 .and. rtpos(3) <= m1) then
+#endif
         ! Map pos to mesh pos, assuming a periodic mesh
         pos(1) = modulo(rtpos(1) -1,m1) + 1
         pos(2) = modulo(rtpos(2) -1,m2) + 1
@@ -526,7 +536,9 @@ module raytracing
             ! -->     !photon_loss_src(1,tn)=photon_loss_src(1,tn) + phi%h_out*vol/vol_ph
             ! --> endif
         endif
-        
+#ifdef NONPERIODIC
+    endif
+#endif
     end subroutine evolve0D
     
 
