@@ -18,7 +18,7 @@ args = parser.parse_args()
 # Global parameters
 numzred = 10                        # Number of redshift slices
 num_steps_between_slices = 2        # Number of timesteps between redshift slices
-paramfile = "/users/mibianco/codes/pyC2Ray/pyc2ray/unit_tests_hackathon/4_sources_split/parameters.yml"
+paramfile = "parameters.yml"
 N = 250                             # Mesh size
 t_evol = 5e5
 use_octa = args.gpu
@@ -42,8 +42,8 @@ with open("/store/ska/sk015/cosmo_sources_sorted.pkl","rb") as f:
 fgamma = 10 #250
 t_s = 3*u.Myr.to('s')
 fact = fgamma*sim.cosmology.Ob0/(sim.cosmology.Om0*t_s*ac.m_p.to('Msun').value)
-#srcpos = sources_list[:nsrc,:3].T
-#normflux = fact*sources_list[:nsrc,3]/1e48
+srcpos = sources_list[:nsrc,:3].T
+normflux = fact*sources_list[:nsrc,3]/1e48
 
 # Set up density
 df = t2c.DensityFile("/store/ska/sk015/dens_9.938.dat")
@@ -62,8 +62,8 @@ out_i = 0
 pc2r.printlog(f"Raytracing radius: {r_RT:n} grid cells (= {sim.dr_c*u.cm.to('Mpc'):.3f} comoving Mpc)",sim.logfile)
 for k in range(len(zred_array)-1):
     # progressivly increas the number of soures (to test MPI)
-    srcpos = sources_list[:nsrc+k,:3].T
-    normflux = fact*sources_list[:nsrc+k,3]/1e48
+    #srcpos = sources_list[:nsrc+k,:3].T
+    #normflux = fact*sources_list[:nsrc+k,3]/1e48
     pc2r.printlog(f"Running on {len(normflux):n} sources...",sim.logfile)
 
     zi = zred_array[k]       # Start redshift
@@ -88,7 +88,7 @@ for k in range(len(zred_array)-1):
         tnow = time.time()
         pc2r.printlog(f"\n --- Timestep {t+1:n}. Redshift: z = {sim.zred : .3f} Wall clock time: {tnow - tinit : .3f} seconds --- \n",sim.logfile)
         pc2r.printlog(f"Mean density is: {sim.ndens.mean():.3e}, mean ionization fraction: {sim.xh.mean():.3e}",sim.logfile)
-        sim.evolve3D(dt, normflux, srcpos, r_RT, 1000)
+        sim.evolve3D(dt, normflux, srcpos)
 
 # Write final output
 sim.write_output(zf)

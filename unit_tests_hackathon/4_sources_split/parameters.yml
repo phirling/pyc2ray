@@ -14,7 +14,7 @@ Grid:
   # !! As in C2Ray, when cosmological = false, this box size is
   # used "as is". When cosmological = true, it is first scaled to zred_0
   # Maybe this should be changed, as it can induce some confusion ?
-  boxsize:  3
+  boxsize:  4 #31.87054306088865 #348.6 # = 244 Mph/h with h = 0.7 at z = 9.938
   resume: 0
 
 # --------------------------------------------------------------------
@@ -81,9 +81,8 @@ Photo:
   grey: 0
   # Power-law index for the frequency dependence of the photoionization cross section
   cross_section_pl_index: 2.8
-  
   R_max_cMpc: 0.18  #15.0
-
+  
 # -----------------------
 # Cosmological Parameters
 # -----------------------
@@ -128,6 +127,6 @@ Raytracing:
   max_subbox: 1000
   # Source batch size, i.e. number of sources handled in parallel on the GPU.
   # Speeds up computation but increases memory usage
-  source_batch_size: 32
+  source_batch_size: 96
   # Which fraction of the cells can be left unconverged
   convergence_fraction: 1e-4
