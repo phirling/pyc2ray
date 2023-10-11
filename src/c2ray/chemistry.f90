@@ -196,7 +196,7 @@ module chemistry
                 !     write(logf,*) 'h',yh0_av_old
                 !     write(logf,*) abs(ion%h_av(0)-yh0_av_old)
                 ! endif
-                write(*,*) 'Convergence failing (global) nit=', nit
+                ! write(*,*) 'Convergence failing (global) nit=', nit
                 !conv_flag = conv_flag + 1 ! TODO: place this at correct location
                 exit
             endif
