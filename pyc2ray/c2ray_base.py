@@ -137,7 +137,7 @@ class C2Ray:
                 # Print info about subbox algorithm
                 self.printlog(f"Using CPU Raytracing (subboxsize = {self.subboxsize : n}, max_subbox = {self.max_subbox : n})")
             if (self.mpi): self.printlog(f"Using {self.nprocs:n} MPI Ranks")
-
+            else: self.printlog(f"Running in non-MPI (single-GPU/CPU) mode")
             self.printlog("Starting simulation... \n\n")
 
     # =====================================================================================================
