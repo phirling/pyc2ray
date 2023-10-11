@@ -30,6 +30,9 @@ __all__ = ['evolve3D']
 # automatically when using the C2Ray subclasses but must be done manually
 # if for some reason you are calling the evolve3D routine directly without
 # using the C2Ray subclasses.
+#
+# This file defines two variants of evolve3D: The reference, single-gpu
+# version, and a MPI version which enables usage on multiple GPU nodes.
 # =========================================================================
 
 def evolve3D(dt,dr,
@@ -237,15 +240,15 @@ def evolve3D(dt,dr,
 
 
 def evolve3D_MPI(dt,dr,
-                 src_flux,src_pos,
-                 r_RT, use_gpu, use_mpi,
-                 comm, rank, nprocs,
-                 max_subbox, loss_fraction,
-                 temp, ndens, xh,
-                 photo_thin_table, minlogtau, dlogtau,
-                 sig, bh00, albpow, colh0, temph0, abu_c,
-                 logfile="pyC2Ray.log", quiet=False):
-
+                src_flux,src_pos,
+                use_gpu,max_subbox,subboxsize,loss_fraction,
+                use_mpi, comm, rank, nprocs,
+                temp,ndens,xh,
+                photo_thin_table,photo_thick_table,
+                minlogtau,dlogtau,
+                R_max_LLS, convergence_fraction,
+                sig,bh00,albpow,colh0,temph0,abu_c,
+                logfile="pyC2Ray.log",quiet=False):
     """Evolves the ionization fraction over one timestep for the whole grid
 
     Warning: Calling this function with use_gpu = True assumes that the radiation
@@ -328,7 +331,6 @@ def evolve3D_MPI(dt,dr,
     NumTau = photo_thin_table.shape[0]
 
     # Convergence Criteria
-    convergence_fraction=1.0e-4
     conv_criterion = min(int(convergence_fraction*NumCells), (NumSrc-1)/3)
     
     # Initialize convergence metrics
@@ -373,6 +375,9 @@ def evolve3D_MPI(dt,dr,
         # Copy density field to GPU once at the beginning of timestep (!! do_all_sources assumes this !!)
         libasora.density_to_device(ndens_flat,N)
 
+        # Copy positions & fluxes of sources to the GPU in advance
+        libasora.source_data_to_device(srcpos_flat,normflux_flat,NumSrc)
+
     # -----------------------------------------------------------
     # Start Evolve step, Iterate until convergence in <x> and <y>
     # -----------------------------------------------------------
@@ -400,10 +405,10 @@ def evolve3D_MPI(dt,dr,
         # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
         if use_gpu:
             # Use GPU raytracing
-            libasora.do_all_sources(srcpos_flat,normflux_flat,r_RT,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
+            libasora.do_all_sources(R_max_LLS,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
         else:
             # Use CPU raytracing with subbox optimization
-            nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,r_RT,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,photo_thin_table,minlogtau,dlogtau)
+            nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,photo_thin_table,photo_thick_table,minlogtau,dlogtau,R_max_LLS)
 
         printlog(f"rank={rank:n} took {(time.time()-trt0) : .1e} s.", logfile, quiet)
 

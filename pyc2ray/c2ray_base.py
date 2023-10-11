@@ -188,14 +188,17 @@ class C2Ray:
             # otherwise: all ranks are calling (independently) the evolve with no source splitting until the condition above is meet.
             if(NumSrc >= self.nprocs):
                 self.xh, self.phi_ion = evolve3D_MPI(
-                    dt, self.dr, src_flux, src_pos,
-                    r_RT, self.gpu, self.mpi, 
-                    self.comm, self.rank, self.nprocs,
-                    max_subbox, self.loss_fraction,
+                    dt, self.dr,
+                    src_flux, src_pos,
+                    self.gpu, self.max_subbox,self.subboxsize,self.loss_fraction,
+                    self.mpi,self.comm, self.rank, self.nprocs,
                     self.temp, self.ndens, self.xh,
-                    self.photo_thin_table, self.minlogtau, self.dlogtau,
+                    self.photo_thin_table, self.photo_thick_table,
+                    self.minlogtau, self.dlogtau,
+                    self.R_max_LLS, self.convergence_fraction,
                     self.sig, self.bh00, self.albpow, self.colh0, self.temph0, self.abu_c,
-                    self.logfile)
+                    self.logfile
+                )
             else:
                 self.xh, self.phi_ion = evolve3D(
                     dt, self.dr,
