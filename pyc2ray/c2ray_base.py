@@ -11,6 +11,7 @@ except ImportError:
     from yaml import SafeLoader
 from .utils.logutils import printlog
 from .evolve import evolve3D
+from .raytracing import do_raytracing
 from .asora_core import device_init, device_close, photo_table_to_device
 from .radiation import BlackBodySource, make_tau_table
 
@@ -411,3 +412,15 @@ class C2Ray:
         """ Deallocate GPU memory
         """
         device_close()
+
+    def do_raytracing(self, src_flux, src_pos):
+        gamma = do_raytracing(
+            self.dr,src_flux,src_pos,
+            self.gpu,self.max_subbox,self.subboxsize,
+            self.loss_fraction,self.ndens,self.xh,
+            self.photo_thin_table,self.photo_thick_table,
+            self.minlogtau,self.dlogtau,
+            self.R_max_LLS,self.sig,self.logfile
+        )
+        self.phi_ion = gamma
+        return gamma

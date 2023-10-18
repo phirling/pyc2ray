@@ -2,6 +2,8 @@ import numpy as np
 from .utils.sourceutils import format_sources
 from .load_extensions import load_c2ray, load_asora
 from .asora_core import cuda_is_init
+from .utils import printlog
+import time
 
 # Load extension modules
 libc2ray = load_c2ray()
@@ -27,6 +29,78 @@ __all__ = ['do_all_sources']
 # over the run of a simulation, need to be copied separately to the GPU
 # using the photo_table_to_device() method of the module.
 # =========================================================================
+
+
+def do_raytracing(dr,
+        src_flux,src_pos,
+        use_gpu,max_subbox,subboxsize,loss_fraction,
+        ndens,xh_av,
+        photo_thin_table,photo_thick_table,
+        minlogtau,dlogtau,
+        R_max_LLS,
+        sig,
+        logfile="pyC2Ray.log",quiet=False,stats=False):
+
+    # Allow a call with GPU only if 1. the asora library is present and 2. the GPU memory has been allocated using device_init()
+    if (use_gpu and not cuda_is_init()):
+        raise RuntimeError("GPU not initialized. Please initialize it by calling device_init(N)")
+
+    # Set some constant sizes
+    NumSrc = src_flux.shape[0]   # Number of sources
+    N = ndens.shape[0]           # Mesh size
+    NumCells = N*N*N            # Number of cells/points
+    NumTau = photo_thin_table.shape[0]
+
+    # When using GPU raytracing, data has to be reshaped & reformatted and copied to the device
+    if use_gpu:
+        # Format input data for the CUDA extension module (flat arrays, C-types,etc)
+        xh_av_flat = np.ravel(xh_av).astype('float64',copy=True)
+        ndens_flat = np.ravel(ndens).astype('float64',copy=True)
+        srcpos_flat, normflux_flat = format_sources(src_pos, src_flux)
+
+        # Copy positions & fluxes of sources to the GPU in advance
+        libasora.source_data_to_device(srcpos_flat,normflux_flat,NumSrc)
+
+        # Initialize Flat Column density & ionization rate arrays. These are used to store the
+        # output of the raytracing module. TODO: python column density array is actually not needed ?
+        coldensh_out_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
+        phi_ion_flat = np.ravel(np.zeros((N,N,N),dtype='float64'))
+
+        # Copy density field to GPU once at the beginning of timestep (!! do_all_sources assumes this !!)
+        libasora.density_to_device(ndens_flat,N)
+        printlog("Copied source data to device.",logfile,quiet)
+
+    printlog(f"dr [Mpc]: {dr/3.086e24:.3e}",logfile,quiet)
+    printlog(f"Running on {NumSrc:n} source(s), total normalized ionizing flux: {src_flux.sum():.2e}",logfile,quiet)
+    printlog(f"Mean density (cgs): {ndens.mean():.3e}, Mean ionized fraction: {xh_av.mean():.3e}",logfile,quiet)
+
+    trt0 = time.time()
+    printlog("Doing Raytracing...",logfile,quiet,' ')
+    # Set rates to 0. When using ASORA, this is done internally by the library (directly on the GPU)
+    if not use_gpu:
+        phi_ion = np.zeros((N,N,N),order='F')
+        coldensh_out = np.zeros((N,N,N),order='F')
+
+    # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
+    if use_gpu:
+        # Use GPU raytracing
+        libasora.do_all_sources(R_max_LLS,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
+    else:
+        # Use CPU raytracing with subbox optimization
+        nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,subboxsize,coldensh_out,sig,dr,np.asfortranarray(ndens),xh_av,phi_ion,loss_fraction,photo_thin_table,photo_thick_table,minlogtau,dlogtau,R_max_LLS)
+    printlog(f"took {(time.time()-trt0) : .1f} s.", logfile,quiet)
+
+    # Since chemistry (ODE solving) is done on the CPU in Fortran, flattened CUDA arrays need to be reshaped
+    if use_gpu:
+        phi_ion = np.reshape(phi_ion_flat, (N,N,N))
+    else:
+        printlog(f"Average number of subboxes: {nsubbox/NumSrc:n}, Total photon loss: {photonloss:.3e}",logfile,quiet)
+    
+    if (stats and not use_gpu):
+            return phi_ion, nsubbox, photonloss
+    else:
+            return phi_ion
+
 
 def do_all_sources(dr,
         src_flux,src_pos,
