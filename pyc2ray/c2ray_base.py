@@ -13,7 +13,8 @@ from .utils.logutils import printlog
 from .evolve import evolve3D
 from .raytracing import do_raytracing
 from .asora_core import device_init, device_close, photo_table_to_device
-from .radiation import BlackBodySource, make_tau_table
+from .radiation import make_tau_table
+from .radiation import BlackBodySource, UVBSource_FG2009
 
 # ======================================================================
 # This file defines the abstract C2Ray object class, which is the basis
