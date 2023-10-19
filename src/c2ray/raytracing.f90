@@ -184,6 +184,7 @@ module raytracing
         last_r(:)=srcpos(:,ns) ! to pass the first while test
         last_l(:)=srcpos(:,ns) ! to pass the first while test
         
+        ! write(*,*) srcpos(:,ns)
         do while(photon_loss_src > loss_fraction*normflux(ns)*S_star &
             .and. last_r(3) < lastpos_r(3) & 
             .and. last_l(3) > lastpos_l(3))
@@ -411,9 +412,8 @@ module raytracing
                 path=0.5*dr !(1)
                 ! Find the distance to the source (average?)
                 !dist2=0.5*dr(1) !NOT NEEDED         ! this makes vol=dx*dy*dz
-                !vol_ph=4.0/3.0*pi*dist2**3
-                ! vol_ph = dr*dr*dr / (4*pi) !dr(1)*dr(2)*dr(3)
-                vol_ph = dr*dr*dr !dr(1)*dr(2)*dr(3)
+                vol_ph = path / (4.0*pi) ! <- This is to use a prefactor of 4pi
+                ! vol_ph = dr*dr*dr ! <- This is to use the usual 1/4pi r^2 prefactor
                 
             else
                 ! For all other points call cinterp to find the column density
@@ -431,7 +431,8 @@ module raytracing
                 ! (dilution factor).
                 ! vol_ph=4.0*pi*dist2*path
                 ! vol_ph = dist2 * path
-                vol_ph = dist2 * path * (4.0*pi)
+                vol_ph = path / (4.0*pi) ! <- This is to use a prefactor of 4pi
+                ! vol_ph = dist2 * path * (4.0*pi) ! <- This is to use the usual 1/4pi r^2 prefactor
 
                 ! Add LLS opacity TODO
                 ! Initialize local LLS (if type of LLS is appropriate)
