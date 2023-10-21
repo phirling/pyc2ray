@@ -34,7 +34,7 @@ __device__ double photoion_rates_gpu(const double & strength,const double & cold
     }
     else
     {
-        return prefact * (tau_out-tau_in) * photo_lookuptable(photo_thin_table,tau_out,minlogtau,dlogtau,NumTau);
+        return prefact * (tau_out-tau_in) * photo_lookuptable(photo_thin_table,tau_in,minlogtau,dlogtau,NumTau);
     }
     // double phi_photo_out = prefact * photo_lookuptable(photo_thick_table,tau_out,minlogtau,dlogtau,NumTau);
     // return phi_photo_in - phi_photo_out;
