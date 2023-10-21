@@ -98,7 +98,11 @@ void do_all_sources_gpu(
         // Determine how large the octahedron should be, based on the raytracing radius. Currently,
         // this is set s.t. the radius equals the distance from the source to the middle of the faces
         // of the octahedron. To raytrace the whole box, the octahedron bust be 1.5*N in size
+        #if defined(PERIODIC)
         int max_q = std::ceil(SQRT3 * min(R,SQRT3*m1/2.0));
+        #else
+        int max_q = std::ceil(SQRT3 * min(R,SQRT3*m1));
+        #endif
         //int max_q = std::ceil(SQRT3 * R); //std::ceil(1.5 * m1);
         //std::cout << "max_q: " << max_q << std::endl;
 
@@ -238,7 +242,9 @@ __global__ void evolve0D_gpu(
                     k = sgn*q - sgn*(abs(i) + abs(j));
 
                     // Only do cell if it is within the (shifted under periodicity) grid, i.e. at most ~N cells away from the source
+                    #if defined(PERIODIC)
                     if ((i >= last_l) && (i <= last_r) && (j >= last_l) && (j <= last_r) && (k >= last_l) && (k <= last_r))
+                    #endif
                     {
                         // Get source properties
                         int i0 = src_pos[3*ns + 0];
@@ -289,7 +295,8 @@ __global__ void evolve0D_gpu(
                                 coldensh_in = 0.0;
                                 path = 0.5*dr;
                                 // vol_ph = dr*dr*dr / (4*M_PI);
-                                vol_ph = dr*dr*dr;
+                                //vol_ph = dr*dr*dr; // <- This is to use the usual 1/4pi r^2 prefactor
+                                vol_ph = path / FOURPI; // <- This is to use a prefactor of 4pi
                                 dist2 = 0.0;
                             }
 
@@ -304,7 +311,8 @@ __global__ void evolve0D_gpu(
                                 zs = dr*(k-k0);
                                 dist2=xs*xs+ys*ys+zs*zs;
                                 // vol_ph = dist2 * path;
-                                vol_ph = dist2 * path * FOURPI;
+                                // vol_ph = dist2 * path * FOURPI; // <- This is to use the usual 1/4pi r^2 prefactor
+                                vol_ph = path / FOURPI; // <- This is to use a prefactor of 4pi
                             }
 
                             // Compute outgoing column density and add to array for subsequent interpolations
