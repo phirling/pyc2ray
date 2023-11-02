@@ -7,14 +7,20 @@ import argparse
 import astropy.units as u
 
 parser = argparse.ArgumentParser()
-parser.add_argument("paramfile",nargs=1,type=str)
-parser.add_argument("-resolution",type=str,default=None)
-parser.add_argument("--cpu",action='store_true')
+parser.add_argument("-mode",type=str,default="coarse")
+parser.add_argument("--gpu",action='store_true')
 args = parser.parse_args()
 
-if args.resolution is None:
-    print("Set time resolution")
-    exit
+mode = str(args.mode)
+paramfile = "parameters.yml"
+
+if mode == "coarse":
+    numzred = 10
+elif mode == "fine":
+    numzred = 100
+else:
+    raise RuntimeError("Unknown mode")
+
 
 # ======================================================================
 # TEST 4: UNIFORM DENSITY IN COSMOLOGICAL CONTEXT
@@ -26,36 +32,17 @@ if args.resolution is None:
 # BOX SIZE: 7e25 comoving cm = 22.685 comoving Mpc
 # ======================================================================
 
-# Global parameters
-if args.resolution == "fine":
-    numzred = 101
-    delta_time = 5
-elif args.resolution == "coarse":
-    numzred = 11
-    delta_time = 50
-else:
-    raise ValueError("Unknown resolution")
-
 num_steps_between_slices = 1        # Number of timesteps between redshift slices
-paramfile = str(args.paramfile[0])        # Name of the parameter file
 N = 128                             # Mesh size
 ndens0 = 1.87e-7
-
-if args.cpu:
-    use_octa = False
-else:
-    use_octa = True                    # Determines which raytracing algorithm to use
-
-# Raytracing Parameters
-max_subbox = 1000                   # Maximum subbox when using C2Ray raytracing
-r_RT = 128                            # When using C2Ray raytracing, sets the subbox size. When using OCTA, sets the octahedron size
+use_octa = args.gpu                   # Determines which raytracing algorithm to use
+t_evol = 5e8 # years
 
 # Create C2Ray object
 sim = pc2r.C2Ray_Test(paramfile, N, use_octa)
 
 # Generate redshift list (test case)
-zred_array = sim.generate_redshift_array(numzred,delta_time*1e6)
-print(zred_array)
+zred_array = sim.generate_redshift_array(numzred+1,t_evol/numzred)
 
 # Read source
 srcpos, srcstrength = sim.read_sources("source.txt",1)
@@ -92,7 +79,7 @@ for k in range(numzred-1):
         sim.cosmo_evolve(dt)
 
         # Evolve the simulation: raytrace -> photoionization rates -> chemistry -> until convergence
-        sim.evolve3D(dt, srcstrength, srcpos, r_RT, max_subbox)
+        sim.evolve3D(dt, srcstrength, srcpos)
 
 # Write final output
 sim.write_output_numbered(numzred-1)
