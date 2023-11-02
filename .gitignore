@@ -46,6 +46,9 @@ benchmark_daint/
 **/.DS_Store
 **/._.DS_Store
 
+# Test result directories
+**/test_results/
+
 # Local test scripts
 test_package.py
 
