@@ -77,6 +77,9 @@ for k,nsrc in enumerate(nsrc_range):
     t_ave = 0
     nreps = int(args.numreps)
 
+    # For this test, we directly call the raytracing function of the extension module, rather than going
+    # through an interface function like evolve3D, since we want to avoid any overheads and measure the
+    # timing of ONLY the raytracing.
     for i in range(nreps):
         t1 = time.time()
         if use_gpu:

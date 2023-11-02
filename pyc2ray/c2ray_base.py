@@ -11,6 +11,7 @@ except ImportError:
     from yaml import SafeLoader
 from .utils.logutils import printlog
 from .evolve import evolve3D, evolve3D_MPI
+from .raytracing import do_raytracing
 from .asora_core import device_init, device_close, photo_table_to_device
 from .radiation import BlackBodySource, make_tau_table
 
@@ -296,7 +297,31 @@ class C2Ray:
         """
         return self.cosmology.age(z).to(unit).value
     
+    def do_raytracing(self, src_flux, src_pos):
+        """Standalone raytracing method
 
+        Function to only calculate Gamma (photoionization rates) based on current
+        ionized fractions, without touching the chemistry. Useful for debugging,
+        benchmarking and specialized use purposes.
+
+        Parameters
+        ----------
+        src_flux : 1D-array of shape (numsrc)
+            Array containing the total ionizing flux of each source, normalized by S_star (1e48 by default)
+        src_pos : 2D-array of shape (3,numsrc)
+            Array containing the 3D grid position of each source, in Fortran indexing (from 1)
+        """
+        gamma = do_raytracing(
+            self.dr,src_flux,src_pos,
+            self.gpu,self.max_subbox,self.subboxsize,
+            self.loss_fraction,self.ndens,self.xh,
+            self.photo_thin_table,self.photo_thick_table,
+            self.minlogtau,self.dlogtau,
+            self.R_max_LLS,self.sig,self.logfile
+        )
+        self.phi_ion = gamma
+        return gamma
+    
     # =====================================================================================================
     # INITIALIZATION METHODS (PRIVATE)
     # =====================================================================================================
