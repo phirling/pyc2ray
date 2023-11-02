@@ -31,7 +31,11 @@ sed -i 's,/insert_here_path_to_python_include,'"$PYTHON_INCLUDE"',' Makefile
 sed -i 's,/insert_here_path_to_numpy_include,'"$NUMPY_INCLUDE"',' Makefile
 
 make
+<<<<<<< HEAD
+cp libocta.so ../../pyc2ray/lib
+=======
 cp libasora.so ../../pyc2ray/lib
+>>>>>>> main
 
 # add pyc2ray path to python paths
 cd ../..

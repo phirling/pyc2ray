@@ -92,7 +92,7 @@ void do_all_sources_gpu(
     {   
         
         // Byte-size of grid data
-        auto meshsize = m1*m1*m1*sizeof(double);
+        int meshsize = m1*m1*m1*sizeof(double);
 
         //std::cout << "R: " << R << std::endl;
         // Determine how large the octahedron should be, based on the raytracing radius. Currently,

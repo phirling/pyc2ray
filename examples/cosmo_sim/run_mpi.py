@@ -1,9 +1,4 @@
-<<<<<<< HEAD
 import sys, numpy as np, time
-=======
-import sys
-import numpy as np, time
->>>>>>> main
 import pyc2ray as pc2r
 
 from astropy import units as u
@@ -11,10 +6,6 @@ from astropy import units as u
 # ======================================================================
 # Example 2 for pyc2ray: Cosmological simulation from N-body
 # ======================================================================
-
-# TODO: find a way to replace this line
-import tools21cm as t2c
-t2c.set_sim_constants(boxsize_cMpc=244)
 
 # Global parameters
 num_steps_between_slices = 10       # Number of timesteps between redshift slices

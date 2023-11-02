@@ -1,19 +1,13 @@
 <a name="logo"/>
 <div align="left">
-<img src="banner_test.lpng" width="600"></img>
+<img src="banner2.jpg" width="800"></img>
 </a>
 </div>
 
-# pyc2ray: A Python-wrapped and GPU-accelerated Update of C2Ray
-`pyc2ray` is a Python package that wraps [C2Ray](https://github.com/garrelt/C2-Ray3Dm/tree/factorization) [(G. Mellema, I.T. Illiev, A. Alvarez and P.R. Shapiro)](https://ui.adsabs.harvard.edu/link_gateway/2006NewA...11..374M/doi:10.48550/arXiv.astro-ph/0508416), a radiative transfer code widely used for cosmic epoch of reionization simulations, and makes its usage accessible and modular through python.
+# pyc2ray: A flexible and GPU-accelerated radiative transfer framework
+`pyc2ray` is the updated version of [C2Ray](https://github.com/garrelt/C2-Ray3Dm/tree/factorization) [(G. Mellema, I.T. Illiev, A. Alvarez and P.R. Shapiro)](https://ui.adsabs.harvard.edu/link_gateway/2006NewA...11..374M/doi:10.48550/arXiv.astro-ph/0508416), an astrophysical radiative transfer code widely used to simulate the Epoch of Reionization (EoR). `pyc2ray` features a new raytracing method developed for GPUs, as well as a modern python interface that allows easy and customizable use of the code without compromising computational efficiency.
 
-The core subroutines of C2Ray are implemented in compiled Fortran 90 and accessed as an extension module
-built using `f2py`. The other aspects of the RT simulation, such as configuration, I/O, cosmology, source modelling, etc.
-are implemented in pure python and are thus easily tweakable for a specific purpose.
-
-In addition, the computationally most expensive step of the RT simulation, namely the raytracing,
-has been modified to be GPU-parallelizable. This updated algorithm, called _ASORA_, is written
-in CUDA C++ as a python extension module. When no GPU is available, a CPU raytracing method is available as a fallback option.
+The core features of `C2Ray`, written in Fortran90, are wrapped using `f2py` as a python extension module, while the new raytracing library, _ASORA_, is implemented in C++ using CUDA. Both are native python C-extensions and can be directly accessed from any python script.
 
 ## Installation
 Since the automatic build system isn't fully working yet, the extension modules must be compiled and placed in correct directories manually. After cloning the repository, create the `/lib` directory inside `/pyc2ray/` (from the root of the repository).
@@ -58,14 +52,4 @@ python run_example.py --gpu
 This performs a RT simulation with a single source in a uniform volume, and checks for errors.
 
 ## Usage
-The general usage principle of pyc2ray is that:
-1. A full C2Ray simulation can be configured and run using subclasses of the `pyc2ray.C2Ray()` class along with a parameter file.
-2. The individual components can also be used in a standalone way as module functions.
-
-
-## Directories Guide
-* `pyc2ray`: Python package directory
-* `examples`: Contains example scripts that showcase the usage of pyc2ray
-* `src`: Sources for the extension modules:
-    * `c2ray`: Fortran sources adapted from the original C2Ray source code
-    * `asora`: C++/CUDA sources for the ASORA raytracing library
+A `pyc2ray` simulation is set up by creating an instance of a subclass of `C2Ray`. A few examples are provided, but in principle the idea is to create a new subclass and tailor it for the specific requirements of the simulation you wish to perform. The core functions (e.g. time evolution, raytracing, chemistry) are defined in the `C2Ray` base class, while auxilary methods specific to your use case are free to be overloaded as you wish.

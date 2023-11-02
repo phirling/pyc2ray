@@ -12,7 +12,7 @@ __all__ = ['C2Ray_Test']
 # ======================================================================
 
 class C2Ray_Test(C2Ray):
-    def __init__(self, paramfile, Nmesh, use_gpu):
+    def __init__(self, paramfile, Nmesh, use_gpu, use_mpi=None):
         """A C2Ray Test-case simulation
 
         Parameters
@@ -24,8 +24,8 @@ class C2Ray_Test(C2Ray):
         use_gpu : bool
             Whether to use the GPU-accelerated ASORA library for raytracing
         """
-        super().__init__(paramfile, Nmesh, use_gpu)
-        self.printlog('Running: "C2Ray Test"')
+        super().__init__(paramfile, Nmesh, use_gpu, use_mpi)
+        if(self.rank == 0): self.printlog('Running: "C2Ray Test"')
 
     def read_sources(self,file,numsrc,S_star_ref = 1e48):
         """ Read in a source file formatted for Test-C2Ray
@@ -176,7 +176,7 @@ class C2Ray_Test(C2Ray):
         self.results_basename = self._ld['Output']['results_basename']
         self.logfile = self.results_basename + self._ld['Output']['logfile']
         title = '                 _________   ____            \n    ____  __  __/ ____/__ \ / __ \____ ___  __\n   / __ \/ / / / /    __/ // /_/ / __ `/ / / /\n  / /_/ / /_/ / /___ / __// _, _/ /_/ / /_/ / \n / .___/\__, /\____//____/_/ |_|\__,_/\__, /  \n/_/    /____/                        /____/   \n'
-        with open(self.logfile,"w") as f:
-            f.write("\nLog file for pyC2Ray \n\n")
-            #f.write(title + "\nLog file for pyC2Ray. \n\n") # Clear file and write header line
-        self.printlog(title)
+        if(self.rank == 0):
+            with open(self.logfile,"w") as f:
+                f.write("\nLog file for pyC2Ray \n\n")
+            self.printlog(title)
