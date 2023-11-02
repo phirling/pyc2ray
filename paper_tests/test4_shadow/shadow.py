@@ -27,11 +27,6 @@ zred_array = sim.generate_redshift_array(numzred,1e7)
 numsrc = 1
 srcpos, srcflux = sim.read_sources("src.txt",numsrc)
 
-# Raytracing Parameters
-max_subbox = 1000
-subboxsize = 64
-r_RT = 150
-
 # Measure time
 tinit = time.time()
 
@@ -82,7 +77,7 @@ for k in range(len(zred_array)-1):
         sim.cosmo_evolve(dt)
 
         # Evolve the simulation: raytrace -> photoionization rates -> chemistry -> until convergence
-        sim.evolve3D(dt, srcflux, srcpos, r_RT, max_subbox)
+        sim.evolve3D(dt, srcflux, srcpos)
 
 if args.plot:
     import matplotlib.pyplot as plt

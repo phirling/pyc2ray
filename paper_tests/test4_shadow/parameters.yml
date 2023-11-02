@@ -78,6 +78,9 @@ Photo:
   grey: 0
   # Power-law index for the frequency dependence of the photoionization cross section
   cross_section_pl_index: 2.8
+  # Value of maximum comoving distance for photons from source (Type 3 LLS in original C2Ray)
+  # (to not use this, set to a value >> boxsize)
+  R_max_cMpc: 15.0
 
 # -----------------------
 # Cosmological Parameters
@@ -107,7 +110,7 @@ Cosmology:
 # ------------
 Output:
   # Directory where results and log files are stored
-  results_basename: ./pyc2ray_results_new/
+  results_basename: ./test_results/
   # Name of the log file to write
   logfile: pyC2Ray.log
 
@@ -117,3 +120,12 @@ Output:
 Raytracing:
   # Photon loss fraction for the subbox algorithm
   loss_fraction: 1e-2
+  # Size increase of subboxes around sources (not used if using ASORA)
+  subboxsize: 64
+  # Maximum subbox size for the subbox algorithm (not used if using ASORA)
+  max_subbox: 1000
+  # Source batch size, i.e. number of sources handled in parallel on the GPU.
+  # Speeds up computation but increases memory usage
+  source_batch_size: 1
+  # Which fraction of the cells can be left unconverged
+  convergence_fraction: 1e-4
