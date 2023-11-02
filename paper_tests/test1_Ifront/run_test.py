@@ -17,13 +17,12 @@ parser.add_argument("--gpu",action='store_true')
 args = parser.parse_args()
 
 mode = str(args.mode)
+paramfile = "parameters.yml"
 
 if mode == "coarse":
     numzred = 10
-    paramfile = "parameters_coarse.yml"
 elif mode == "fine":
     numzred = 100
-    paramfile = "parameters_fine.yml"
 else:
     raise RuntimeError("Unknown mode")
 
