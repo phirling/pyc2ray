@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.integrate import quad,quad_vec
+from scipy.integrate import quad,quad_vec #, romberg <- TODO: add option for Romberg integration
 import astropy.constants as ac
 
 # For detailed comparisons with C2Ray, we use the same exact value for the constants
@@ -64,6 +64,16 @@ class BlackBodySource:
         table_thick = quad_vec(integrand_thick,freq_min,freq_max,epsrel=1e-12)[0]
         return table_thin, table_thick
     
+    # TODO: add Romberg integrator
+    # def make_photo_table(self,tau,freq_min,freq_max,S_star_ref):
+    #     self.normalize_SED(freq_min,freq_max,S_star_ref)
+    #     table = np.empty(tau.shape)
+    #     for i,ttau in enumerate(tau):
+    #         integrand_ = lambda f : self._photo_integrand_vec(f,ttau)
+    #         tpoint = romberg(integrand_,freq_min,freq_max,divmax=12,show=False)
+    #         table[i] = tpoint
+    #     return table
+
 def make_tau_table(minlogtau,maxlogtau,NumTau):
     """Utility function to create optical depth array for C2Ray
 

@@ -82,7 +82,7 @@ Photo:
   # Power-law index for the frequency dependence of the photoionization cross section
   cross_section_pl_index: 2.8
   
-  R_max_cMpc: 0.18  #15.0
+  R_max_cMpc: 10  #15.0
 
 # -----------------------
 # Cosmological Parameters
@@ -128,6 +128,6 @@ Raytracing:
   max_subbox: 1000
   # Source batch size, i.e. number of sources handled in parallel on the GPU.
   # Speeds up computation but increases memory usage
-  source_batch_size: 96
+  source_batch_size: 64
   # Which fraction of the cells can be left unconverged
   convergence_fraction: 1e-4
