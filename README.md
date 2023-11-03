@@ -51,5 +51,11 @@ python run_example.py --gpu
 ```
 This performs a RT simulation with a single source in a uniform volume, and checks for errors.
 
+## Reproduce tests from the paper
+The four tests performed in the paper are located in `paper_tests`, along with the script used to perform the raytracing benchmark. Each directory contains a Jupyter notebook with basic instructions to reproduce the plots shown in the paper. Note that for some of these tests, a reference output from the original C2Ray code is used for comparison. In these cases, you have the choice to either run C2Ray yourself by making the appropriate adjustments in the source code, or download the binary output directly, which is currently hosted [here](https://drive.proton.me/urls/0W5XJ6WXXC#QWHTxmY9qQ99).
+
+### Note on raytracing benchmark
+The raytracing benchmark (Figure 8 in the paper) might be an especially useful test to reproduce on your system. The relevant script is located at `paper_tests/raytracing_benchmark/run_test.py`. This script is quite general, and allows you to measure the runtime of the GPU raytracing function for a varying number of sources, batch sizes and raytracing radii. The steps to reproduce exactly the test shown in the paper are outlined in the Jupyter Notebooks in `paper_tests/raytracing_benchmark/`. 
+
 ## Usage
 A `pyc2ray` simulation is set up by creating an instance of a subclass of `C2Ray`. A few examples are provided, but in principle the idea is to create a new subclass and tailor it for the specific requirements of the simulation you wish to perform. The core functions (e.g. time evolution, raytracing, chemistry) are defined in the `C2Ray` base class, while auxilary methods specific to your use case are free to be overloaded as you wish.
