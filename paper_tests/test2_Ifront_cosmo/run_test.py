@@ -33,7 +33,7 @@ else:
 # ======================================================================
 
 num_steps_between_slices = 1        # Number of timesteps between redshift slices
-N = 128                             # Mesh size
+N = 256                             # Mesh size
 ndens0 = 1.87e-7
 use_octa = args.gpu                   # Determines which raytracing algorithm to use
 t_evol = 5e8 # years
@@ -51,7 +51,7 @@ srcpos, srcstrength = sim.read_sources("source.txt",1)
 tinit = time.time()
 
 # Loop over redshifts
-for k in range(numzred-1):
+for k in range(len(zred_array)-1):
 
     zi = zred_array[k]       # Start redshift
     zf = zred_array[k+1]     # End redshift
@@ -82,5 +82,5 @@ for k in range(numzred-1):
         sim.evolve3D(dt, srcstrength, srcpos)
 
 # Write final output
-sim.write_output_numbered(numzred-1)
+sim.write_output_numbered(numzred)
 pc2r.printlog(f"Done. Final time: {time.time() - tinit : .3f} seconds",sim.logfile)
