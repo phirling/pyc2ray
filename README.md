@@ -82,4 +82,4 @@ Here we list a series of numerical and astrophysical implementations we would li
 - Sources radiative feedback
 - Sources X-ray heating
 - GPU implementation of the chemistry solver
-- multi-frequency UV radition
+- multi-frequency UV radiation
