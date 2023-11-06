@@ -1,5 +1,5 @@
 import sys
-sys.path.append("../../")
+sys.path.append("../../../")
 import pyc2ray as pc2r
 import numpy as np
 import time
@@ -15,7 +15,6 @@ num_steps_between_slices = 10
 numzred = 2
 paramfile = "parameters.yml"
 N = 128
-avgdens = 1.0e-6
 use_octa = args.gpu
 
 # Create C2Ray object
@@ -25,11 +24,25 @@ sim = pc2r.C2Ray_Test(paramfile, N, use_octa)
 zred_array = sim.generate_redshift_array(numzred,1e7)
 
 # Read sources
-numsrc = 5
-srcpos, srcflux = sim.read_sources("src_mult.txt",numsrc)
+numsrc = 1
+srcpos, srcflux = sim.read_sources("src.txt",numsrc)
 
 # Measure time
 tinit = time.time()
+
+# Setup density
+avgdens = 1e-3
+xc = np.linspace(0,14,N)
+X,Y,Z = np.meshgrid(xc,xc,xc)
+shadow_pos = np.array([76,76,63])
+shadow_radius = 8
+shadow_fact = 6
+ndens = avgdens*np.ones((N,N,N))
+for i in range(0,N):
+    for j in range(0,N):
+        for k in range(0,N):
+            if (i-shadow_pos[0])**2 + (j-shadow_pos[1])**2 + (k-shadow_pos[2])**2 < shadow_radius**2:
+                ndens[i,j,k] = shadow_fact*avgdens
 
 # Statistics
 mean_xfrac = np.empty(num_steps_between_slices)
@@ -48,7 +61,8 @@ for k in range(len(zred_array)-1):
     # Set density field (could be an actual cosmological field here)
     # TODO: this has to set the comoving density which is then scaled to the
     # correct redshift. In the timesteps, the density is then "diluted" gradually
-    sim.set_constant_average_density(avgdens,0) 
+    #sim.set_constant_average_density(avgdens,0) 
+    sim.ndens = ndens
 
     pc2r.printlog(f"\n=================================",sim.logfile)
     pc2r.printlog(f"Doing redshift {zi:.3f} to {zf:.3f}",sim.logfile)
@@ -67,9 +81,10 @@ for k in range(len(zred_array)-1):
 
 if args.plot:
     import matplotlib.pyplot as plt
-    plt.imshow(sim.xh[:,:,64],norm='log',cmap='jet')
-    #plt.imshow(sim.phi_ion[:,:,64],norm='log',cmap='inferno')
+    plt.imshow(sim.xh[:,:,63],norm='log',cmap='jet')
     plt.colorbar()
+    plt.show()
+    plt.imshow(sim.phi_ion[:,:,63],norm='log',cmap='inferno')
     plt.show()
 
 # Write final output

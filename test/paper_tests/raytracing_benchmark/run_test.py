@@ -1,5 +1,5 @@
 import sys
-sys.path.append("../../")
+sys.path.append("../../../")
 import pyc2ray as pc2r
 from pyc2ray.utils.sourceutils import format_sources
 import numpy as np
