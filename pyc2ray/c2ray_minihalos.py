@@ -19,7 +19,7 @@ ev2fr = 0.241838e15
 # ======================================================================
 
 class C2Ray_Minihalo(C2Ray):
-    def __init__(self, paramfile, Nmesh, use_gpu):
+    def __init__(self, paramfile, Nmesh, use_gpu,boxsize):
         """A C2Ray Minihalo simulation
 
         Parameters
@@ -30,7 +30,10 @@ class C2Ray_Minihalo(C2Ray):
             Mesh size (number of cells in each dimension)
         use_gpu : bool
             Whether to use the GPU-accelerated ASORA library for raytracing
+        boxsize : float
+            Box size in Mpc (overrides the value from paramfile)
         """
+        self.boxsize_c = boxsize * Mpc
         super().__init__(paramfile, Nmesh, use_gpu)
         self.printlog('Running: "C2Ray for Minihalo" \n')
 
@@ -119,6 +122,22 @@ class C2Ray_Minihalo(C2Ray):
     # =====================================================================================================
     # Below are the overridden initialization routines specific to the minihalo case
     # =====================================================================================================
+    def _grid_init(self):
+        """ Set up grid properties
+        """
+        # Comoving quantities
+        self.dr_c = self.boxsize_c / self.N
+
+        self.printlog(f"Welcome! Mesh size is N = {self.N:n}.")
+        self.printlog(f"Simulation Box size (comoving Mpc): {self.boxsize_c/Mpc:.3e}")
+
+        # Initialize cell size to comoving size (if cosmological run, it will be scaled in cosmology_init)
+        self.dr = self.dr_c
+
+        # Set R_max (LLS 3) in cell units
+        self.R_max_LLS = self._ld['Photo']['R_max_cMpc'] * Mpc * self.N / (self.boxsize_c)
+        self.printlog(f"Maximum comoving distance for photons from source (type 3 LLS): {self._ld['Photo']['R_max_cMpc'] : .3e} comoving Mpc")
+        self.printlog(f"This corresponds to                                             {self.R_max_LLS : .3f} grid cells.")
 
     def _radiation_init(self):
         """Set up radiation tables for ionization/heating rates
