@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.integrate import quad,quad_vec
 from astropy.constants import h as hplanck_ac
+from astropy.constants import Ryd as Ryd_ac
+from astropy.constants import c as c_ac
 import os
 
 """
@@ -9,6 +11,7 @@ Calibrated UV background spectra from Faucher-Guigère et al 2009
 sigma_0 = 6.3e-18
 hplanck = hplanck_ac.cgs.value
 dir_path = os.path.dirname(os.path.realpath(__file__))
+ion_freq_HI = (Ryd_ac * c_ac).cgs.value
 
 def format_raw_spectrum_data(raw_data):
     """
@@ -72,6 +75,15 @@ class UVBSource_FG2009:
         itg = 10**self.logJnu(y) * np.log(10) * self.cross_section_freq_dependence(y) * np.exp(-tau*self.cross_section_freq_dependence(y)) / hplanck
         return np.where(tau*self.cross_section_freq_dependence(y) < 700.0,itg,0.0)
     
+    # Heating rates WIP
+    def _heat_thick_integrand_vec(self,y,tau):
+        photo_thick = self._photo_thick_integrand_vec(y,tau)
+        return hplanck * ion_freq_HI * (10**y - 1) * photo_thick
+    
+    def _heat_thin_integrand_vec(self,y,tau):
+        photo_thin = self._photo_thin_integrand_vec(y,tau)
+        return hplanck * ion_freq_HI * (10**y - 1) * photo_thin
+    
     def make_photo_table(self,tau,y_min,y_max):
         # self.normalize_SED(freq_min,freq_max,S_star_ref)
         integrand_thin = lambda y : self._photo_thin_integrand_vec(y,tau)
@@ -80,24 +92,9 @@ class UVBSource_FG2009:
         table_thick = quad_vec(integrand_thick,y_min,y_max,epsrel=1e-12)[0]
         return table_thin, table_thick
     
-
-
-# Kept for reference
-#z_0_raw = np.loadtxt(os.path.join(dir_path,'FG_data','z=0.csv'),delimiter=',').T
-#z_0_fmt = format_raw_spectrum_data(z_0_raw)
-#
-#z_1_raw = np.loadtxt(os.path.join(dir_path,'FG_data','z=1.csv'),delimiter=',').T
-#z_1_fmt = format_raw_spectrum_data(z_1_raw)
-#
-#z_2_raw = np.loadtxt(os.path.join(dir_path,'FG_data','z=2.csv'),delimiter=',').T
-#z_2_fmt = format_raw_spectrum_data(z_2_raw)
-#
-#z_3_raw = np.loadtxt(os.path.join(dir_path,'FG_data','z=3.csv'),delimiter=',').T
-#z_3_fmt = format_raw_spectrum_data(z_3_raw)
-#
-#spectra = {
-#    'z=0' : z_0_fmt,
-#    'z=1' : z_1_fmt,
-#    'z=2' : z_2_fmt,
-#    'z=3' : z_3_fmt,
-#}
+    def make_heat_table(self,tau,y_min,y_max):
+        integrand_thin = lambda y : self._heat_thin_integrand_vec(y,tau)
+        integrand_thick = lambda y : self._heat_thick_integrand_vec(y,tau)
+        table_thin = quad_vec(integrand_thin,y_min,y_max,epsrel=1e-12)[0]
+        table_thick = quad_vec(integrand_thick,y_min,y_max,epsrel=1e-12)[0]
+        return table_thin, table_thick

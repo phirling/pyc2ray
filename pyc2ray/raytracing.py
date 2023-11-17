@@ -36,6 +36,7 @@ def do_raytracing(dr,
         use_gpu,max_subbox,subboxsize,loss_fraction,
         ndens,xh_av,
         photo_thin_table,photo_thick_table,
+        heat_thin_table,heat_thick_table,
         minlogtau,dlogtau,
         R_max_LLS,
         sig,
@@ -79,6 +80,7 @@ def do_raytracing(dr,
     # Set rates to 0. When using ASORA, this is done internally by the library (directly on the GPU)
     if not use_gpu:
         phi_ion = np.zeros((N,N,N),order='F')
+        phi_heat = np.zeros((N,N,N),order='F')
         coldensh_out = np.zeros((N,N,N),order='F')
 
     # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
@@ -87,7 +89,11 @@ def do_raytracing(dr,
         libasora.do_all_sources(R_max_LLS,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
     else:
         # Use CPU raytracing with subbox optimization
-        nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,subboxsize,coldensh_out,sig,dr,np.asfortranarray(ndens),xh_av,phi_ion,loss_fraction,photo_thin_table,photo_thick_table,minlogtau,dlogtau,R_max_LLS)
+        nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,subboxsize,coldensh_out,sig,dr,np.asfortranarray(ndens),
+                                                                 xh_av,phi_ion,phi_heat,loss_fraction,
+                                                                 photo_thin_table,photo_thick_table,
+                                                                 heat_thin_table,heat_thick_table,
+                                                                 minlogtau,dlogtau,R_max_LLS)
     printlog(f"took {(time.time()-trt0) : .1f} s.", logfile,quiet)
 
     # Since chemistry (ODE solving) is done on the CPU in Fortran, flattened CUDA arrays need to be reshaped
@@ -99,7 +105,7 @@ def do_raytracing(dr,
     if (stats and not use_gpu):
             return phi_ion, nsubbox, photonloss
     else:
-            return phi_ion
+            return phi_ion, phi_heat
 
 
 def do_all_sources(dr,
