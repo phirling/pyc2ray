@@ -7,6 +7,7 @@ import pickle as pkl
 from .radiation import make_tau_table
 from .radiation import BlackBodySource, UVBSource_FG2009
 from .asora_core import device_init, device_close, photo_table_to_device
+from .raytracing import do_raytracing
 
 __all__ = ['C2Ray_Minihalo']
 
@@ -69,7 +70,20 @@ class C2Ray_Minihalo(C2Ray):
         """
         return read_test_sources(file,numsrc,S_star_ref)
         
-
+    def do_raytracing(self, src_flux, src_pos):
+        gamma, qdot = do_raytracing(
+            self.dr,src_flux,src_pos,
+            self.gpu,self.max_subbox,self.subboxsize,
+            self.loss_fraction,self.ndens,self.xh,
+            self.photo_thin_table,self.photo_thick_table,
+            self.heat_thin_table,self.heat_thick_table,
+            self.minlogtau,self.dlogtau,
+            self.R_max_LLS,self.sig,self.logfile
+        )
+        self.phi_ion = gamma
+        self.phi_heat = qdot
+        return gamma, qdot
+    
     def write_output(self,z):
         """Write ionization fraction & ionization rates as pickle files
 
@@ -148,6 +162,7 @@ class C2Ray_Minihalo(C2Ray):
         self.NumTau = self._ld['Photo']['NumTau']
         self.SourceType = self._ld['Photo']['SourceType']
         self.grey = self._ld['Photo']['grey']
+        self.compute_heating_rates = self._ld['Photo']['compute_heating_rates']
 
         if self.grey:
             self.printlog(f"Warning: Using grey opacity")
@@ -181,7 +196,7 @@ class C2Ray_Minihalo(C2Ray):
 
         elif self.SourceType == 'uvb_fg2009':
             self.uvb_zred = self._ld['UVBSource_FG2009']['uvb_zred']
-            radsource = UVBSource_FG2009(self.grey,2)
+            radsource = UVBSource_FG2009(self.grey,int(self.uvb_zred))
 
             # Print info
             self.printlog(f"Using z = {self.uvb_zred:.1f} Faucher-Guigère 2009 UV Background sources")
@@ -189,8 +204,22 @@ class C2Ray_Minihalo(C2Ray):
             # For now, we simply integrate until 100 * the HI ionization frequency to get the rates
             self.printlog("Integrating photoionization rates tables...")
             self.photo_thin_table, self.photo_thick_table = radsource.make_photo_table(self.tau,0,2) # nb integration bounds are given in log10(freq/freq_HI)
+            
+            if self.compute_heating_rates:
+                self.printlog("Integrating photoheating rates tables...")
+                self.heat_thin_table, self.heat_thick_table = radsource.make_heat_table(self.tau,0,2) # nb integration bounds are given in log10(freq/freq_HI)
+            else:
+                self.printlog("INFO: No heating rates")
+                self.heat_thin_table = np.zeros(self.NumTau+1)
+                self.heat_thick_table = np.zeros(self.NumTau+1)
+
         else:
             raise NameError("Unknown source type : ",self.SourceType)
+        
+        # import matplotlib.pyplot as plt
+        # plt.loglog(self.tau,self.heat_thick_table,'.-')
+        # plt.loglog(self.tau,self.heat_thin_table,'.-')
+        # plt.show()
         
         # Copy radiation table to GPU
         if self.gpu:
