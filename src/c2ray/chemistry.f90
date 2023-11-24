@@ -254,7 +254,8 @@ module chemistry
         real(kind=real64) :: avg_factor
 
         ! find the hydrogen recombination rate at the local temperature
-        brech0=clumping*bh00*(temp_p/1e4)**albpow
+        ! brech0=clumping*bh00*(temp_p/1e4)**albpow
+        brech0=clumping*bh00*(temp_p/5.7067e5)**albpow
 
         ! find the hydrogen collisional ionization rate at the local 
         ! temperature
