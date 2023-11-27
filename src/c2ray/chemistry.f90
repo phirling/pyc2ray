@@ -8,12 +8,16 @@ module chemistry
     real(kind=real64), parameter :: epsilon=1e-14_real64                        ! Double precision very small number
     real(kind=real64),parameter :: minimum_fractional_change = 1.0e-3           ! Should be a global parameter. TODO
     real(kind=real64),parameter :: minimum_fraction_of_atoms=1.0e-8
+    real(kind=real64),parameter :: HYDROGEN_MASS_FRACTION = 0.76
     contains
 
-    subroutine global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c,conv_flag,m1,m2,m3)
+    subroutine global_pass(dt,ndens,temp,temp_av,temp_intermed, &
+        xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c,conv_flag,m1,m2,m3)
         ! Subroutine Arguments
         real(kind=real64),intent(in) :: dt                          ! time step
-        real(kind=real64), intent(in) :: temp(m1,m2,m3)             ! Temperature field
+        real(kind=real64), intent(inout) :: temp(m1,m2,m3)             ! Temperature field
+        real(kind=real64), intent(inout) :: temp_av(m1,m2,m3)             ! Temperature field
+        real(kind=real64), intent(inout) :: temp_intermed(m1,m2,m3)             ! Temperature field
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)            ! Hydrogen Density Field
         real(kind=real64),intent(inout) :: xh(m1,m2,m3)             ! HI ionization fractions of the cells
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)          ! Time-averaged HI ionization fractions of the cells
@@ -39,7 +43,8 @@ module chemistry
             do j=1,m2
                 do i=1,m1
                     pos=(/ i,j,k /)
-                    call evolve0D_global(dt,pos,ndens,temp,xh,xh_av,xh_intermed,phi_ion, &
+                    call evolve0D_global(dt,pos,ndens,temp,temp_av,temp_intermed, &
+                        xh,xh_av,xh_intermed,phi_ion, &
                         bh00,albpow,colh0,temph0,abu_c,conv_flag,m1,m2,m3)
                 enddo
             enddo
@@ -50,11 +55,14 @@ module chemistry
 
 
 
-    subroutine evolve0D_global(dt,pos,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c,conv_flag,m1,m2,m3)
+    subroutine evolve0D_global(dt,pos,ndens,temp,temp_av,temp_intermed, &
+        xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c,conv_flag,m1,m2,m3)
         ! Subroutine Arguments
         real(kind=real64),intent(in) :: dt                          ! time step
         integer,dimension(3),intent(in) :: pos                      ! cell position
-        real(kind=real64), intent(in) :: temp(m1,m2,m3)             ! Temperature field
+        real(kind=real64), intent(inout) :: temp(m1,m2,m3)             ! Temperature field
+        real(kind=real64), intent(inout) :: temp_av(m1,m2,m3)             ! Temperature field
+        real(kind=real64), intent(inout) :: temp_intermed(m1,m2,m3)             ! Temperature field
         real(kind=real64), intent(in) :: ndens(m1,m2,m3)            ! Hydrogen Density Field
         real(kind=real64),intent(inout) :: xh(m1,m2,m3)             ! HI ionization fractions of the cells
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)          ! Time-averaged HI ionization fractions of the cells
@@ -73,6 +81,8 @@ module chemistry
 
         ! Local quantities
         real(kind=real64) :: temperature_start
+        real(kind=real64) :: temperature_av
+        real(kind=real64) :: temperature_end
         real(kind=real64) :: ndens_p ! local hydrogen density
         real(kind=real64) :: xh_p ! local ionization fraction
         real(kind=real64) :: xh_av_p ! local mean ionization fraction
@@ -80,6 +90,7 @@ module chemistry
         real(kind=real64) :: xh_intermed_p ! local mean ionization fraction
         real(kind=real64) :: phi_ion_p ! local ionization rate
         real(kind=real64) :: xh_av_p_old ! mean ion fraction before chemistry (to check convergence)
+        real(kind=real64) :: temp_av_p_old ! mean temperature before chemistry (to check convergence)
 
         ! Initialize local quantities
         temperature_start = temp(pos(1),pos(2),pos(3))
@@ -91,21 +102,27 @@ module chemistry
         xh_av_p = xh_av(pos(1),pos(2),pos(3))
         xh_intermed_p = xh_intermed(pos(1),pos(2),pos(3))
         yh_av_p = 1.0 - xh_av_p
-        call do_chemistry(dt,ndens_p,temperature_start,xh_p,xh_av_p,xh_intermed_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c)
+        call do_chemistry(dt,ndens_p,temperature_start,temperature_av,temperature_end, &
+        xh_p,xh_av_p,xh_intermed_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c)
 
         ! Check for convergence (global flag). In original, convergence is tested using neutral fraction, but testing with
         ! ionized fraction should be equivalent. TODO: add temperature convergence criterion when non-isothermal mode
         ! is added later on.
         xh_av_p_old = xh_av(pos(1),pos(2),pos(3))
+        temp_av_p_old = temp_av(pos(1),pos(2),pos(3))
         if ((abs(xh_av_p - xh_av_p_old) > minimum_fractional_change .and. &
             abs((xh_av_p - xh_av_p_old) / yh_av_p) > minimum_fractional_change .and. &
-            yh_av_p > minimum_fraction_of_atoms) ) then ! Here temperature criterion will be added
+            yh_av_p > minimum_fraction_of_atoms) .or. &
+            (abs((temp_av_p_old - temperature_av) / temperature_av) > 1.0e-1_real64) .and. &
+            (abs(temp_av_p_old - temperature_av) > 100.0_real64)) then
             conv_flag = conv_flag + 1
         endif
 
         ! Put local result in global array
         xh_intermed(pos(1),pos(2),pos(3)) = xh_intermed_p
         xh_av(pos(1),pos(2),pos(3)) = xh_av_p
+        temp_intermed(pos(1),pos(2),pos(3)) = temperature_end
+        temp_av(pos(1),pos(2),pos(3)) = temperature_av
 
     end subroutine evolve0D_global
     ! ===============================================================================================
@@ -114,11 +131,15 @@ module chemistry
     ! Original: G. Mellema (2005)
     ! This version: P. Hirling (2023)
     ! ===============================================================================================
-    subroutine do_chemistry(dt,ndens_p,temperature_start,xh_p,xh_av_p,xh_intermed_p,phi_ion_p,bh00,albpow,colh0,temph0,abu_c)
+    subroutine do_chemistry(dt,ndens_p,temperature_start,temperature_av,temperature_end, &
+        xh_p,xh_av_p,xh_intermed_p, &
+        phi_ion_p,bh00,albpow,colh0,temph0,abu_c)
         ! TODO: add clumping argument
         ! Subroutine Arguments
         real(kind=real64),intent(in) :: dt                    ! time step
         real(kind=real64), intent(in) :: temperature_start    ! Local starting temperature
+        real(kind=real64), intent(out) :: temperature_av    ! Local time-averaged temperature
+        real(kind=real64), intent(out) :: temperature_end    ! Local starting temperature
         real(kind=real64), intent(in) :: ndens_p              ! Local Hydrogen Density
         real(kind=real64),intent(inout) :: xh_p               ! HI ionization fractions of the cells
         real(kind=real64),intent(out) :: xh_av_p            ! Time-averaged HI ionization fractions of the cells
@@ -130,17 +151,21 @@ module chemistry
         real(kind=real64),intent(in) :: temph0                ! Hydrogen ionization energy expressed in K
         real(kind=real64),intent(in) :: abu_c                 ! Carbon abundance
 
-        real(kind=real64) :: temperature_end, temperature_previous_iteration ! TODO: will be useful when implementing non-isothermal mode
+        real(kind=real64) :: temperature_previous_iteration
         !real(kind=real64) :: xh0_p                            ! x0 value of the paper. Always used as IC at each iteration (see original do_chemistry)
         real(kind=real64) :: xh_av_p_old                      ! Time-average ionization fraction from previous iteration
         real(kind=real64) :: de                               ! local electron density
+        real(kind=real64) :: mu_const_term
         integer :: nit                                        ! Iteration counter
 
         ! TODO: clumping
         
+        mu_const_term = 0.25 * (1.0/HYDROGEN_MASS_FRACTION - 1)
+
         ! Initialize IC
         !xh0_p = xh_p
         temperature_end = temperature_start
+        temperature_av = temperature_start
 
         nit = 0
         do
@@ -165,8 +190,12 @@ module chemistry
 
             ! Calculate the new and mean ionization states
             ! In this version: xh0_p (x0) is used as input, while doric outputs a new x(t) ("xh_av") and <x> ("xh_av_p")
-            call doric(xh_p,dt,temperature_end,de,phi_ion_p,bh00,albpow,colh0,temph0,1.0_real64,xh_intermed_p,xh_av_p)
+            call doric(xh_p,dt,temperature_av,de,phi_ion_p,bh00,albpow,colh0,temph0,1.0_real64,xh_intermed_p,xh_av_p)
             ! --> de=electrondens(ndens_p,ion%h_av) ---> Why call this a second time ??
+            de = ndens_p * (xh_av_p + abu_c)
+            
+            temperature_av = (1.0+xh_p+mu_const_term) / (1.0+xh_av_p+mu_const_term) * temperature_start
+            temperature_end = (1.0+xh_p+mu_const_term) / (1.0+xh_intermed_p+mu_const_term) * temperature_start
 
             ! --> if (.not.isothermal) &
             ! -->     ! Thermal now takes old values and outputs new values without
@@ -255,8 +284,11 @@ module chemistry
 
         ! find the hydrogen recombination rate at the local temperature
         ! brech0=clumping*bh00*(temp_p/1e4)**albpow
-        brech0=clumping*bh00*(temp_p/5.7067e5)**albpow
-
+        ! brech0=clumping*bh00*(temp_p/5.7067e5)**albpow
+        brech0 = 4.881357e-6*temp_p**(-1.5) * (1.0_real64 + 1.14813e2*temp_p**(-0.407))**(-2.242)
+        !write(*,*) brech0
+        !4.881357e-6*T**(-1.5) * pow((1.0 + 1.14813e2*pow(T, -0.407)), -2.242)
+        
         ! find the hydrogen collisional ionization rate at the local 
         ! temperature
         sqrtt0=sqrt(temp_p)

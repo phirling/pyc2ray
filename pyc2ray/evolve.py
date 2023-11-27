@@ -131,6 +131,8 @@ def evolve3D(dt,dr,
     # initialize average and intermediate results to values at beginning of timestep
     xh_av = np.copy(xh)
     xh_intermed = np.copy(xh)
+    temp_av = np.copy(temp)
+    temp_intermed = np.copy(temp)
 
     # When using GPU raytracing, data has to be reshaped & reformatted and copied to the device
     if use_gpu:
@@ -200,7 +202,7 @@ def evolve3D(dt,dr,
         tch0 = time.time()
         printlog("Doing Chemistry...",logfile,quiet,' ')
         # Apply the global rates to compute the updated ionization fraction
-        conv_flag = libc2ray.chemistry.global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c)
+        conv_flag = libc2ray.chemistry.global_pass(dt,ndens,temp,temp_av,temp_intermed,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c)
         printlog(f"took {(time.time()-tch0) : .1f} s.", logfile,quiet)
 
         # ----------------------------
@@ -235,4 +237,5 @@ def evolve3D(dt,dr,
     # When converged, return the updated ionization fractions at the end of the timestep
     printlog("Multiple source convergence reached.", logfile,quiet)
     xh_new = xh_intermed
-    return xh_new, phi_ion
+    temp_new = temp_intermed
+    return xh_new, phi_ion, temp_new

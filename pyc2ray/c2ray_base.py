@@ -170,7 +170,7 @@ class C2Ray:
         src_pos : 2D-array of shape (3,numsrc)
             Array containing the 3D grid position of each source, in Fortran indexing (from 1)
         """
-        self.xh, self.phi_ion = evolve3D(
+        self.xh, self.phi_ion, self.temp = evolve3D(
             dt, self.dr,
             src_flux, src_pos,
             self.gpu, self.max_subbox,self.subboxsize,self.loss_fraction,
