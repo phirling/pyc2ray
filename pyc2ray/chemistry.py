@@ -1,8 +1,13 @@
 import numpy as np
+from .load_extensions import load_c2ray
+
+libc2ray = load_c2ray()
+
+__all__ = ['global_pass']
 
 # TODO: Add chemistry wrapper function
 
-def global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c):
+def global_pass(dt,ndens,temp,xh,phi_ion,bh00,albpow,colh0,temph0,abu_c):
     """ Do chemistry on the whole grid
 
     Parameters
@@ -34,4 +39,14 @@ def global_pass(dt,ndens,temp,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,tem
     quiet : bool
         Don't write logs to stdout. Default is false
     """
-    pass
+    
+    xh_av = np.copy(xh)
+    xh_intermed = np.copy(xh)
+
+    temp_av = np.copy(temp)
+    temp_intermed = np.copy(temp)
+
+    conv_flag = libc2ray.chemistry.global_pass(dt,ndens,temp,temp_av,temp_intermed,xh,xh_av,xh_intermed,phi_ion,bh00,albpow,colh0,temph0,abu_c)
+    #print("Number of non-converged cells: ",conv_flag)
+
+    return xh_intermed, temp_intermed
