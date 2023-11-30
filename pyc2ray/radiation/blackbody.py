@@ -1,21 +1,25 @@
 import numpy as np
-from scipy.integrate import quad,quad_vec #, romberg <- TODO: add option for Romberg integration
-import astropy.constants as ac
+from scipy.integrate import quad,quad_vec
+from astropy.constants import h as hplanck_ac
+from astropy.constants import Ryd as Ryd_ac
+from astropy.constants import c as c_ac
 
 # For detailed comparisons with C2Ray, we use the same exact value for the constants
 # This can be changed to the astropy values once consistency between the two codes has been established
 
-#h_over_k = (ac.h/(ac.k_B)).cgs.value
 h_over_k = 6.6260755e-27 / 1.381e-16
-
-#two_pi_over_c_square = 2*np.pi/ac.c.cgs.value**2
 pi =3.141592654
 c = 2.997925e+10
 two_pi_over_c_square = 2.0*pi/(c*c)
+hplanck = hplanck_ac.cgs.value
+ion_freq_HI = (Ryd_ac * c_ac).cgs.value
+sigma_0 = 6.3e-18
 
-__all__ = ['BlackBodySource','make_tau_table']
+__all__ = ['BlackBodySource']
 
 class BlackBodySource:
+    """A point source emitting a Black-body spectrum
+    """
     def __init__(self, temp, grey, freq0, pl_index) -> None:
         self.temp = temp
         self.grey = grey
@@ -56,6 +60,14 @@ class BlackBodySource:
         itg = self.SED(freq) * self.cross_section_freq_dependence(freq) * np.exp(-tau*self.cross_section_freq_dependence(freq))
         return np.where(tau*self.cross_section_freq_dependence(freq) < 700.0,itg,0.0)
     
+    def _heat_thick_integrand_vec(self,freq,tau):
+        photo_thick = self._photo_thick_integrand_vec(freq,tau)
+        return hplanck * (freq - ion_freq_HI) * photo_thick
+    
+    def _heat_thin_integrand_vec(self,freq,tau):
+        photo_thin = self._photo_thin_integrand_vec(freq,tau)
+        return hplanck * (freq - ion_freq_HI) * photo_thin
+    
     def make_photo_table(self,tau,freq_min,freq_max,S_star_ref):
         self.normalize_SED(freq_min,freq_max,S_star_ref)
         integrand_thin = lambda f : self._photo_thin_integrand_vec(f,tau)
@@ -64,38 +76,11 @@ class BlackBodySource:
         table_thick = quad_vec(integrand_thick,freq_min,freq_max,epsrel=1e-12)[0]
         return table_thin, table_thick
     
-    # TODO: add Romberg integrator
-    # def make_photo_table(self,tau,freq_min,freq_max,S_star_ref):
-    #     self.normalize_SED(freq_min,freq_max,S_star_ref)
-    #     table = np.empty(tau.shape)
-    #     for i,ttau in enumerate(tau):
-    #         integrand_ = lambda f : self._photo_integrand_vec(f,ttau)
-    #         tpoint = romberg(integrand_,freq_min,freq_max,divmax=12,show=False)
-    #         table[i] = tpoint
-    #     return table
-
-def make_tau_table(minlogtau,maxlogtau,NumTau):
-    """Utility function to create optical depth array for C2Ray
-
-    Parameters
-    ----------
-    minlogtau : float
-        Base 10 log of the minimum value of the table in τ (excluding τ = 0)
-    minlogtau : float
-        Base 10 log of the maximum value of the table in τ
-    NumTau : int
-        Number of points in the table, excluding τ = 0
-    
-    Returns
-    -------
-    tau : 1D-array of shape (NumTau + 1)
-        Array of optical depths log-distributed between minlogtau and maxlogtau. The 0-th
-        entry is τ = 0 and so the array has shape NumTau+1 (same convention as c2ray)
-    dlogtau : float
-        Table step size in log10
-    """
-    dlogtau = (maxlogtau-minlogtau)/NumTau
-    tau = np.empty(NumTau+1)
-    tau[0] = 0.0
-    tau[1:] = 10**(minlogtau + np.arange(NumTau)*dlogtau)
-    return tau, dlogtau
+    def make_heat_table(self,tau,freq_min,freq_max,S_star_ref):
+        self.normalize_SED(freq_min,freq_max,S_star_ref)
+        integrand_thin = lambda f : self._heat_thin_integrand_vec(f,tau)
+        integrand_thick = lambda f : self._heat_thick_integrand_vec(f,tau)
+        table_thin = quad_vec(integrand_thin,freq_min,freq_max,epsrel=1e-12)[0]
+        table_thick = quad_vec(integrand_thick,freq_min,freq_max,epsrel=1e-12)[0]
+        return table_thin, table_thick
+        
