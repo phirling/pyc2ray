@@ -20,7 +20,8 @@ ev2fr = 0.241838e15
 # ======================================================================
 
 class C2Ray_Minihalo(C2Ray):
-    def __init__(self, paramfile, Nmesh, use_gpu,boxsize):
+    def __init__(self, paramfile, Nmesh, use_gpu,boxsize,
+                 output_basename = None):
         """A C2Ray Minihalo simulation
 
         Parameters
@@ -35,6 +36,7 @@ class C2Ray_Minihalo(C2Ray):
             Box size in Mpc (overrides the value from paramfile)
         """
         self.boxsize_c = boxsize * Mpc
+        self.results_basename = output_basename
         super().__init__(paramfile, Nmesh, use_gpu)
         self.printlog('Running: "C2Ray for Minihalo" \n')
 
@@ -194,6 +196,14 @@ class C2Ray_Minihalo(C2Ray):
             self.printlog("Integrating photoionization rates tables...")
             self.photo_thin_table, self.photo_thick_table = radsource.make_photo_table(self.tau,freq_min,freq_max,1e48)
 
+            if self.compute_heating_rates:
+                self.printlog("Integrating photoheating rates tables...")
+                self.heat_thin_table, self.heat_thick_table = radsource.make_heat_table(self.tau,freq_min,freq_max,1e48) # nb integration bounds are given in log10(freq/freq_HI)
+            else:
+                self.printlog("INFO: No heating rates")
+                self.heat_thin_table = np.zeros(self.NumTau+1)
+                self.heat_thick_table = np.zeros(self.NumTau+1)
+
         elif self.SourceType == 'uvb_fg2009':
             self.uvb_zred = self._ld['UVBSource_FG2009']['uvb_zred']
             radsource = UVBSource_FG2009(self.grey,int(self.uvb_zred))
@@ -216,10 +226,6 @@ class C2Ray_Minihalo(C2Ray):
         else:
             raise NameError("Unknown source type : ",self.SourceType)
         
-        # import matplotlib.pyplot as plt
-        # plt.loglog(self.tau,self.heat_thick_table,'.-')
-        # plt.loglog(self.tau,self.heat_thin_table,'.-')
-        # plt.show()
         
         # Copy radiation table to GPU
         if self.gpu:
@@ -247,7 +253,8 @@ class C2Ray_Minihalo(C2Ray):
     def _output_init(self):
         """ Set up output & log file
         """
-        self.results_basename = self._ld['Output']['results_basename']
+        if self.results_basename is None:
+            self.results_basename = self._ld['Output']['results_basename']
         self.logfile = self.results_basename + self._ld['Output']['logfile']
         title = '                 _________   ____            \n    ____  __  __/ ____/__ \ / __ \____ ___  __\n   / __ \/ / / / /    __/ // /_/ / __ `/ / / /\n  / /_/ / /_/ / /___ / __// _, _/ /_/ / /_/ / \n / .___/\__, /\____//____/_/ |_|\__,_/\__, /  \n/_/    /____/                        /____/   \n'
         with open(self.logfile,"w") as f:
