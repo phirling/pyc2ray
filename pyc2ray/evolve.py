@@ -176,6 +176,9 @@ def evolve3D(dt,dr,
         # Set rates to 0. When using ASORA, this is done internally by the library (directly on the GPU)
         if not use_gpu:
             phi_ion = np.zeros((N,N,N),order='F')
+            # So far in evolve we ignore heating (not considered in chemistry), but
+            # the raytracing function requires heating tables as argument
+            phi_heat = np.zeros((N,N,N),order='F')
             coldensh_out = np.zeros((N,N,N),order='F')
 
         # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
@@ -184,7 +187,11 @@ def evolve3D(dt,dr,
             libasora.do_all_sources(R_max_LLS,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
         else:
             # Use CPU raytracing with subbox optimization
-            nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,photo_thin_table,photo_thick_table,minlogtau,dlogtau,R_max_LLS)
+            nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,
+                                                                     xh_av,phi_ion,phi_heat,loss_fraction,
+                                                                     photo_thin_table,photo_thick_table,
+                                                                     np.zeros(NumTau),np.zeros(NumTau), # Eventually we'll add heating tables here
+                                                                     minlogtau,dlogtau,R_max_LLS)
 
         printlog(f"took {(time.time()-trt0) : .1f} s.", logfile,quiet)
 
@@ -400,6 +407,7 @@ def evolve3D_MPI(dt,dr,
         # Set rates to 0. When using ASORA, this is done internally by the library (directly on the GPU)
         if not use_gpu:
             phi_ion = np.zeros((N,N,N),order='F')
+            phi_heat = np.zeros((N,N,N),order='F') # In evolve we ignore heating (not considered in chemistry)
             coldensh_out = np.zeros((N,N,N),order='F')
 
         # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
@@ -408,7 +416,11 @@ def evolve3D_MPI(dt,dr,
             libasora.do_all_sources(R_max_LLS,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
         else:
             # Use CPU raytracing with subbox optimization
-            nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av,phi_ion,loss_fraction,photo_thin_table,photo_thick_table,minlogtau,dlogtau,R_max_LLS)
+            nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,
+                                                                     xh_av,phi_ion,phi_heat,loss_fraction,
+                                                                     photo_thin_table,photo_thick_table,
+                                                                     np.zeros(NumTau),np.zeros(NumTau),
+                                                                     minlogtau,dlogtau,R_max_LLS)
 
         printlog(f"rank={rank:n} took {(time.time()-trt0) : .1e} s.", logfile, quiet)
 

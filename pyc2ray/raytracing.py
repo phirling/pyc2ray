@@ -36,67 +36,12 @@ def do_raytracing(dr,
         use_gpu,max_subbox,subboxsize,loss_fraction,
         ndens,xh_av,
         photo_thin_table,photo_thick_table,
+        heat_thin_table,heat_thick_table,
         minlogtau,dlogtau,
         R_max_LLS,
         sig,
         logfile="pyC2Ray.log",quiet=False,stats=False):
-    
-    """Compute the global rates for all cells and all sources
 
-    Warning: Calling this function with use_gpu = True assumes that the radiation
-    tables have previously been copied to the GPU using photo_table_to_device()
-
-    Parameters
-    ----------
-    dr : float
-        Cell dimension in each direction in cm
-    src_flux : 1D-array of shape (numsrc)
-        Array containing the total ionizing flux of each source, normalized by S_star (1e48 by default)
-    src_pos : 2D-array of shape (3,numsrc)
-        Array containing the 3D grid position of each source, in Fortran indexing (from 1)
-    use_gpu : bool
-        Whether or not to use the GPU-accelerated ASORA library for raytracing.
-    max_subbox : int
-        Maximum subbox to raytrace when using CPU cubic raytracing. Has no effect when use_gpu is true
-    subboxsize : int
-        ...
-    loss_fraction : float
-        Fraction of remaining photons below we stop ray-tracing (subbox technique). Has no effect when use_gpu is true
-    ndens : 3D-array
-        The hydrogen number density of each cell in cm^-3
-    xh : 3D-array
-        The initial ionized fraction of each cell
-    photo_thin_table : 1D-array
-        Tabulated values of the integral ∫L_v*e^(-τ_v)/hv. When using GPU, this table needs to have been copied to the GPU
-        in a separate (previous) step, using photo_table_to_device()
-    minlogtau : float
-        Base 10 log of the minimum value of the table in τ (excluding τ = 0)
-    dlogtau : float
-        Step size of the logτ-table 
-    R_max_LLS : float
-        Value of maximum comoving distance for photons from source (type 3 LLS in original C2Ray). This value is
-        given in cell units, but doesn't need to be an integer
-    sig : float
-        Constant photoionization cross-section of hydrogen in cm^2. TODO: replace by general (frequency-dependent)
-        case.
-    logfile : str
-        Name of the file to append logs to. Default: pyC2Ray.log
-    quiet : bool
-        Don't write logs to stdout. Default is false
-    stats : bool
-        When using CPU raytracing, also return the number of subboxes used and the photon loss. (default: false)
-        
-    Returns
-    -------
-    phi_ion : 3D-array
-        Photoionization rate of each cell due to all sources
-    When use_gpu=False and stats=True, additionally the function returns
-    nsubbox : int
-        Number of subbox increments performed
-    photonloss : float
-        Total number of ionizing photons leaving the final subbox
-    
-    """
     # Allow a call with GPU only if 1. the asora library is present and 2. the GPU memory has been allocated using device_init()
     if (use_gpu and not cuda_is_init()):
         raise RuntimeError("GPU not initialized. Please initialize it by calling device_init(N)")
@@ -104,6 +49,7 @@ def do_raytracing(dr,
     # Set some constant sizes
     NumSrc = src_flux.shape[0]   # Number of sources
     N = ndens.shape[0]           # Mesh size
+    NumCells = N*N*N            # Number of cells/points
     NumTau = photo_thin_table.shape[0]
 
     # When using GPU raytracing, data has to be reshaped & reformatted and copied to the device
@@ -134,6 +80,7 @@ def do_raytracing(dr,
     # Set rates to 0. When using ASORA, this is done internally by the library (directly on the GPU)
     if not use_gpu:
         phi_ion = np.zeros((N,N,N),order='F')
+        phi_heat = np.zeros((N,N,N),order='F')
         coldensh_out = np.zeros((N,N,N),order='F')
 
     # Do the raytracing part for each source. This computes the cumulative ionization rate for each cell.
@@ -142,10 +89,14 @@ def do_raytracing(dr,
         libasora.do_all_sources(R_max_LLS,coldensh_out_flat,sig,dr,ndens_flat,xh_av_flat,phi_ion_flat,NumSrc,N,minlogtau,dlogtau,NumTau)
     else:
         # Use CPU raytracing with subbox optimization
-        nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,subboxsize,coldensh_out,sig,dr,np.asfortranarray(ndens),xh_av,phi_ion,loss_fraction,photo_thin_table,photo_thick_table,minlogtau,dlogtau,R_max_LLS)
+        nsubbox, photonloss = libc2ray.raytracing.do_all_sources(src_flux,src_pos,max_subbox,subboxsize,coldensh_out,sig,dr,np.asfortranarray(ndens),
+                                                                 xh_av,phi_ion,phi_heat,loss_fraction,
+                                                                 photo_thin_table,photo_thick_table,
+                                                                 heat_thin_table,heat_thick_table,
+                                                                 minlogtau,dlogtau,R_max_LLS)
     printlog(f"took {(time.time()-trt0) : .1f} s.", logfile,quiet)
 
-    # Flattened CUDA arrays need to be reshaped to 3D Numpy arrays
+    # Since chemistry (ODE solving) is done on the CPU in Fortran, flattened CUDA arrays need to be reshaped
     if use_gpu:
         phi_ion = np.reshape(phi_ion_flat, (N,N,N))
     else:
@@ -154,7 +105,7 @@ def do_raytracing(dr,
     if (stats and not use_gpu):
             return phi_ion, nsubbox, photonloss
     else:
-            return phi_ion
+            return phi_ion, phi_heat
 
 
 

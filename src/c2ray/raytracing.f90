@@ -50,7 +50,8 @@ module raytracing
     contains
 
     subroutine do_all_sources(normflux,srcpos,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
-        phi_ion,sum_nbox,photon_loss,loss_fraction,photo_thin_table, photo_thick_table, &
+        phi_ion,phi_heat,sum_nbox,photon_loss,loss_fraction,photo_thin_table, photo_thick_table, &
+        heat_thin_table, heat_thick_table, &
         minlogtau,dlogtau, &
         R_max_LLS,NumTau,NumSrc,m1,m2,m3)
     ! ===============================================================================================
@@ -66,6 +67,7 @@ module raytracing
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells (--> density of ionized H is xh_av * ndens)
         real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
+        real(kind=real64),intent(inout) :: phi_heat(m1,m2,m3)           !> H Photo-heating rate for the whole grid
         real(kind=real64),intent(in):: sig                              !> Hydrogen ionization cross section (sigma_HI_at_ion_freq)
         integer, intent(in) :: max_subbox                               !> Maximum range for RT
         integer, intent(in) :: subboxsize                               !> Size of subbox increment when loss fraction is too high
@@ -79,6 +81,8 @@ module raytracing
 
         real(kind=real64),intent(in) :: photo_thin_table(NumTau)
         real(kind=real64),intent(in) :: photo_thick_table(NumTau)
+        real(kind=real64),intent(in) :: heat_thin_table(NumTau)
+        real(kind=real64),intent(in) :: heat_thick_table(NumTau)
         integer, intent(in) :: NumTau
         real(kind=real64), intent(in) :: minlogtau
         real(kind=real64), intent(in) :: dlogtau
@@ -102,7 +106,8 @@ module raytracing
         do ns=1, NumSrc
             ! write(*,*) "doing source ", ns, "at", srcpos(:,ns)
             call do_source(normflux,srcpos,ns,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
-                phi_ion,loss_fraction,sum_nbox,photon_loss,photo_thin_table,photo_thick_table, &
+                phi_ion,phi_heat, loss_fraction,sum_nbox,photon_loss,photo_thin_table,photo_thick_table, &
+                heat_thin_table, heat_thick_table, &
                 minlogtau,dlogtau,R_max_LLS,NumTau,NumSrc,m1,m2,m3)
         enddo
 
@@ -120,7 +125,9 @@ module raytracing
     !! using other subroutines that remain to be translated.
     ! ===============================================================================================
     subroutine do_source(normflux,srcpos,ns,max_subbox,subboxsize,coldensh_out,sig,dr,ndens,xh_av, &
-        phi_ion,loss_fraction,sum_nbox,photon_loss,photo_thin_table,photo_thick_table,minlogtau,dlogtau, &
+        phi_ion,phi_heat,loss_fraction,sum_nbox,photon_loss,photo_thin_table,photo_thick_table, &
+        heat_thin_table, heat_thick_table, &
+        minlogtau,dlogtau, &
         R_max_LLS,NumTau,NumSrc,m1,m2,m3)
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   !> Number of sources
@@ -132,6 +139,7 @@ module raytracing
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells (--> density of ionized H is xh_av * ndens)
         real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
+        real(kind=real64),intent(inout) :: phi_heat(m1,m2,m3)           !> H Photo-heating rate for the whole grid
         real(kind=real64),intent(in):: sig                              !> Hydrogen ionization cross section (sigma_HI_at_ion_freq)
         integer, intent(in) :: max_subbox                               !> Maximum range for RT
         integer, intent(in) :: subboxsize                               !> Size of subbox increment when loss fraction is too high
@@ -144,6 +152,8 @@ module raytracing
 
         real(kind=real64),intent(in) :: photo_thin_table(NumTau)
         real(kind=real64),intent(in) :: photo_thick_table(NumTau)
+        real(kind=real64),intent(in) :: heat_thin_table(NumTau)
+        real(kind=real64),intent(in) :: heat_thick_table(NumTau)
         integer, intent(in) :: NumTau
         real(kind=real64), intent(in) :: minlogtau
         real(kind=real64), intent(in) :: dlogtau
@@ -179,6 +189,7 @@ module raytracing
         last_r(:)=srcpos(:,ns) ! to pass the first while test
         last_l(:)=srcpos(:,ns) ! to pass the first while test
         
+        ! write(*,*) srcpos(:,ns)
         do while(photon_loss_src > loss_fraction*normflux(ns)*S_star &
             .and. last_r(3) < lastpos_r(3) & 
             .and. last_l(3) > lastpos_l(3))
@@ -192,14 +203,16 @@ module raytracing
             ! 1. transfer in the upper part of the grid (above srcpos(3))
             do k=srcpos(3,ns),last_r(3)
                 call evolve2D(k,normflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                    photon_loss_src,photo_thin_table, photo_thick_table, &
+                    phi_heat, photon_loss_src,photo_thin_table, photo_thick_table, &
+                    heat_thin_table, heat_thick_table, &
                     minlogtau,dlogtau,R_max_LLS,NumTau,NumSrc,m1,m2,m3)
             end do
     
             ! 2. transfer in the lower part of the grid (below srcpos(3))
             do k=srcpos(3,ns)-1,last_l(3),-1
                 call evolve2D(k,normflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                    photon_loss_src,photo_thin_table,photo_thick_table, &
+                    phi_heat, photon_loss_src,photo_thin_table,photo_thick_table, &
+                    heat_thin_table, heat_thick_table, &
                     minlogtau,dlogtau,R_max_LLS,NumTau,NumSrc,m1,m2,m3)
             end do
             
@@ -219,14 +232,16 @@ module raytracing
         ! 1. transfer in the upper part of the grid (above srcpos(3))
         do k=srcpos(3,ns),lastpos_r(3)
             call evolve2D(k,normflux,srcpos,ns,lastpos_l,lastpos_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                photon_loss_src,photo_thin_table, photo_thick_table, &
+                phi_heat, photon_loss_src,photo_thin_table, photo_thick_table, &
+                heat_thin_table, heat_thick_table, &
                 minlogtau,dlogtau,R_max_LLS,NumTau,NumSrc,m1,m2,m3)
         end do
 
         ! 2. transfer in the lower part of the grid (below srcpos(3))
         do k=srcpos(3,ns)-1,lastpos_l(3),-1
             call evolve2D(k,normflux,srcpos,ns,lastpos_l,lastpos_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                photon_loss_src,photo_thin_table, photo_thick_table, &
+                phi_heat, photon_loss_src,photo_thin_table, photo_thick_table, &
+                heat_thin_table, heat_thick_table, &
                 minlogtau,dlogtau,R_max_LLS,NumTau,NumSrc,m1,m2,m3)
         end do
 #endif
@@ -240,8 +255,11 @@ module raytracing
     ! (specified by argument k). This of course assumes that the previous plane has
     ! already been done.
     ! ===============================================================================================
-    subroutine evolve2D(k,normflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr,ndens,xh_av,phi_ion,photon_loss_src, &
-        photo_thin_table,photo_thick_table, minlogtau,dlogtau,R_max_LLS,NumTau,NumSrc,m1,m2,m3)
+    subroutine evolve2D(k,normflux,srcpos,ns,last_l,last_r,coldensh_out,sig,dr, &
+        ndens,xh_av,phi_ion,phi_heat , photon_loss_src, &
+        photo_thin_table,photo_thick_table, &
+        heat_thin_table, heat_thick_table, &
+        minlogtau,dlogtau,R_max_LLS,NumTau,NumSrc,m1,m2,m3)
         ! subroutine arguments
         integer, intent(in) :: NumSrc                                   !> Number of sources
         integer,intent(in)      :: ns                                   !> source number 
@@ -253,6 +271,7 @@ module raytracing
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells
         real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
+        real(kind=real64),intent(inout) :: phi_heat(m1,m2,m3)           !> H Photo-heating rate for the whole grid
         real(kind=real64),intent(in):: sig                              !> Hydrogen ionization cross section (sigma_HI_at_ion_freq)
         integer, intent(in) :: m1                                       !> mesh size x (hidden by f2py)
         integer, intent(in) :: m2                                       !> mesh size y (hidden by f2py)
@@ -263,6 +282,10 @@ module raytracing
 
         real(kind=real64),intent(in) :: photo_thin_table(NumTau)
         real(kind=real64),intent(in) :: photo_thick_table(NumTau)
+
+        real(kind=real64),intent(in) :: heat_thin_table(NumTau)
+        real(kind=real64),intent(in) :: heat_thick_table(NumTau)
+
         integer, intent(in) :: NumTau
         real(kind=real64), intent(in) :: minlogtau
         real(kind=real64), intent(in) :: dlogtau
@@ -279,14 +302,16 @@ module raytracing
                 rtpos(1)=i
                  ! `positive' i
                 call evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                    last_l, last_r, photon_loss_src,photo_thin_table,photo_thick_table, &
+                    phi_heat, last_l, last_r, photon_loss_src,photo_thin_table,photo_thick_table, &
+                    heat_thin_table, heat_thick_table, &
                     minlogtau,dlogtau,R_max_LLS,NumTau, &
                     NumSrc,m1,m2,m3)
             end do
             do i=srcpos(1,ns)-1,last_l(1),-1
                 rtpos(1)=i
                 call evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                    last_l, last_r, photon_loss_src,photo_thin_table,photo_thick_table, &
+                    phi_heat, last_l, last_r, photon_loss_src,photo_thin_table,photo_thick_table, &
+                    heat_thin_table, heat_thick_table, &
                     minlogtau,dlogtau,R_max_LLS,NumTau, &
                     NumSrc,m1,m2,m3)
             end do
@@ -298,14 +323,16 @@ module raytracing
             do i=srcpos(1,ns),last_r(1)
                 rtpos(1)=i
                 call evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                    last_l, last_r, photon_loss_src,photo_thin_table,photo_thick_table, &
+                    phi_heat, last_l, last_r, photon_loss_src,photo_thin_table,photo_thick_table, &
+                    heat_thin_table, heat_thick_table, &
                     minlogtau,dlogtau,R_max_LLS,NumTau, &
                     NumSrc,m1,m2,m3)
             end do
             do i=srcpos(1,ns)-1,last_l(1),-1
                 rtpos(1)=i
                 call evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, &
-                    last_l, last_r, photon_loss_src,photo_thin_table,photo_thick_table, &
+                    phi_heat, last_l, last_r, photon_loss_src,photo_thin_table,photo_thick_table, &
+                    heat_thin_table, heat_thick_table, &
                     minlogtau,dlogtau,R_max_LLS,NumTau, &
                     NumSrc,m1,m2,m3)
             end do
@@ -317,8 +344,10 @@ module raytracing
     !! Does the short characteristics for one cell and a single source. Has to be called in the correct
     !! order by the parent routines evolve2D and evolve3D.
     ! ===============================================================================================
-    subroutine evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion,last_l,last_r, &
+    subroutine evolve0D(rtpos,normflux,srcpos,ns,coldensh_out,sig,dr,ndens,xh_av,phi_ion, phi_heat, &
+            last_l,last_r, &
             photon_loss_src,photo_thin_table,photo_thick_table, &
+            heat_thin_table, heat_thick_table, &
             minlogtau,dlogtau,R_max_LLS,NumTau,NumSrc,m1,m2,m3)
     
         ! This version (2023) modified for use with f2py (P. Hirling)
@@ -349,6 +378,7 @@ module raytracing
         real(kind=real64),intent(inout) :: coldensh_out(m1,m2,m3)       !> Outgoing column density of the cells
         real(kind=real64),intent(inout) :: xh_av(m1,m2,m3)              !> Time-averaged HI ionization fractions of the cells
         real(kind=real64),intent(inout) :: phi_ion(m1,m2,m3)            !> H Photo-ionization rate for the whole grid (called phih_grid in original c2ray)
+        real(kind=real64),intent(inout) :: phi_heat(m1,m2,m3)           !> H Photo-heating rate for the whole grid
         real(kind=real64),intent(in):: sig                              !> Hydrogen ionization cross section (sigma_HI_at_ion_freq)
         real(kind=real64),intent(inout):: photon_loss_src               !> Photons leaving the subbox delimited by last_l and last_r
         integer,dimension(3), intent(in) :: last_l                      !> mesh position of left end point for RT
@@ -360,6 +390,8 @@ module raytracing
         real(kind=real64), intent(in) :: R_max_LLS                      !> Maximum distance from source in cell units (LLS type 3)
         real(kind=real64),intent(in) :: photo_thin_table(NumTau)
         real(kind=real64),intent(in) :: photo_thick_table(NumTau)
+        real(kind=real64),intent(in) :: heat_thin_table(NumTau)
+        real(kind=real64),intent(in) :: heat_thick_table(NumTau)
         integer, intent(in) :: NumTau
         real(kind=real64), intent(in) :: minlogtau
         real(kind=real64), intent(in) :: dlogtau
@@ -373,11 +405,12 @@ module raytracing
         real(kind=real64) :: nHI_p                                      !> Local density of neutral hydrogen in the cell
         real(kind=real64) :: xh_av_p                                    !> Local ionization fraction of cell
         real(kind=real64) :: phi_ion_p                                  !> Local photoionization rate of cell (to be computed)
-        real(kind=real64) :: phi_ion_out                                  !> Local photoionization rate of cell (to be computed)
+        real(kind=real64) :: phi_ion_out                                !> Local photoionization rate of cell (to be computed)
+        real(kind=real64) :: phi_heat_p                                 !> Local photoheating rate of cell (to be computed)
 
         ! Reset check on radiative transfer
         stop_rad_transfer=.false.
-
+        
         ! Map pos to mesh pos, assuming a periodic mesh
         pos(1) = modulo(rtpos(1) -1,m1) + 1
         pos(2) = modulo(rtpos(2) -1,m2) + 1
@@ -468,7 +501,9 @@ module raytracing
                     vol_ph,nHI_p,sig,phi_ion_p,phi_ion_out)
 #else
                 call photoion_rates(normflux(NumSrc),coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
-                    vol_ph,sig,phi_ion_p,phi_ion_out,photo_thin_table,photo_thick_table, &
+                    vol_ph,sig,phi_ion_p,phi_ion_out, phi_heat_p, &
+                    photo_thin_table,photo_thick_table, &
+                    heat_thin_table,heat_thick_table, &
                     minlogtau,dlogtau,NumTau)
 #endif
             ! -->     phi=photoion_rates(coldensh_in,coldensh_out(pos(1),pos(2),pos(3)), &
@@ -494,10 +529,12 @@ module raytracing
             ! Divide the photo-ionization rates by the appropriate neutral density
             ! (part of the photon-conserving rate prescription)
             phi_ion_p = phi_ion_p / nHI_p
+            phi_heat_p = phi_heat_p / nHI_p
 
             ! Add photo-ionization rate to the global array 
             ! (this array is applied in evolve0D_global)
             phi_ion(pos(1),pos(2),pos(3)) = phi_ion(pos(1),pos(2),pos(3)) + phi_ion_p
+            phi_heat(pos(1),pos(2),pos(3)) = phi_heat(pos(1),pos(2),pos(3)) + phi_heat_p
 
             ! Compute photon loss to use subbox optimization
 #ifdef USE_SUBBOX

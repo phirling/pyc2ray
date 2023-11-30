@@ -60,7 +60,10 @@ module photorates
     !! IN DEVELOPMENT
     !! Photoionization rates from precalculated tables
     subroutine photoion_rates(normflux,coldens_in,coldens_out,Vfact,sig,phi_photo_cell, &
-            phi_photo_out,photo_thin_table,photo_thick_table,minlogtau,dlogtau,NumTau)
+            phi_photo_out, phi_heat_cell, &
+            photo_thin_table,photo_thick_table, &
+            heat_thin_table, heat_thick_table, &
+            minlogtau,dlogtau,NumTau)
 
         ! Optical depth below which we should use the optically thin tables
         real(kind=real64),parameter :: tau_photo_limit = 1.0e-7
@@ -76,8 +79,14 @@ module photorates
         real(kind=real64), intent(out) :: phi_photo_cell        ! Photoionization rate of the cell Gamma, in s^-1
         real(kind=real64), intent(out) :: phi_photo_out         ! Photoionization rate at the output of the cell (radiation that leaves the cell), in s^-1
 
+        real(kind=real64), intent(out) :: phi_heat_cell         ! Photoheating rate of the cell qdot, in ???
+
         real(kind=real64),intent(in) :: photo_thin_table(NumTau)
         real(kind=real64),intent(in) :: photo_thick_table(NumTau)
+
+        real(kind=real64),intent(in) :: heat_thin_table(NumTau)
+        real(kind=real64),intent(in) :: heat_thick_table(NumTau)
+
         integer, intent(in) :: NumTau
         real(kind=real64), intent(in) :: minlogtau
         real(kind=real64), intent(in) :: dlogtau
@@ -105,10 +114,14 @@ module photorates
         if (abs(tau_out-tau_in) > tau_photo_limit ) then
             phi_photo_out = prefact * photo_lookuptable(tau_out,photo_thick_table)
             phi_photo_cell = phi_photo_in - phi_photo_out
+
+            phi_heat_cell = prefact * ( photo_lookuptable(tau_in,heat_thick_table) - photo_lookuptable(tau_out,heat_thick_table) )
         else
             ! write(*,*) "encountered thin cell!"
             phi_photo_cell = prefact * (tau_out-tau_in) * photo_lookuptable(tau_in,photo_thin_table)
             phi_photo_out = phi_photo_in - phi_photo_cell
+
+            phi_heat_cell = prefact * (tau_out-tau_in) * photo_lookuptable(tau_in,heat_thin_table)
         endif
 
         
