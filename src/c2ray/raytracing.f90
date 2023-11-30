@@ -172,8 +172,8 @@ module raytracing
         ! "Lastpos" sets the range of RT. When using the subbox technique, this is used as a maximum. When not using
         ! subboxes, it is used as a fixed value.
 #ifdef NONPERIODIC
-        lastpos_r(:) = m1
-        lastpos_l(:) = 1
+        lastpos_r(:) = m1+1 ! pos < lastpos (not <=)
+        lastpos_l(:) = 0
 #else
         lastpos_r(:)=srcpos(:,ns)+min(max_subbox,m1/2-1+mod(m1,2))
         lastpos_l(:)=srcpos(:,ns)-min(max_subbox,m1/2)
