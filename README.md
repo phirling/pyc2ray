@@ -1,3 +1,5 @@
+### NOTE: The project was moved to a [new repository](https://github.com/cosmic-reionization/pyC2Ray). This page hosts the legacy version used in the original paper ([Hirling et al. 2024](https://ui.adsabs.harvard.edu/abs/2023arXiv231101492H/abstract))
+
 <div align="left">
     <a name="logo"><img src="fig/banner.jpg" width="800"></img></a>
 </div>
